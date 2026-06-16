@@ -1,0 +1,51 @@
+# Unity 자동 생성 / 캐시 (커밋하면 안 됨)
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Unity 빌드 산출물
+/[Aa]ssets/[Aa]ssetStoreTools*
+/[Aa]ssets/[Pp]lugins/[Ee]ditor/JetBrains*
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS / 에디터
+.DS_Store
+.vs/
+.vscode/
+.idea/
+.gradle/
+
+# Unity 크래시/로그
+sysinfo.txt
+crashlog*
+
+# 웹 빌드 출력 폴더(원하면 보관)
+/WebBuild/
+/WebGLBuild/
+
+# 패키지 캐시
+/[Pp]ackages/[Pp]ackage[Cc]ache/
+
+# Unity 6 솔루션 파일
+*.slnx
