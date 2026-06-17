@@ -48,7 +48,7 @@ public class LegController : MonoBehaviour
     HingeJoint hinge;
     Transform legMesh;
     float yaw;
-    bool frozen;   // 자기 키가 안 눌릴 때 힌지 각도를 잠가 상판과의 상대 관계 고정
+    bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
 
     void Start()
@@ -86,8 +86,8 @@ public class LegController : MonoBehaviour
     {
         body.maxAngularVelocity = 15f;          // 각속도 상한(폭주 방지)
         body.maxDepenetrationVelocity = 3f;     // 깊은 겹침 시 폭발적 분리 방지(핵심)
-        body.solverIterations = 24;             // 관절 안정화
-        body.solverVelocityIterations = 24;
+        body.solverIterations = 60;             // 관절 안정화(하드 고정 떨림 억제 위해 상향)
+        body.solverVelocityIterations = 60;
     }
 
     void Update()
@@ -99,6 +99,7 @@ public class LegController : MonoBehaviour
         {
             holdTimer -= Time.deltaTime;
             hinge.useMotor = false;
+            hinge.useSpring = false;
             hinge.limits = new JointLimits { min = -0.1f, max = 0.1f }; // 0도 부근으로 잠금 = 수직
             if (rb != null) rb.angularVelocity = Vector3.zero;
             if (holdTimer <= 0f)
@@ -133,11 +134,14 @@ public class LegController : MonoBehaviour
         // kinematic이 아니므로 전체(상판+다리)는 여전히 동적 → 다른 다리로 밀면 테이블이 움직일 수 있음.
         if (!hasInput)
         {
+            // 입력이 없으면 현재 각도로 하드 고정(힌지 한계를 현재 각 ±작은 폭으로 잠금).
+            // bounciness=0이라 한계 벽에 튕기지 않고 가만히 기댄다. 떨림은 작은 fixedDeltaTime +
+            // 높은 솔버 반복(StabilizeBody)으로 억제한다.
             if (!frozen)
             {
                 float a = hinge.angle;
                 hinge.useMotor = false;
-                hinge.limits = new JointLimits { min = a - 0.05f, max = a + 0.05f };
+                hinge.limits = new JointLimits { min = a - 0.05f, max = a + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 0f };
                 if (rb != null) rb.angularVelocity = Vector3.zero;
                 frozen = true;
             }
@@ -188,6 +192,7 @@ public class LegController : MonoBehaviour
         if (hinge != null)
         {
             hinge.axis = hingeAxis.normalized;
+            hinge.useSpring = false;
             hinge.useMotor = true;
             hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
             var m = hinge.motor;

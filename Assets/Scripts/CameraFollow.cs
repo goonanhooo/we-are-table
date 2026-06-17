@@ -26,7 +26,7 @@ public class CameraFollow : MonoBehaviour
     public float mouseSensitivity = 0.12f;
     public float minPitch = -10f;
     public float maxPitch = 75f;
-    [Tooltip("시작 시 커서를 잠글지 여부. ESC로 토글 가능.")]
+    [Tooltip("시작 시 커서를 잠글지 여부. (ESC는 PauseMenu 일시정지가 담당)")]
     public bool lockCursor = true;
 
     float yaw;
@@ -48,11 +48,7 @@ public class CameraFollow : MonoBehaviour
 
     void LateUpdate()
     {
-        // ESC: 커서 잠금 토글 (개발 편의용)
-        var keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-            SetCursor(Cursor.lockState != CursorLockMode.Locked);
-
+        // ESC는 PauseMenu(일시정지)가 담당. 여기서 커서를 건드리지 않는다.
         if (target == null) return;
 
         // 커서가 잠겨 있을 때만 마우스로 시점 회전

@@ -1,53 +1,46 @@
-using System.Collections;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// 시작 화면. 배경 씬(SampleScene)을 additive로 보여주고, 스테이지 선택 버튼(1/2/3)을 표시한다.
-/// 버튼 클릭 시 해당 스테이지 씬을 단일 로드로 시작한다.
+/// 시작 화면. 고정 카메라 + 흰 배경. 테이블은 씬에 배치된 Table 프리팹 인스턴스(편집 모드에서도 보임).
+/// 테이블이 디딜 단단한 흰 바닥을 런타임 생성하고, 왼쪽 PLAY 버튼 클릭 시 게임 씬을 로드한다.
+/// 키보드로 게임과 동일하게 조작 가능(프리팹 인스턴스의 LegController/물리 그대로,
+/// PauseMenu·LegColorXray는 프리팹 인스턴스 수정으로 비활성).
 /// 클릭은 EventSystem 없이 마우스 위치로 직접 감지. 커서는 항상 보이게 강제.
 /// </summary>
 public class StartMenu : MonoBehaviour
 {
-    [Tooltip("배경으로 보여줄 씬")]
-    public string backgroundScene = "SampleScene";
+    [Tooltip("PLAY 시 로드할 게임 씬")]
+    public string playScene = "SampleScene";
 
-    [Tooltip("시작 화면 카메라(이 카메라만 유지)")]
-    public Camera flyoverCamera;
-
-    [Header("Stage Buttons")]
-    public RectTransform stage1Button;
-    public RectTransform stage2Button;
-    public RectTransform stage3Button;
-    public string stage1Scene = "Stage1";
-    public string stage2Scene = "Stage2";
-    public string stage3Scene = "SampleScene";
+    [Header("UI")]
+    public RectTransform playButton;
 
     void Start()
     {
-        StartCoroutine(LoadBackground());
+        BuildGround();
+        Unlock();
     }
 
-    IEnumerator LoadBackground()
+    // 테이블이 디딜 단단한 흰 바닥(박스). 윗면이 y=0. 그림자는 받되 던지지 않음.
+    void BuildGround()
     {
-        if (!SceneManager.GetSceneByName(backgroundScene).isLoaded)
+        var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        g.name = "StartGround";
+        g.transform.position = new Vector3(0f, -0.5f, 0f);
+        g.transform.localScale = new Vector3(60f, 1f, 60f); // 윗면 y=0
+
+        var mr = g.GetComponent<MeshRenderer>();
+        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        if (sh != null)
         {
-            var op = SceneManager.LoadSceneAsync(backgroundScene, LoadSceneMode.Additive);
-            while (op != null && !op.isDone) yield return null;
+            var m = new Material(sh);
+            m.color = new Color(0.95f, 0.95f, 0.96f);
+            mr.sharedMaterial = m;
         }
-        yield return null;
-
-        foreach (var cam in FindObjectsByType<Camera>(FindObjectsSortMode.None))
-            if (cam != flyoverCamera) cam.enabled = false;
-        foreach (var al in FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
-            if (flyoverCamera == null || al.gameObject != flyoverCamera.gameObject) al.enabled = false;
-        foreach (var lc in FindObjectsByType<LegController>(FindObjectsSortMode.None)) lc.enabled = false;
-        foreach (var sr in FindObjectsByType<SceneReset>(FindObjectsSortMode.None)) sr.enabled = false;
-        foreach (var cc in FindObjectsByType<ClearChecker>(FindObjectsSortMode.None)) cc.enabled = false;
-        foreach (var rb in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None)) rb.isKinematic = true;
-
-        Unlock();
+        mr.shadowCastingMode = ShadowCastingMode.Off;
     }
 
     void Unlock()
@@ -63,18 +56,7 @@ public class StartMenu : MonoBehaviour
         if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
 
         Vector2 p = mouse.position.ReadValue();
-        if (Hit(stage1Button, p)) Load(stage1Scene);
-        else if (Hit(stage2Button, p)) Load(stage2Scene);
-        else if (Hit(stage3Button, p)) Load(stage3Scene);
-    }
-
-    bool Hit(RectTransform r, Vector2 p)
-    {
-        return r != null && RectTransformUtility.RectangleContainsScreenPoint(r, p, null);
-    }
-
-    void Load(string scene)
-    {
-        SceneManager.LoadScene(scene, LoadSceneMode.Single);
+        if (playButton != null && RectTransformUtility.RectangleContainsScreenPoint(playButton, p, null))
+            SceneManager.LoadScene(playScene, LoadSceneMode.Single);
     }
 }
