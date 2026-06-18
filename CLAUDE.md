@@ -15,9 +15,11 @@
 - **현재 사용처**: SampleScene의 플랫폼 홈 4곳 — `Button_LN/RN/LF/RF` (홈 위치 x=±0.58, z=3.42/4.58).
 
 ## 기타 핵심
-- 테이블(다리 보행): `Assets/Scripts/LegController.cs` (다리 피벗마다 부착, HingeJoint 모터 구동). 입력 없을 때는 **현재 각도로 하드 고정**(힌지 한계 ±0.05°, bounciness=0 → 벽에 안 튕김). 하드 고정의 '달달 떨림'은 물리를 잘게 나눠 억제: **Fixed Timestep 0.005**(`ProjectSettings/TimeManager.asset`) + Rigidbody solverIterations 60(StabilizeBody).
+- 테이블(다리 보행): `Assets/Scripts/LegController.cs` (다리 피벗마다 부착, HingeJoint 모터 구동). 입력 없을 때는 **현재 각도로 하드 고정**(힌지 한계를 현재 각 ±0.05°로 잠금, bounciness=0): 상판과의 상대 각도가 고정돼 다른 다리로 밀어도 **안 휨**(드리프트 없음). ⚠️ 단점: 하중 시 한계 벽에서 미세 떨림 가능 → Fixed Timestep 0.01 + solverIterations 40 + Rigidbody Interpolate로 억제. (브레이크 모터 방식은 안 떨리지만 finite force라 천천히 휨 → 하드 고정 채택)
 - 리셋(`1`키): `Assets/Scripts/SceneReset.cs` (상판에 부착, 초기 위치/회전 복원 + 다리 수직 보정).
 - 그리드 바닥: `Assets/Materials/Ground.mat` + `Assets/Textures/Grid.png` (텍스처 타일링 방식).
+- ⚠️ **치트(빌드 시 제거 예정)**: `Assets/Scripts/PlaytestCheat.cs` (테이블 루트에 부착, guid b0c1d2e3..). **Shift + 방향키 = 테이블 수평 슬라이드**(본체+다리만 함께 이동). 프리팹 루트(9100000040) + 각 씬 Table 루트(1600009040). 빌드 전 이 컴포넌트/스크립트 제거.
+- 물리 폭발 복구: `Assets/Scripts/TableSafety.cs` (테이블 루트에 부착, guid a9b8c7d6..). 씬의 모든 Rigidbody를 감시해 위치/속도가 Inf/NaN이면 **마지막 정상 상태로 복구 + 속도 0** → "Skipped updating the transform ... infinite" 에러로 안 깨지고 계속 진행. 프리팹 루트(9100000030) + 각 씬 Table 루트(1600009030)에 부착(StartScreen/Hallway는 프리팹에서 자동).
 
 ## 시작 화면 / CLEAR
 - **StartScreen.unity** (빌드 0번): 시작 화면. **고정 카메라**(pos (0,1.9,-2.8), pitch 24, FlyoverCamera/CameraFollow 없음, SMAA on) + **흰 배경**(ClearFlags=SolidColor white). 테이블은 **실제 Table 프리팹 인스턴스**(fileID 1650000000, 위치 (1.1,0,0.3) 오른쪽 → 편집 모드에서도 보임). 프리팹 인스턴스 수정으로 **PauseMenu(9100000010)·LegColorXray(9100000020)만 비활성**, 나머지(LegController/물리)는 그대로 → **키보드로 게임과 동일하게 조작**. `StartMenu`는 **단단한 흰 박스 바닥(윗면 y=0)만 런타임 생성** + 왼쪽 **uGUI PLAY 버튼**(마우스 위치 클릭) → SampleScene 로드. ⚠️ 다른 씬과 달리 **StartScreen만 Table 프리팹 인스턴스를 사용**(프리팹 물리 = Stage1 복사본과 동일함을 확인).
@@ -33,7 +35,15 @@
 
 ## Hallway 씬 (컷신으로 시작하는 플레이 스테이지)
 - **Hallway.unity** (빌드 4번): 닫힌 **흰 복도** + 끝에 **의자**(테이블과 같은 Table.mat 색, 큐브로 구성). 환경(복도/벽/천장/트랩도어/의자/구름)은 **런타임에 `HallwayStage.cs`가 생성**(씬 YAML엔 카메라·라이트·볼륨·Table 프리팹 인스턴스만).
-- **흐름**: 입장 → 카메라가 테이블을 정면에서 `lookSeconds`(5초) 응시 → 드라마틱하게 의자 쪽으로 팬(발견) → 컷신 끝나면 테이블 조작 가능(컷신 동안엔 Rigidbody kinematic으로 정지=입력 무시). 의자 쪽으로 가다 트랩 구간(z 2~8) 진입 시 바닥(트랩도어)이 해치처럼 아래로 열려 테이블이 **낙하** → 바닥 아래 스카이박스+구름(하늘) 보임 → `fallToNextDelay` 후 `nextScene`(기본 Stage1) 로드.
+- **흐름**: 입장 → 카메라가 테이블을 정면에서 `lookSeconds`(5초) 응시 → 드라마틱하게 의자 쪽으로 팬(발견) → 컷신 끝나면 테이블 조작 가능(컷신 동안엔 Rigidbody kinematic으로 정지=입력 무시). 의자 앞 **정사각형 트랩 구역(z 5~11, 6×6)** 의 **중앙(z=8)** 에 들어서면, **두 짝짜리 바닥문이 복도 양 가장자리 경첩 기준 가운데서 갈라지며 아래로** 열려 테이블이 **낙하**(물리 그대로, 약한 drag 0.4로 5초간 — 다리는 브레이크 모터라 떨림 없음) → `fallToNextDelay`(5초) 후 낙하 속도를 `FallCarry`(static)에 담아 **Jungle 씬으로 전환**. 낙하 중 카메라는 테이블을 바짝 추적. (구름 제거됨)
+
+## Jungle 씬 (정글 — 물섬 + 거대 구멍/용암/블랙홀)
+- **Jungle.unity** (빌드 5번) + `JungleStage.cs`(guid c7d8e9f0.., 씬 guid 44556677..). 환경 전부 런타임 생성.
+- **물로 둘러싸인 섬**: 가운데 정사각 구멍이 뚫린 프레임형 섬(잔디색) + 사방 물(큰 평면). 누워있는 **더미 기린**(노란 박스들)이 착지점에서 구멍 건너 조금 멀리 보임.
+- **공중 낙하 이어받기**: Hallway에서 떨어지던 속도(`FallCarry.ySpeed`)로 섬 위 공중(`spawnPoint`)에서 같은 속도로 이어 떨어져 착지(자연 물리, 살짝 튕김).
+- **거대 구멍**: 중앙 14×14, 깊이 70. 바닥에 **용암**(emissive). **상판(TableTop)이 용암 높이에 닿으면 사망**(현재 씬 재시작). 구멍 중앙엔 **빛나는 블랙홀**(emissive 구체) — `pullRadius` 내 진입 시 끌려가고 `captureRadius`면 흡입(재시작). ⚠️ 사망/흡입은 현재 씬 재시작 placeholder.
+- **카메라**: Stage1과 동일하게 **CameraFollow**(마우스 시점 회전, distance 6/height 1.5, lockCursor). JungleStage는 카메라를 제어하지 않음.
+- 빌드 씬 순서: StartScreen, SampleScene, Stage1, Stage2, Hallway, Jungle.
 - 카메라: 컷신은 `HallwayStage`가 직접 제어, 컷신 후 LateUpdate로 테이블 뒤를 추적. 배경=스카이박스(기본 procedural), 실내는 flat ambient로 밝게.
 - 스크립트 guid: HallwayStage f6a7b8c9.. / 씬 guid: Hallway 33445566..
 - ⚠️ 낙하 후 "하늘 배경 스테이지"는 아직 별도로 없음(현재 fall 중에만 하늘이 보이고 다음 씬은 기존 Stage). 필요시 하늘 테마 착지 씬 추가 가능.
@@ -55,6 +65,7 @@
 ### 조작/게임 요약
 - 다리 4개: WASD / TFGH / IJKL / 방향키. 상하=앞뒤 스윙(모터), 좌우=긴축(Y) 회전(+스윙축 동조). 자기 키 없으면 힌지 잠금.
 - `1`키: 테이블 초기 위치 리셋(SceneReset).
+- 카메라(`CameraFollow`): 마우스로 시점 회전 + **휠로 줌(distance 2.5~14)**. SampleScene/Stage1/Stage2/Jungle 공통. (StartScreen=메뉴 고정, Hallway=컷신 → CameraFollow 없음)
 - 홈 버튼 4개 다 누르면 CLEAR(3D 텍스트, 서서히 커짐, 유지).
 
 ### 주요 에셋 guid

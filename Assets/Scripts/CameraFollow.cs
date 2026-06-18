@@ -29,6 +29,11 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("시작 시 커서를 잠글지 여부. (ESC는 PauseMenu 일시정지가 담당)")]
     public bool lockCursor = true;
 
+    // 휠 줌(상수 — 모든 씬 공통). distance를 이 범위로 조절.
+    const float ZoomSpeed = 0.01f;
+    const float MinDistance = 2.5f;
+    const float MaxDistance = 14f;
+
     float yaw;
     float pitch = 20f;
 
@@ -59,6 +64,14 @@ public class CameraFollow : MonoBehaviour
             yaw += d.x * mouseSensitivity;
             pitch -= d.y * mouseSensitivity;
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        }
+
+        // 휠 줌(커서 잠금 여부와 무관하게 동작)
+        if (mouse != null)
+        {
+            float scroll = mouse.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) > 0.01f)
+                distance = Mathf.Clamp(distance - scroll * ZoomSpeed, MinDistance, MaxDistance);
         }
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);

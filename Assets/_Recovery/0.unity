@@ -223,8 +223,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -267,21 +267,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   woodMaterial: {fileID: 2100000, guid: b4e2d3c5f6a708192a3b4c5d6e7f8091, type: 2}
   startZ: -10
   chairZ: 13
   hallWidth: 6
   hallHeight: 5
-  trapStartZ: 5
-  trapEndZ: 11
+  trapStartZ: 2
+  trapEndZ: 8
   lookSeconds: 5
   panSeconds: 4
   chairHoldSeconds: 3
   pullbackSeconds: 3
-  fallToNextDelay: 5
-  nextScene: Jungle
+  fallToNextDelay: 2.5
+  nextScene: Stage1
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -390,8 +390,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
   m_CustomShadowLayers: 0
@@ -436,8 +436,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   m_IsGlobal: 1
   priority: 0
   blendDistance: 0

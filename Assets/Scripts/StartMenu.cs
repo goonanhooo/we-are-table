@@ -37,7 +37,7 @@ public class StartMenu : MonoBehaviour
         if (sh != null)
         {
             var m = new Material(sh);
-            m.color = new Color(0.95f, 0.95f, 0.96f);
+            m.color = new Color(0.95f, 0.95f, 0.96f);   // 이전 버전(하얀 선 덜 도드라짐)
             mr.sharedMaterial = m;
         }
         mr.shadowCastingMode = ShadowCastingMode.Off;

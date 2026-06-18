@@ -48,7 +48,7 @@ public class LegController : MonoBehaviour
     HingeJoint hinge;
     Transform legMesh;
     float yaw;
-    bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금)
+    bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
 
     void Start()
@@ -86,8 +86,9 @@ public class LegController : MonoBehaviour
     {
         body.maxAngularVelocity = 15f;          // 각속도 상한(폭주 방지)
         body.maxDepenetrationVelocity = 3f;     // 깊은 겹침 시 폭발적 분리 방지(핵심)
-        body.solverIterations = 60;             // 관절 안정화(하드 고정 떨림 억제 위해 상향)
-        body.solverVelocityIterations = 60;
+        body.solverIterations = 40;             // 관절 안정화(하드 고정 떨림 억제 — 절충값)
+        body.solverVelocityIterations = 40;
+        body.interpolation = RigidbodyInterpolation.Interpolate;  // 렌더링 보간 → 미세 떨림 시각적으로 부드럽게(물리/체감 불변)
     }
 
     void Update()
@@ -134,13 +135,14 @@ public class LegController : MonoBehaviour
         // kinematic이 아니므로 전체(상판+다리)는 여전히 동적 → 다른 다리로 밀면 테이블이 움직일 수 있음.
         if (!hasInput)
         {
-            // 입력이 없으면 현재 각도로 하드 고정(힌지 한계를 현재 각 ±작은 폭으로 잠금).
-            // bounciness=0이라 한계 벽에 튕기지 않고 가만히 기댄다. 떨림은 작은 fixedDeltaTime +
-            // 높은 솔버 반복(StabilizeBody)으로 억제한다.
+            // 입력 없음: 현재 각도로 '하드 고정'(힌지 한계를 현재 각 ±작은 폭으로 잠금) → 상판과의 상대 각도 고정.
+            // 브레이크 모터(유한 힘)는 다른 다리가 밀면 조금씩 밀려 휘므로, 안 휘게 하려면 한계로 딱 잠근다.
+            // bounciness=0 + 미세 타임스텝/솔버/인터폴레이션으로 하중 시 떨림을 억제.
             if (!frozen)
             {
                 float a = hinge.angle;
                 hinge.useMotor = false;
+                hinge.useSpring = false;
                 hinge.limits = new JointLimits { min = a - 0.05f, max = a + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 0f };
                 if (rb != null) rb.angularVelocity = Vector3.zero;
                 frozen = true;

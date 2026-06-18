@@ -32,10 +32,12 @@ public class HallwayStage : MonoBehaviour
     public float fallToNextDelay = 2.5f;
     public string nextScene = "Stage1";
 
+    const float ChairYaw = -25f;      // 의자 사선 각도(배치 + 클로즈업 정면 방향 공유)
+
     Camera cam;
     Transform table;                  // 테이블 바디("Table")
     Rigidbody[] tableBodies;
-    GameObject trapdoor;
+    GameObject leftFlap, rightFlap;   // 가운데서 갈라져 아래로 열리는 두 짝
     Material whiteMat;
     bool controllable, trapOpened, falling;
     float fallTimer;
@@ -47,7 +49,6 @@ public class HallwayStage : MonoBehaviour
         whiteMat = MakeMat(new Color(0.95f, 0.95f, 0.96f), 0.1f);
         BuildHallway();
         BuildChair();
-        BuildClouds();
 
         var t = GameObject.Find("Table");
         if (t != null)
@@ -95,7 +96,11 @@ public class HallwayStage : MonoBehaviour
         // 바닥: 트랩 앞/뒤 두 조각 + 트랩도어(중간)
         Box("Floor_A", new Vector3(0, -0.5f, (backZ + trapStartZ) * 0.5f), new Vector3(hw, 1f, trapStartZ - backZ), whiteMat, true);
         Box("Floor_B", new Vector3(0, -0.5f, (trapEndZ + frontZ) * 0.5f), new Vector3(hw, 1f, frontZ - trapEndZ), whiteMat, true);
-        trapdoor = Box("Trapdoor", new Vector3(0, -0.5f, (trapStartZ + trapEndZ) * 0.5f), new Vector3(hw, 1f, trapEndZ - trapStartZ), whiteMat, true);
+        // 트랩: 의자 앞 정사각형 구역. 가운데서 갈라져 양쪽이 복도 가장자리 경첩 기준 아래로 열림.
+        float sqZ = (trapStartZ + trapEndZ) * 0.5f;
+        float sqD = trapEndZ - trapStartZ;
+        leftFlap = Box("TrapL", new Vector3(-hw * 0.25f, -0.5f, sqZ), new Vector3(hw * 0.5f, 1f, sqD), whiteMat, true);
+        rightFlap = Box("TrapR", new Vector3(hw * 0.25f, -0.5f, sqZ), new Vector3(hw * 0.5f, 1f, sqD), whiteMat, true);
 
         // 양 옆 벽 / 천장 / 앞뒤 벽 → 닫힌 흰 복도
         Box("Wall_L", new Vector3(-hw * 0.5f, hh * 0.5f, midZ), new Vector3(0.4f, hh, len), whiteMat, true);
@@ -110,14 +115,14 @@ public class HallwayStage : MonoBehaviour
         Material m = woodMaterial != null ? woodMaterial : MakeMat(new Color(0.85f, 0.66f, 0.42f), 0.2f);
         var root = new GameObject("Chair");
         root.transform.position = new Vector3(0, 0, chairZ);
-        root.transform.rotation = Quaternion.Euler(0f, -25f, 0f);   // 약간 사선
+        root.transform.rotation = Quaternion.Euler(0f, ChairYaw, 0f);   // 약간 사선
 
         // 테이블과 한쌍을 이루는 작은 의자
         float seatY = 0.42f;
         float w = 0.6f;       // 좌석 폭/깊이(작게)
         float legT = 0.08f;
         AddPart(root, "Seat", new Vector3(0, seatY, 0), new Vector3(w, 0.1f, w), m);
-        AddPart(root, "Back", new Vector3(0, seatY + 0.42f, w * 0.5f - 0.05f), new Vector3(w, 0.85f, 0.1f), m); // 등받이 뒤쪽(+Z)
+        AddPart(root, "Back", new Vector3(0, seatY + 0.3f, w * 0.5f - 0.05f), new Vector3(w, w, 0.1f), m); // 등받이(정사각형 w×w, 뒤쪽 +Z)
         float lo = w * 0.5f - legT * 0.5f - 0.02f;
         AddPart(root, "Leg1", new Vector3(-lo, seatY * 0.5f, -lo), new Vector3(legT, seatY, legT), m);
         AddPart(root, "Leg2", new Vector3(lo, seatY * 0.5f, -lo), new Vector3(legT, seatY, legT), m);
@@ -134,23 +139,6 @@ public class HallwayStage : MonoBehaviour
         g.transform.localPosition = localPos;
         g.transform.localScale = scale;
         g.GetComponent<MeshRenderer>().sharedMaterial = m;
-    }
-
-    void BuildClouds()
-    {
-        var cloudMat = MakeMat(Color.white, 0f);
-        for (int i = 0; i < 16; i++)
-        {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            c.name = "Cloud" + i;
-            var col = c.GetComponent<Collider>(); if (col) Destroy(col);
-            float x = Random.Range(-16f, 16f);
-            float y = Random.Range(-35f, -7f);
-            float z = Random.Range(startZ - 4f, chairZ + 8f);
-            c.transform.position = new Vector3(x, y, z);
-            c.transform.localScale = new Vector3(Random.Range(4f, 9f), Random.Range(1.4f, 2.8f), Random.Range(4f, 9f));
-            c.GetComponent<MeshRenderer>().sharedMaterial = cloudMat;
-        }
     }
 
     // ---------- 테이블 정지/해제 ----------
@@ -171,9 +159,10 @@ public class HallwayStage : MonoBehaviour
         // A: 테이블 — 살짝 올려다보는 자연스러운 각, 화면 오른쪽으로 치우치게
         Vector3 aPos = tp + new Vector3(-1.3f, 0.15f, 3.6f);
         Vector3 aLook = tp + new Vector3(0.5f, 0.55f, 0f);
-        // C: 의자 클로즈업 (테이블 쪽에서 사선으로)
-        Vector3 cPos = chairPos + new Vector3(1.0f, 0.9f, -2.4f);
-        Vector3 cLook = chairPos + new Vector3(0f, 0.55f, 0f);
+        // C: 의자 클로즈업 — 의자가 향한 방향(정면)에서 바라봄 (사선 배치를 반영)
+        Vector3 chairFront = Quaternion.Euler(0f, ChairYaw, 0f) * Vector3.back; // 의자 정면 방향
+        Vector3 cLook = chairPos + new Vector3(0f, 0.5f, 0f);
+        Vector3 cPos = cLook + chairFront * 2.6f + Vector3.up * 0.35f;
         // P: 플레이 추적 시작점(테이블 뒤) — LateUpdate 추적과 동일하게 맞춰 자연스럽게 이어짐
         Vector3 pPos = tp + new Vector3(0f, 2.0f, -4.6f);
         Vector3 pLook = tp + new Vector3(0f, 0.3f, 3f);
@@ -190,15 +179,20 @@ public class HallwayStage : MonoBehaviour
 
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)
     {
+        // 위치는 smoothstep, 회전은 Slerp → 각속도가 고르게 부드럽게 전환(확 꺾이지 않음).
+        Quaternion r0 = Quaternion.LookRotation(l0 - p0, Vector3.up);
+        Quaternion r1 = Quaternion.LookRotation(l1 - p1, Vector3.up);
         float t = 0f;
         while (t < dur)
         {
             t += Time.deltaTime;
             float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / Mathf.Max(0.01f, dur)));
-            SetCam(Vector3.Lerp(p0, p1, u), Vector3.Lerp(l0, l1, u));
+            cam.transform.position = Vector3.Lerp(p0, p1, u);
+            cam.transform.rotation = Quaternion.Slerp(r0, r1, u);
             yield return null;
         }
-        SetCam(p1, l1);
+        cam.transform.position = p1;
+        cam.transform.rotation = Quaternion.LookRotation(l1 - p1, Vector3.up);
     }
 
     void SetCam(Vector3 pos, Vector3 look)
@@ -212,6 +206,17 @@ public class HallwayStage : MonoBehaviour
     {
         if (!controllable || table == null) return;
         Vector3 tp = table.position;
+
+        if (falling)
+        {
+            // 낙하 중엔 테이블을 빠르게(지연 없이) 따라가 하늘/구름 속 추락을 프레임에 담음.
+            Vector3 d = tp + new Vector3(0f, 1.5f, -5f);
+            cam.transform.position = Vector3.Lerp(cam.transform.position, d, Time.deltaTime * 9f);
+            Quaternion w = Quaternion.LookRotation((tp + Vector3.up * 0.2f) - cam.transform.position, Vector3.up);
+            cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, w, Time.deltaTime * 9f);
+            return;
+        }
+
         Vector3 desired = tp + new Vector3(0f, 2.0f, -4.6f);
         cam.transform.position = Vector3.Lerp(cam.transform.position, desired, Time.deltaTime * 4f);
         Vector3 look = tp + new Vector3(0f, 0.3f, 3f);
@@ -224,38 +229,57 @@ public class HallwayStage : MonoBehaviour
     {
         if (table == null) return;
 
-        if (!trapOpened && controllable && table.position.z >= trapStartZ)
+        // 정사각형 트랩 구역의 '중간 쯤'에 들어서면 열림
+        float trapMidZ = (trapStartZ + trapEndZ) * 0.5f;
+        if (!trapOpened && controllable && table.position.z >= trapMidZ)
         {
             trapOpened = true;
             StartCoroutine(OpenTrap());
         }
 
-        if (!falling && table.position.y < -2f) falling = true;
+        // 바닥 밑으로 내려가면 낙하 시작(물리 그대로 — 다리는 브레이크 모터라 떨리지 않음).
+        if (!falling && table.position.y < -2f)
+        {
+            falling = true;
+            // 약 5초간 둥실 떨어지도록 약한 공기저항만 부여(연출 스크립트 없음)
+            if (tableBodies != null)
+                foreach (var rb in tableBodies)
+                    if (rb != null && !rb.isKinematic) rb.linearDamping = 0.4f;
+        }
         if (falling)
         {
             fallTimer += Time.deltaTime;
             if (fallTimer >= fallToNextDelay)
             {
                 falling = false;
+                // 낙하 속도를 다음 씬으로 전달 → 정글 공중에서 같은 속도로 이어서 떨어짐
+                var brb = table != null ? table.GetComponent<Rigidbody>() : null;
+                FallCarry.active = true;
+                FallCarry.ySpeed = brb != null ? brb.linearVelocity.y : -14f;
                 if (!string.IsNullOrEmpty(nextScene)) SceneManager.LoadScene(nextScene, LoadSceneMode.Single);
             }
         }
     }
 
+    // 가운데서 갈라져 양쪽이 복도 가장자리(경첩) 기준 아래로 열리는 두 짝짜리 트랩.
     IEnumerator OpenTrap()
     {
-        if (trapdoor == null) yield break;
-        var col = trapdoor.GetComponent<Collider>(); if (col) col.enabled = false;
-        // 앞쪽 모서리를 축으로 아래로 회전하며 열리는 해치
-        Vector3 pivot = trapdoor.transform.position + new Vector3(0f, 0.5f, (trapEndZ - trapStartZ) * 0.5f);
+        float hw = hallWidth;
+        float sqZ = (trapStartZ + trapEndZ) * 0.5f;
+        Vector3 lPivot = new Vector3(-hw * 0.5f, 0f, sqZ);   // 왼쪽 가장자리 경첩(윗면)
+        Vector3 rPivot = new Vector3(hw * 0.5f, 0f, sqZ);    // 오른쪽 가장자리 경첩(윗면)
+        if (leftFlap) { var c = leftFlap.GetComponent<Collider>(); if (c) c.enabled = false; }
+        if (rightFlap) { var c = rightFlap.GetComponent<Collider>(); if (c) c.enabled = false; }
+
         float ang = 0f;
-        while (ang < 95f)
+        while (ang < 100f)
         {
-            float step = Time.deltaTime * 140f;
-            trapdoor.transform.RotateAround(pivot, Vector3.right, step);
+            float step = Time.deltaTime * 130f;
+            if (leftFlap) leftFlap.transform.RotateAround(lPivot, Vector3.forward, -step);  // 안쪽(중앙) 모서리가 아래로
+            if (rightFlap) rightFlap.transform.RotateAround(rPivot, Vector3.forward, step);  // 반대로 → 가운데서 갈라짐
             ang += step;
             yield return null;
         }
-        Destroy(trapdoor);
+        // 열린 채로 둠(아래로 갈라진 모양 유지)
     }
 }
