@@ -10,6 +10,8 @@ public class TableSafety : MonoBehaviour
 {
     // 특이점 탈출용 미세 이동 거리(월드 단위). 아주 작게 — 눈에 띄는 다른 움직임을 만들지 않음.
     const float NudgeAmount = 0.008f;
+    // 정상 플레이 영역을 한참 벗어난(=폭발) 거리. Jungle 최대 ~450 → 5000이면 정상은 절대 안 걸림.
+    const float MaxDist = 5000f;
 
     Rigidbody[] bodies;
     Vector3[] lastPos;
@@ -31,6 +33,8 @@ public class TableSafety : MonoBehaviour
     static bool F(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
     static bool F(Vector3 v) => F(v.x) && F(v.y) && F(v.z);
     static bool F(Quaternion q) => F(q.x) && F(q.y) && F(q.z) && F(q.w);
+    // 유한하면서 정상 영역 안인지(거대 유한값 = worldAABB 폭발도 잡기 위함)
+    static bool InRange(Vector3 v) => F(v) && Mathf.Abs(v.x) < MaxDist && Mathf.Abs(v.y) < MaxDist && Mathf.Abs(v.z) < MaxDist;
 
     void FixedUpdate()
     {
@@ -40,7 +44,7 @@ public class TableSafety : MonoBehaviour
             var rb = bodies[i];
             if (rb == null || rb.isKinematic) continue;
 
-            bool ok = F(rb.position) && F(rb.rotation) && F(rb.linearVelocity) && F(rb.angularVelocity);
+            bool ok = InRange(rb.position) && F(rb.rotation) && F(rb.linearVelocity) && F(rb.angularVelocity);
             if (ok)
             {
                 // 정상 → 마지막 정상 상태 갱신

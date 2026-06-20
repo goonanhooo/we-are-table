@@ -46,9 +46,11 @@ public class HallwayStage : MonoBehaviour
 
     void Start()
     {
-        whiteMat = MakeMat(new Color(0.95f, 0.95f, 0.96f), 0.1f);
-        BuildHallway();
-        BuildChair();
+        // 환경(복도/벽/의자/트랩)은 이제 씬에 배치된 "편집 가능한 실제 오브젝트"다 → 런타임 생성하지 않음.
+        // (아래 BuildHallway/BuildChair/Box/AddPart/MakeMat 는 더 이상 호출되지 않는 레거시 — 지오메트리 참고용.)
+        // 트랩 문짝만 이름으로 찾아 둔다(컷신 중 바닥이 갈라지는 연출에 사용).
+        leftFlap = GameObject.Find("TrapL");
+        rightFlap = GameObject.Find("TrapR");
 
         var t = GameObject.Find("Table");
         if (t != null)
@@ -103,11 +105,14 @@ public class HallwayStage : MonoBehaviour
         rightFlap = Box("TrapR", new Vector3(hw * 0.25f, -0.5f, sqZ), new Vector3(hw * 0.5f, 1f, sqD), whiteMat, true);
 
         // 양 옆 벽 / 천장 / 앞뒤 벽 → 닫힌 흰 복도
-        Box("Wall_L", new Vector3(-hw * 0.5f, hh * 0.5f, midZ), new Vector3(0.4f, hh, len), whiteMat, true);
-        Box("Wall_R", new Vector3(hw * 0.5f, hh * 0.5f, midZ), new Vector3(0.4f, hh, len), whiteMat, true);
+        // 벽을 두껍게(wt) → 빠른 다리 충돌 시 얇은 벽 관통/디페네트레이션 폭발 예방. 안쪽 면은 그대로(복도 폭 불변)라 바깥으로 wo 만큼 이동.
+        float wt = 1.0f;            // 벽 두께(기존 0.4)
+        float wo = (wt - 0.4f) * 0.5f;
+        Box("Wall_L", new Vector3(-hw * 0.5f - wo, hh * 0.5f, midZ), new Vector3(wt, hh, len), whiteMat, true);
+        Box("Wall_R", new Vector3(hw * 0.5f + wo, hh * 0.5f, midZ), new Vector3(wt, hh, len), whiteMat, true);
         Box("Ceiling", new Vector3(0, hh, midZ), new Vector3(hw, 0.4f, len), whiteMat, false);
-        Box("Wall_Back", new Vector3(0, hh * 0.5f, backZ), new Vector3(hw, hh, 0.4f), whiteMat, true);
-        Box("Wall_Front", new Vector3(0, hh * 0.5f, frontZ), new Vector3(hw, hh, 0.4f), whiteMat, true);
+        Box("Wall_Back", new Vector3(0, hh * 0.5f, backZ - wo), new Vector3(hw, hh, wt), whiteMat, true);
+        Box("Wall_Front", new Vector3(0, hh * 0.5f, frontZ + wo), new Vector3(hw, hh, wt), whiteMat, true);
     }
 
     void BuildChair()
@@ -168,7 +173,15 @@ public class HallwayStage : MonoBehaviour
         Vector3 pLook = tp + new Vector3(0f, 0.3f, 3f);
 
         SetCam(aPos, aLook);
-        yield return new WaitForSeconds(lookSeconds);                      // 1) 테이블 응시
+        // 1) 테이블 응시 — 상상 말풍선(ThoughtReveal)이 다 떴다가 **완전히 사라질 때까지** 카메라 정지 대기.
+        //    (말풍선 없으면 기존 lookSeconds 만큼 대기)
+        var thought = Object.FindAnyObjectByType<ThoughtReveal>();
+        if (thought != null)
+        {
+            float guard = 0f;
+            while (!thought.IsGone && guard < 20f) { SetCam(aPos, aLook); guard += Time.deltaTime; yield return null; }
+        }
+        else yield return new WaitForSeconds(lookSeconds);
         yield return CamLerp(aPos, aLook, cPos, cLook, panSeconds);        // 2) 의자로 팬(발견)
         yield return new WaitForSeconds(chairHoldSeconds);                 // 3) 의자 클로즈업 유지
         yield return CamLerp(cPos, cLook, pPos, pLook, pullbackSeconds);   // 4) 천천히 뒤로 → 플레이 화면
@@ -252,10 +265,15 @@ public class HallwayStage : MonoBehaviour
             if (fallTimer >= fallToNextDelay)
             {
                 falling = false;
-                // 낙하 속도를 다음 씬으로 전달 → 정글 공중에서 같은 속도로 이어서 떨어짐
+                // 추락하던 "자세 + 속도" 전체를 다음 씬으로 전달 → 같은 자세로 이어서 떨어짐
                 var brb = table != null ? table.GetComponent<Rigidbody>() : null;
                 FallCarry.active = true;
                 FallCarry.ySpeed = brb != null ? brb.linearVelocity.y : -14f;
+                FallCarry.hasPose = true;
+                // ⚠️ 상판(Table) Rigidbody 의 실제 월드 회전을 캡처(빈 부모 root 는 안 구름 → identity라 무의미).
+                FallCarry.rotation = brb != null ? brb.rotation : Quaternion.identity;
+                FallCarry.velocity = brb != null ? brb.linearVelocity : new Vector3(0f, -14f, 0f);
+                FallCarry.angularVelocity = brb != null ? brb.angularVelocity : Vector3.zero;
                 if (!string.IsNullOrEmpty(nextScene)) SceneManager.LoadScene(nextScene, LoadSceneMode.Single);
             }
         }

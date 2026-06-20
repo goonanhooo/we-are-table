@@ -17,6 +17,7 @@ public class PauseMenu : MonoBehaviour
     LegColorXray xray;
     bool paused;
     bool draggingVolume;
+    int openedFrame = -1;   // 메뉴를 연 프레임. 그 프레임의 클릭은 '바깥 클릭 닫기'로 처리하지 않음.
 
     GUIStyle titleStyle, btnStyle, labelStyle;
     Texture2D tex;
@@ -25,6 +26,10 @@ public class PauseMenu : MonoBehaviour
     Rect panel, titleRect, resumeBtn, volLabel, volSlider, colorBtn, menuBtn;
 
     void Awake() => xray = GetComponent<LegColorXray>();
+
+    /// <summary>외부(시작화면 Option 표지판 등)에서 옵션 메뉴를 연다.</summary>
+    public void OpenMenu() => SetPaused(true);
+    public bool IsOpen => paused;
 
     // 시작 화면에서 SampleScene을 additive 배경으로 띄운 경우, 이 테이블은 비활성(배경) 씬 소속.
     bool IsBackground() => gameObject.scene != SceneManager.GetActiveScene();
@@ -66,6 +71,7 @@ public class PauseMenu : MonoBehaviour
         ComputeLayout();
         var mouse = Mouse.current;
         if (mouse == null) return;
+        if (Time.frameCount == openedFrame) return; // 연 프레임의 클릭은 무시(즉시 닫힘 방지)
         Vector2 gm = GuiMouse();
 
         // 볼륨 슬라이더 드래그
@@ -74,7 +80,7 @@ public class PauseMenu : MonoBehaviour
         if (draggingVolume)
             AudioListener.volume = Mathf.Clamp01((gm.x - volSlider.x) / volSlider.width);
 
-        // 버튼 클릭
+        // 버튼 클릭. 버튼·슬라이더가 아닌 바깥 아무데나 클릭하면 창을 닫는다.
         if (mouse.leftButton.wasPressedThisFrame)
         {
             if (resumeBtn.Contains(gm)) SetPaused(false);
@@ -84,6 +90,7 @@ public class PauseMenu : MonoBehaviour
                 Time.timeScale = 1f;
                 SceneManager.LoadScene(startScene, LoadSceneMode.Single);
             }
+            else if (!volSlider.Contains(gm)) SetPaused(false); // 바깥/패널 빈 곳 클릭 → 닫기
         }
     }
 
@@ -93,6 +100,7 @@ public class PauseMenu : MonoBehaviour
         Time.timeScale = p ? 0f : 1f;
         if (p)
         {
+            openedFrame = Time.frameCount;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }

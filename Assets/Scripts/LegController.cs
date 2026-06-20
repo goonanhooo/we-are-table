@@ -41,12 +41,19 @@ public class LegController : MonoBehaviour
     [Tooltip("다리를 자기 긴 축(로컬 Y) 기준으로 돌리는 속도(도/초)")]
     public float spinSpeed = 180f;
 
+    [Header("보조 키(선택) — 이 다리를 추가 키로도 조작 (Key.None = 미사용)")]
+    public Key altUp = Key.None;
+    public Key altDown = Key.None;
+    public Key altLeft = Key.None;
+    public Key altRight = Key.None;
+
     [Header("Chassis")]
     public string chassisName = "Table";
 
     Rigidbody rb;
     HingeJoint hinge;
     Transform legMesh;
+    float baseLegScaleY = 1f;   // 초기 다리 길이(스케일.y) — 길어지면 각속도를 반비례로 줄여 발끝 속도 일정
     float yaw;
     bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
@@ -79,12 +86,13 @@ public class LegController : MonoBehaviour
         m.freeSpin = false;
         hinge.motor = m;
 
-        if (transform.childCount > 0) legMesh = transform.GetChild(0);
+        if (transform.childCount > 0) { legMesh = transform.GetChild(0); baseLegScaleY = legMesh.localScale.y; }
     }
 
     static void StabilizeBody(Rigidbody body)
     {
         body.maxAngularVelocity = 15f;          // 각속도 상한(폭주 방지)
+        body.maxLinearVelocity = 30f;           // 선속도 상한 → 솔버 발산 시 멀리 튀어나가 worldAABB 폭발하는 것 차단(핵심)
         body.maxDepenetrationVelocity = 3f;     // 깊은 겹침 시 폭발적 분리 방지(핵심)
         body.solverIterations = 40;             // 관절 안정화(하드 고정 떨림 억제 — 절충값)
         body.solverVelocityIterations = 40;
@@ -129,6 +137,14 @@ public class LegController : MonoBehaviour
         bool downP  = kb != null && kb[down].isPressed;
         bool leftP  = kb != null && kb[left].isPressed;
         bool rightP = kb != null && kb[right].isPressed;
+        // 보조 키(설정된 경우 OR로 추가) → 같은 다리를 추가 키로도 조작
+        if (kb != null)
+        {
+            if (altUp    != Key.None && kb[altUp].isPressed)    upP    = true;
+            if (altDown  != Key.None && kb[altDown].isPressed)  downP  = true;
+            if (altLeft  != Key.None && kb[altLeft].isPressed)  leftP  = true;
+            if (altRight != Key.None && kb[altRight].isPressed) rightP = true;
+        }
         bool hasInput = upP || downP || leftP || rightP;
 
         // 자기 키가 하나도 안 눌리면, 상판과의 상대 각도를 그대로 '잠근다'(힌지 한계를 현재 각으로 고정).
@@ -157,9 +173,14 @@ public class LegController : MonoBehaviour
             frozen = false;
         }
 
+        // 다리가 길수록(지라프 모드) 각속도를 길이에 반비례 → '발끝 선속도'를 일정하게 유지.
+        // (긴 다리를 일반 각속도로 돌리면 각운동량이 폭증해 한계각을 오버슈트하고 정지 다리가 흔들려 접힘.)
+        float lenScale = (legMesh != null && legMesh.localScale.y > 1e-4f)
+            ? Mathf.Clamp(baseLegScaleY / legMesh.localScale.y, 0.12f, 1f) : 1f;
+
         // 상/하 = 앞뒤 스윙 (방향 반전됨), 한계각 근처에서 부드럽게 감속
         float dir = (downP ? 1f : 0f) - (upP ? 1f : 0f);
-        float v = dir * swingVelocity;
+        float v = dir * swingVelocity * lenScale;
         float angle = hinge.angle;
         if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
         if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
@@ -173,7 +194,7 @@ public class LegController : MonoBehaviour
         float spin = (leftP ? 1f : 0f) - (rightP ? 1f : 0f);
         if (spin != 0f)
         {
-            yaw += spin * spinSpeed * Time.deltaTime;
+            yaw += spin * spinSpeed * lenScale * Time.deltaTime;
             if (legMesh != null) legMesh.localRotation = Quaternion.Euler(0f, yaw, 0f);
             hinge.axis = (Quaternion.AngleAxis(yaw, Vector3.up) * hingeAxis).normalized;
         }

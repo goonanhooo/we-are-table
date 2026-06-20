@@ -1,102 +1,5 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &9100000000
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 9100000001}
-  - component: {fileID: 9100000010}
-  - component: {fileID: 9100000020}
-  - component: {fileID: 9100000030}
-  - component: {fileID: 9100000040}
-  m_Layer: 0
-  m_Name: TablePlayer
-  m_TagString: Player
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &9100000001
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100000000}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1600000001}
-  - {fileID: 1600000061}
-  - {fileID: 1600000071}
-  - {fileID: 1600000081}
-  - {fileID: 1600000091}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &9100000010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  startScene: StartScreen
---- !u!114 &9100000020
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  startOn: 0
-  lineWidth: 0.01
-  legColors:
-  - {r: 1, g: 0.2, b: 0.2, a: 1}
-  - {r: 0.2, g: 0.85, b: 0.3, a: 1}
-  - {r: 0.25, g: 0.55, b: 1, a: 1}
-  - {r: 1, g: 0.8, b: 0.15, a: 1}
---- !u!114 &9100000030
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a9b8c7d6e5f4039281706f5e4d3c2b1a, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
---- !u!114 &9100000040
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9100000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  speed: 5
 --- !u!1 &1600000000
 GameObject:
   m_ObjectHideFlags: 0
@@ -777,13 +680,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6e7f8a9b0c1d2e3f405162738495a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  controlSet: 0
+  controlSet: 1
   swingVelocity: 300
-  motorForce: 60
+  motorForce: 80
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
   spinSpeed: 180
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   chassisName: Table
 --- !u!54 &1600000063
 Rigidbody:
@@ -858,13 +765,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6e7f8a9b0c1d2e3f405162738495a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  controlSet: 1
+  controlSet: 0
   swingVelocity: 300
-  motorForce: 60
+  motorForce: 80
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
   spinSpeed: 180
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   chassisName: Table
 --- !u!54 &1600000073
 Rigidbody:
@@ -939,13 +850,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6e7f8a9b0c1d2e3f405162738495a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  controlSet: 2
+  controlSet: 3
   swingVelocity: 300
-  motorForce: 60
+  motorForce: 80
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
   spinSpeed: 180
+  altUp: 11
+  altDown: 5
+  altLeft: 6
+  altRight: 2
   chassisName: Table
 --- !u!54 &1600000083
 Rigidbody:
@@ -1020,13 +935,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c5d6e7f8a9b0c1d2e3f405162738495a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  controlSet: 3
+  controlSet: 2
   swingVelocity: 300
-  motorForce: 60
+  motorForce: 80
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
   spinSpeed: 180
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   chassisName: Table
 --- !u!54 &1600000093
 Rigidbody:
@@ -1055,3 +974,117 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!1 &9100000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9100000001}
+  - component: {fileID: 9100000010}
+  - component: {fileID: 9100000020}
+  - component: {fileID: 9100000030}
+  - component: {fileID: 9100000040}
+  - component: {fileID: 9100000050}
+  m_Layer: 0
+  m_Name: Table
+  m_TagString: Player
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9100000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1600000001}
+  - {fileID: 1600000061}
+  - {fileID: 1600000071}
+  - {fileID: 1600000081}
+  - {fileID: 1600000091}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9100000010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startScene: StartScreen
+--- !u!114 &9100000020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startOn: 0
+  lineWidth: 0.01
+  legColors:
+  - {r: 1, g: 0.2, b: 0.2, a: 1}
+  - {r: 0.2, g: 0.85, b: 0.3, a: 1}
+  - {r: 0.25, g: 0.55, b: 1, a: 1}
+  - {r: 1, g: 0.8, b: 0.15, a: 1}
+--- !u!114 &9100000030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9b8c7d6e5f4039281706f5e4d3c2b1a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &9100000040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  speed: 5
+--- !u!114 &9100000050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a2b3c4d5e6f10203040506070809008, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  active: 0
+  toggleKey: 42
+  maxMultiplier: 7
+  speed: 0.8
