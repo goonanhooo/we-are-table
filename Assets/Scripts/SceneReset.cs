@@ -14,6 +14,19 @@ public class SceneReset : MonoBehaviour
 {
     [Tooltip("리셋 직후 다리를 수직으로 강제 고정하는 시간(초). 안착 보정용.")]
     public float verticalHoldSeconds = 0.4f;
+    [Tooltip("리셋 시 지면 위로 띄우는 높이 = 테이블 높이 × 이 비율 (지형에 잠기는 것 방지).")]
+    public float groundLiftFactor = 0.5f;
+    [Tooltip("위쪽 벡터가 이 값보다 작아지면(=거의 옆/뒤집힘) 'Press 1' 후보. 1=똑바로, 0=옆으로 누움.")]
+    public float flipDot = 0.2f;
+    [Tooltip("뒤집힌 채 '가만히' 이 시간(초) 이상 지속되면 안내 표시.")]
+    public float flipPromptDelay = 2f;
+    [Tooltip("이 속도보다 빠르게 움직이면(구르는 중) 안내 안 띄움 — 정착된 뒤에만 표시.")]
+    public float flipCalmSpeed = 1.2f;
+
+    float tableHeight = 1f;       // Start에서 콜라이더로 측정(지형 잠김 방지 리프트용)
+    float flippedSince = -1f;     // 뒤집히기 시작한 시각(unscaled). <0 = 안 뒤집힘
+    GUIStyle flipBig, flipSmall;
+    Texture2D flipTex;
 
     Rigidbody[] bodies;
     Vector3[] initPos;
@@ -24,7 +37,9 @@ public class SceneReset : MonoBehaviour
     Quaternion[] relRot;
     float boardClearance;
 
-    void Start()
+    // ⚠️ Awake(물리 시작 전)에서 '깨끗한 프리팹 포즈'를 캡처한다. Start로 하면 빌드에선 테이블이
+    //    이미 낙하 중일 때 잡혀 '낙하 중 자세'를 기억 → 리셋 시 다리가 폭주하던 버그가 있었음.
+    void Awake()
     {
         var list = new List<Rigidbody>();
         var self = GetComponent<Rigidbody>();
@@ -46,9 +61,7 @@ public class SceneReset : MonoBehaviour
             initRot[i] = bodies[i].transform.rotation;
         }
 
-        SnapInitialToGround();
-
-        // 상판 기준 상대 배치 기록(제자리 자세복원에서 이 배치를 그대로 재구성).
+        // 상판 기준 상대 배치 기록(깨끗한 프리팹 포즈). 리셋 때 이 배치를 그대로 재구성.
         relPos = new Vector3[bodies.Length];
         relRot = new Quaternion[bodies.Length];
         Quaternion invBoard = Quaternion.Inverse(initRot[0]);
@@ -57,52 +70,64 @@ public class SceneReset : MonoBehaviour
             relPos[i] = invBoard * (initPos[i] - initPos[0]);
             relRot[i] = invBoard * initRot[i];
         }
-        boardClearance = initPos[0].y - GroundYAt(initPos[0]);
+        MeasureGeometry();   // tableHeight + boardClearance (콜라이더 기하 기반, 지형 레이캐스트 불필요)
     }
 
-    /// <summary>해당 XZ 지점의 지면 높이(테이블 자신 제외). 없으면 입력 y. (높은 곳에서 내리쏴 도랑 안에서도 정확.)</summary>
-    float GroundYAt(Vector3 p)
+    /// <summary>상판+다리 콜라이더로 테이블 높이와 '상판 원점이 최저점 위로 뜬 높이(boardClearance)'를 잰다.
+    /// 깨끗한 프리팹 포즈에서 1회 측정 → 지형 생성 타이밍과 무관. 다리 피벗은 상판 자식이 아니라 bodies를 훑는다.</summary>
+    void MeasureGeometry()
     {
-        var hits = Physics.RaycastAll(new Vector3(p.x, 500f, p.z), Vector3.down, 1000f, ~0, QueryTriggerInteraction.Ignore);
+        bool any = false; Bounds b = new Bounds(transform.position, Vector3.zero);
+        if (bodies != null)
+            foreach (var rb in bodies)
+            {
+                if (rb == null) continue;
+                foreach (var c in rb.GetComponentsInChildren<Collider>())
+                {
+                    if (c.isTrigger) continue;
+                    if (!any) { b = c.bounds; any = true; } else b.Encapsulate(c.bounds);
+                }
+            }
+        if (any)
+        {
+            tableHeight = Mathf.Max(0.2f, b.size.y);
+            boardClearance = Mathf.Max(0f, transform.position.y - b.min.y);
+        }
+    }
+
+    /// <summary>XZ 지점의 지면 높이(테이블 자신 제외). fromY 높이에서 아래로만 쏴서 그 위(예: 옆 건물 옥상)는 무시.
+    /// '1' 제자리 리셋은 fromY=테이블 바로 위 → 테이블이 딛고 선 땅을 정확히 잡는다. 못 찾으면 fromY 반환.</summary>
+    float GroundYAt(Vector2 xz, float fromY)
+    {
+        var hits = Physics.RaycastAll(new Vector3(xz.x, fromY, xz.y), Vector3.down, 2000f, ~0, QueryTriggerInteraction.Ignore);
         float gy = float.NegativeInfinity; bool found = false;
         foreach (var h in hits)
         {
-            if (h.collider.transform.root == transform.root) continue;
+            if (h.collider.transform.root == transform.root) continue;   // 테이블 자신 제외
             if (h.point.y > gy) { gy = h.point.y; found = true; }
         }
-        return found ? gy : p.y;
+        return found ? gy : fromY;
     }
 
-    /// <summary>
-    /// 시작 위치가 지면보다 한참 위(공중 스폰)면, 초기 위치 전체를 아래 지면으로 스냅한다.
-    /// → '1' 리셋/리스폰 시 공중이 아니라 "그 위치 아래 땅"에 똑바로 선 상태로 생성.
-    /// 이미 지면 위에서 시작하는 씬(Stage 등)은 낙차가 거의 없어 그대로 둔다.
-    /// </summary>
-    void SnapInitialToGround()
-    {
-        Vector3 boardPos = transform.position;
-        var hits = Physics.RaycastAll(boardPos + Vector3.up * 2f, Vector3.down, 1000f, ~0, QueryTriggerInteraction.Ignore);
-        float groundY = float.NegativeInfinity; bool found = false;
-        foreach (var h in hits)
-        {
-            if (h.collider.transform.root == transform.root) continue; // 테이블 자신 제외
-            if (h.point.y > groundY) { groundY = h.point.y; found = true; }
-        }
-        if (!found) return;
-
-        float standY = groundY + 0.05f;     // 보드 높이 = 다리 바닥 높이 → 지면에 살짝 띄워 안착
-        float drop = boardPos.y - standY;
-        if (drop <= 2f) return;             // 이미 지면 근처에서 시작 → 스냅 안 함
-
-        for (int i = 0; i < initPos.Length; i++) initPos[i].y -= drop;
-    }
 
     void Update()
     {
         var kb = Keyboard.current;
         if (kb != null && kb.digit1Key.wasPressedThisFrame)
             ResetPoseInPlace();
+
+        // 뒤집힘 감지: 상판이 '많이 누운' 채 '거의 멈춰'(정착) 있어야 타이머 시작.
+        // 구르는 중·일시적 기울임엔 시작 안 함 → 너무 자주 뜨던 문제 해결.
+        bool flipped = Vector3.Dot(transform.up, Vector3.up) < flipDot;
+        bool calm = bodies != null && bodies.Length > 0 && bodies[0] != null
+                    && bodies[0].linearVelocity.magnitude < flipCalmSpeed
+                    && bodies[0].angularVelocity.magnitude < flipCalmSpeed;
+        if (flipped && calm) { if (flippedSince < 0f) flippedSince = Time.unscaledTime; }
+        else if (!flipped) flippedSince = -1f;   // 똑바로 돌아오면만 리셋(살짝 흔들려도 타이머 유지)
     }
+
+    bool ShowFlipPrompt =>
+        flippedSince >= 0f && (Time.unscaledTime - flippedSince) >= flipPromptDelay;
 
     /// <summary>
     /// '1' 키: 처음 위치로 리스폰하지 않고 — 지금 있는 자리(XZ)·바라보는 방향(yaw)은 유지한 채
@@ -112,17 +137,19 @@ public class SceneReset : MonoBehaviour
     {
         if (bodies == null || bodies.Length == 0 || bodies[0] == null) { ResetAll(); return; }
         var b0 = bodies[0].transform.position;
-        ResetPoseInternal(new Vector2(b0.x, b0.z));
+        // ★ 지면 스캔을 '테이블 바로 위'에서 아래로 → 옆 건물 옥상이 아니라 테이블이 딛고 선 땅을 잡는다.
+        ResetPoseInternal(new Vector2(b0.x, b0.z), b0.y + 0.5f);
     }
 
     /// <summary>지정한 XZ 지점의 땅 위에 똑바로 선 자세로 복원. (용암 사망 → 가장 가까운 안전한 땅 리스폰용.)</summary>
     public void ResetPoseAtXZ(float x, float z)
     {
         if (bodies == null || bodies.Length == 0 || bodies[0] == null) { ResetAll(); return; }
-        ResetPoseInternal(new Vector2(x, z));
+        // 다른 XZ(고지대)로 보내는 경우라 충분히 높은 곳에서 스캔.
+        ResetPoseInternal(new Vector2(x, z), 500f);
     }
 
-    void ResetPoseInternal(Vector2 xz)
+    void ResetPoseInternal(Vector2 xz, float scanFromY)
     {
         var board = bodies[0];
         // 바라보는 '카메라 방향'으로 테이블 forward 를 맞춤 → 리셋 후 항상 WASD 다리(Leg_FL)가 화면 먼왼쪽.
@@ -134,10 +161,12 @@ public class SceneReset : MonoBehaviour
             Vector3 f = cam.transform.forward; f.y = 0f;
             if (f.sqrMagnitude > 1e-4f) yaw = Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         }
-        // 초기 자세에서 yaw 성분만 제거한 '기울기'를 그 위에 얹어 똑바로 세움.
-        Quaternion tilt = Quaternion.Inverse(Quaternion.Euler(0f, initRot[0].eulerAngles.y, 0f)) * initRot[0];
-        Quaternion newBoardRot = Quaternion.Euler(0f, yaw, 0f) * tilt;
-        Vector3 newBoardPos = new Vector3(xz.x, GroundYAt(new Vector3(xz.x, 0f, xz.y)) + boardClearance, xz.y);
+        // 항상 '완전히 똑바로'(yaw만) 세운다. 스폰/낙하 중 잡힌 board 기울기를 절대 물려받지 않음.
+        // (빌드는 실행·물리 순서가 달라 Start()가 board가 기운 뒤 호출될 수 있어, 그 tilt가 리셋마다 박히던 버그 수정.)
+        Quaternion newBoardRot = Quaternion.Euler(0f, yaw, 0f);
+        // 지면 위로 '테이블 절반 높이'만큼 띄워 생성 → 지형에 잠기지 않고 살짝 위에서 똑바로 안착.
+        float lift = boardClearance + tableHeight * groundLiftFactor;
+        Vector3 newBoardPos = new Vector3(xz.x, GroundYAt(xz, scanFromY) + lift, xz.y);
 
         for (int i = 0; i < bodies.Length; i++)
         {
@@ -184,5 +213,37 @@ public class SceneReset : MonoBehaviour
         // 지라프 모드로 늘어난 다리 길이도 초기화
         var giraffe = FindAnyObjectByType<GiraffeMode>();
         if (giraffe != null) giraffe.ResetLegs();
+    }
+
+    // 테이블이 뒤집히면 화면 하단에 'Press "1"' 안내. (일시정지 중엔 숨김)
+    void OnGUI()
+    {
+        if (Time.timeScale == 0f) return;
+        if (!ShowFlipPrompt) return;
+        EnsureFlipStyles();
+
+        float w = 440f, h = 96f;
+        float x = (Screen.width - w) * 0.5f, y = Screen.height - h - 64f;
+        Color prev = GUI.color;
+        GUI.color = new Color(0f, 0f, 0f, 0.62f);
+        GUI.DrawTexture(new Rect(x, y, w, h), flipTex);
+        GUI.color = new Color(1f, 0.78f, 0.25f, 1f);
+        GUI.DrawTexture(new Rect(x, y, w, 5f), flipTex);                 // 상단 강조선
+        GUI.color = prev;
+
+        GUI.Label(new Rect(x, y + 12f, w, 46f), "Press \"1\"", flipBig);
+        GUI.Label(new Rect(x, y + 56f, w, 30f), "테이블이 뒤집혔어요 — 자세 다시 잡기", flipSmall);
+    }
+
+    void EnsureFlipStyles()
+    {
+        if (flipBig != null) return;
+        flipTex = Texture2D.whiteTexture;
+        flipBig = new GUIStyle(GUI.skin.label)
+        { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        flipBig.normal.textColor = new Color(1f, 0.85f, 0.4f, 1f);
+        flipSmall = new GUIStyle(GUI.skin.label)
+        { fontSize = 17, alignment = TextAnchor.MiddleCenter };
+        flipSmall.normal.textColor = Color.white;
     }
 }

@@ -27,6 +27,15 @@ public class GiraffeMode : MonoBehaviour
     [Tooltip("길이 변화 속도(스케일/초)")]
     public float speed = 0.8f;
 
+    [Header("전체 다리 동시 신축 (개별키 4개 동시누름은 키보드 고스팅으로 안 먹힐 수 있어 단일키 제공)")]
+    [Tooltip("이 키 하나로 네 다리 모두 늘린다(기본 = )")]
+    public Key allLonger = Key.Equals;
+    [Tooltip("이 키 하나로 네 다리 모두 줄인다(기본 - )")]
+    public Key allShorter = Key.Minus;
+
+    /// <summary>기린의 힘을 한 번이라도 얻었는가(컷신 부여 또는 직접 사용). 조작법 메뉴가 기린 조작 표시 여부 판단에 사용.</summary>
+    public static bool Unlocked;
+
     static readonly string[] LegNames = { "Leg_FR", "Leg_FL", "Leg_BR", "Leg_BL" };
     static readonly Key[] Shorter = { Key.R, Key.Q, Key.P, Key.U };
     static readonly Key[] Longer  = { Key.Y, Key.E, Key.RightBracket, Key.O };
@@ -360,20 +369,24 @@ public class GiraffeMode : MonoBehaviour
         if (kb == null) return;
 
         if (!locked && kb[toggleKey].wasPressedThisFrame) active = !active;
+        if (active) Unlocked = true;   // 한 번 켜지면 조작법 메뉴에 기린 조작 노출
 
         // 기린 무늬 스킨 on/off (켜질 때 몸통+다리에 무늬, 꺼지면 원래대로)
         if (active && !skinned) ApplyGiraffeSkin();
         else if (!active && skinned && AllLegsBase()) RemoveGiraffeSkin();
 
         float dt = Time.deltaTime;
+        // 전체 동시 신축(단일키) — 개별키 4개 동시누름의 키보드 고스팅 회피
+        bool allUp   = active && allLonger  != Key.None && kb[allLonger].isPressed;
+        bool allDown = active && allShorter != Key.None && kb[allShorter].isPressed;
         for (int i = 0; i < mesh.Length; i++)
         {
             if (mesh[i] == null) continue;
             float target = len[i];
             if (active)
             {
-                if (kb[Longer[i]].isPressed) target += speed * dt;
-                if (kb[Shorter[i]].isPressed) target -= speed * dt;
+                if (allUp   || kb[Longer[i]].isPressed)  target += speed * dt;
+                if (allDown || kb[Shorter[i]].isPressed) target -= speed * dt;
             }
             else
             {

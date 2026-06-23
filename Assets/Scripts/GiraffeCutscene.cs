@@ -28,6 +28,18 @@ public class GiraffeCutscene : MonoBehaviour
     public float panSeconds = 1.8f;
     public float lightSeconds = 3.0f;
     public float messageSeconds = 5f;
+    [Tooltip("테이블이 빛나며 기린으로 변신하는 시간(길게)")]
+    public float glowSeconds = 2.8f;
+
+    [Header("기린 음성(대사 줄마다 한 번씩)")]
+    public AudioClip voice1;   // 첫 대사
+    public AudioClip voice2;   // 둘째 대사
+    AudioSource voiceSrc;
+
+    [Header("기린 대사 말풍선 이미지(기린 왼쪽에 표시 — 음성과 동시)")]
+    public Texture2D bubble1;  // "날 도와줘서 고마워.."
+    public Texture2D bubble2;  // "내 힘을 줄게..."
+    Texture2D currentBubble;
 
     Transform table, tableTop, cam;
     Behaviour cameraFollow;
@@ -35,8 +47,6 @@ public class GiraffeCutscene : MonoBehaviour
     float groundY;
     Quaternion standRot;
     bool started, finished;
-    string speech = "", systemMsg = "";
-    Font kfont;
 
     void Start()
     {
@@ -100,12 +110,14 @@ public class GiraffeCutscene : MonoBehaviour
         }
         giraffe.rotation = standRot; giraffe.position = standPos;
 
-        // 2~3) 대사
-        speech = "날 도와줘서 고마워..";
+        // 2~3) 대사 = 기린 왼쪽 말풍선 이미지 + 각 줄에 음성 한 번씩(동시)
+        currentBubble = bubble1;
+        PlayVoice(voice1);
         yield return Hold(talkSeconds, camFront, gLook);
-        speech = "내 힘을 줄게...";
+        currentBubble = bubble2;
+        PlayVoice(voice2);
         yield return Hold(talkSeconds, camFront, gLook);
-        speech = "";
+        currentBubble = null;
 
         // 4) 옆 앵글(기린-테이블 마주보는 옆)
         Vector3 mid = (standPos + table.position) * 0.5f + Vector3.up * 1.3f;
@@ -125,13 +137,16 @@ public class GiraffeCutscene : MonoBehaviour
             SetCam(camSide, mid); yield return null;
         }
         Destroy(light);
-        yield return FlashTable(camSide, mid);
+        yield return FlashTable(camSide, mid);   // 길게 빛나며 도중에 기린 스킨으로 변신(active=true)
 
-        // 6) 권능 부여 + 시스템 메시지
+        // 6) 권능 부여: 발광 중 이미 기린 모드 ON됨 → 잠금만 해제. (안내 텍스트는 제거 — 조작법 이미지로 설명)
         if (giraffeMode != null) giraffeMode.locked = false;
-        systemMsg = "기린의 힘을 얻었다\n2번 버튼을 눌러 기린의 힘을 개방해보세요";
-        yield return Hold(messageSeconds, camSide, mid);
-        systemMsg = "";
+        GiraffeMode.Unlocked = true;   // 조작법 메뉴에 기린 조작 노출
+        yield return Hold(1.6f, camSide, mid);   // 변신한 모습 잠깐 보여줌
+
+        // 기린의 힘 조작법 이미지 표시(키 2 + 다리 신축키 강조)
+        var guide = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
+        if (guide != null) guide.Show();
 
         // 종료
         if (cameraFollow != null) cameraFollow.enabled = true;
@@ -142,6 +157,18 @@ public class GiraffeCutscene : MonoBehaviour
 
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
     { for (float t = 0; t < dur; t += Time.deltaTime) { SetCam(cp, cl); yield return null; } }
+
+    void PlayVoice(AudioClip c)
+    {
+        if (c == null) return;
+        if (voiceSrc == null)
+        {
+            voiceSrc = GetComponent<AudioSource>();
+            if (voiceSrc == null) voiceSrc = gameObject.AddComponent<AudioSource>();
+            voiceSrc.playOnAwake = false; voiceSrc.spatialBlend = 0f;
+        }
+        voiceSrc.PlayOneShot(c);
+    }
 
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)
     {
@@ -154,17 +181,36 @@ public class GiraffeCutscene : MonoBehaviour
         }
     }
 
+    // 테이블 **몸 전체**(상판 + 4다리)가 길게 빛나고, 발광 도중 **기린 스킨으로 변신**한다.
     IEnumerator FlashTable(Vector3 cp, Vector3 cl)
     {
-        var mr = tableTop != null ? tableTop.GetComponent<Renderer>() : null;
+        var rends = table != null ? table.root.GetComponentsInChildren<MeshRenderer>() : new MeshRenderer[0];
         var mpb = new MaterialPropertyBlock();
-        for (float t = 0, dur = 0.6f; t < dur; t += Time.deltaTime)
+        float dur = glowSeconds;
+        bool swapped = false;
+        for (float t = 0; t < dur; t += Time.deltaTime)
         {
-            float k = Mathf.Sin(t / dur * Mathf.PI);
-            if (mr != null) { mr.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", new Color(1.5f, 1.3f, 0.8f) * (k * 3f)); mr.SetPropertyBlock(mpb); }
+            float u = t / dur;
+            // 빠르게 차오르고(18%) 길게 유지하다 끝에서 사그라듦(마지막 28%)
+            float k = Mathf.Pow(Mathf.Clamp01(u / 0.18f) * Mathf.Clamp01((1f - u) / 0.28f), 0.6f);
+            // 발광 도중(40%) 기린 텍스처로 변신
+            if (!swapped && giraffeMode != null && u >= 0.4f) { giraffeMode.active = true; swapped = true; }
+            Color emi = new Color(1.5f, 1.3f, 0.85f) * (k * 3.5f);
+            foreach (var r in rends)
+            {
+                if (r == null) continue;
+                var m = r.sharedMaterial;   // 스킨 스왑 후 바뀐 기린 머티리얼도 빛나게 매 프레임 _EMISSION 보장
+                if (m != null && !m.IsKeywordEnabled("_EMISSION"))
+                { m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
+                r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", emi); r.SetPropertyBlock(mpb);
+            }
             SetCam(cp, cl); yield return null;
         }
-        if (mr != null) { mr.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); mr.SetPropertyBlock(mpb); }
+        foreach (var r in rends)
+        {
+            if (r == null) continue;
+            r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb);
+        }
     }
 
     GameObject MakeLight()
@@ -193,27 +239,24 @@ public class GiraffeCutscene : MonoBehaviour
             if (rb != null) rb.isKinematic = freeze;
     }
 
-    GUIStyle Style(int size, Color col)
-    {
-        if (kfont == null)
-            kfont = Font.CreateDynamicFontFromOSFont(new[] { "Apple SD Gothic Neo", "AppleGothic", "Noto Sans CJK KR", "Malgun Gothic", "Arial Unicode MS" }, size);
-        var st = new GUIStyle { fontSize = size, alignment = TextAnchor.MiddleCenter };
-        if (kfont != null) st.font = kfont;
-        st.normal.textColor = col;
-        st.wordWrap = true;
-        return st;
-    }
-
+    // 기린 대사 = 기린 머리 왼쪽에 말풍선 이미지(텍스트는 빌드에 폰트가 없어 안 나오므로 이미지로 구워 표시).
     void OnGUI()
     {
-        if (!string.IsNullOrEmpty(speech))
-            GUI.Label(new Rect(0, Screen.height * 0.74f, Screen.width, 70), speech, Style(30, Color.white));
-        if (!string.IsNullOrEmpty(systemMsg))
-        {
-            float w = Screen.width * 0.6f, h = 120f;
-            var box = new Rect((Screen.width - w) * 0.5f, Screen.height * 0.4f, w, h);
-            GUI.color = new Color(0, 0, 0, 0.6f); GUI.DrawTexture(box, Texture2D.whiteTexture); GUI.color = Color.white;
-            GUI.Label(box, systemMsg, Style(26, new Color(1f, 0.95f, 0.6f)));
-        }
+        if (currentBubble == null || giraffe == null) return;
+        var c = Camera.main;
+        if (c == null) return;
+        Vector3 head = giraffe.position + Vector3.up * 2.4f;     // 기린 머리 부근
+        Vector3 sp = c.WorldToScreenPoint(head);
+        if (sp.z <= 0f) return;                                  // 카메라 뒤면 표시 안 함
+
+        float bw = Mathf.Clamp(Screen.width * 0.30f, 240f, 420f);
+        float bh = bw * (currentBubble.height / (float)currentBubble.width);
+        float gx = sp.x;
+        float gy = Screen.height - sp.y;                         // GUI 좌표(상단 원점)
+        // 기린 왼쪽: 말풍선 꼬리(오른쪽)가 기린 머리에 닿도록 머리 왼쪽에 배치
+        var r = new Rect(gx - bw + 8f, gy - bh * 0.5f, bw, bh);
+        r.x = Mathf.Max(8f, r.x);
+        r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
+        GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
     }
 }

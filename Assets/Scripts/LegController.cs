@@ -58,7 +58,9 @@ public class LegController : MonoBehaviour
     bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
 
-    void Start()
+    // ⚠️ Awake(물리 시작 전)에서 힌지를 셋업한다. Start로 하면 빌드에선 테이블이 이미 낙하 중일 때
+    //    실행돼 autoConfigure 앵커가 '낙하 중 포즈' 기준으로 틀어진 채 고정되는 버그가 있었음.
+    void Awake()
     {
         rb = GetComponent<Rigidbody>();
         StabilizeBody(rb);
@@ -72,9 +74,15 @@ public class LegController : MonoBehaviour
         if (hinge == null) hinge = gameObject.AddComponent<HingeJoint>();
 
         hinge.connectedBody = chassis;
-        hinge.autoConfigureConnectedAnchor = true;
         hinge.anchor = Vector3.zero;
         hinge.axis = hingeAxis.normalized;
+        // 앵커를 '깨끗한 프리팹 포즈' 기준으로 명시 고정(autoConfigure 금지) → 런타임 낙하 타이밍과 무관.
+        if (chassis != null)
+        {
+            hinge.autoConfigureConnectedAnchor = false;
+            hinge.connectedAnchor = chassis.transform.InverseTransformPoint(transform.position);
+        }
+        else hinge.autoConfigureConnectedAnchor = true;
         hinge.useSpring = false;
         hinge.useLimits = true;
         hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };

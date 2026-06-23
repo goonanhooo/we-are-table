@@ -188,6 +188,10 @@ public class HallwayStage : MonoBehaviour
 
         FreezeTable(false);   // 이제 물리/조작 활성
         controllable = true;
+
+        // 컷씬 종료 → 조작법 안내 이미지 표시
+        var guide = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
+        if (guide != null) guide.Show();
     }
 
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)

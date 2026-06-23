@@ -17,7 +17,9 @@ public class IslandTerrain : MonoBehaviour
 {
     [Header("지형 크기/해상도")]
     public float size = 700f;
-    [Range(32, 480)] public int resolution = 170;   // 협곡 벽을 가파르게 표현하려면 높여야 함(격자간격 작아짐)
+    [Range(32, 720)] public int resolution = 170;   // 협곡 벽을 가파르게/연속으로 표현하려면 높여야 함(격자간격 작아짐). 좁은 협곡일수록 더 높게.
+    [Tooltip("섬 전체를 균등 축소(1=원본). 0.5면 모든 지형/좌표가 절반 월드크기. 노이즈 패턴은 보존(공개 함수가 world=scale×design(world/scale)).")]
+    public float worldScale = 1f;
 
     [Header("섬 모양")]
     public Vector2 islandCenter = new Vector2(0f, 127f);
@@ -63,8 +65,8 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("협곡 경로가 좌우로 자연스럽게 굽이치는 양(폭은 유지=메안더).")]
     public float canyonRimNoise = 1.2f;
 
-    /// <summary>협곡 림 절반 폭(노이즈 포함 대략 최대). 리스폰이 협곡 밖인지 판정에 사용.</summary>
-    public float CanyonRimHalf => canyonRimHalf + canyonRimNoise;
+    /// <summary>협곡 림 절반 폭(노이즈 포함 대략 최대). 리스폰이 협곡 밖인지 판정에 사용. (월드 스케일 반영)</summary>
+    public float CanyonRimHalf => (canyonRimHalf + canyonRimNoise) * worldScale;
 
     Mesh mesh;
     int hash, builtHash = -1;
@@ -79,6 +81,7 @@ public class IslandTerrain : MonoBehaviour
             int h = 17;
             h = h * 31 + size.GetHashCode();
             h = h * 31 + resolution;
+            h = h * 31 + worldScale.GetHashCode();
             h = h * 31 + islandCenter.GetHashCode();
             h = h * 31 + islandRadius.GetHashCode();
             h = h * 31 + shoreWidth.GetHashCode();
@@ -102,7 +105,7 @@ public class IslandTerrain : MonoBehaviour
         hash = ParamHash();
         if (hash == builtHash && mesh != null) return;
 
-        int res = Mathf.Clamp(resolution, 8, 220);
+        int res = Mathf.Clamp(resolution, 8, 720);
         int vside = res + 1;
         float half = size * 0.5f;
         float step = size / res;
@@ -118,7 +121,7 @@ public class IslandTerrain : MonoBehaviour
                 int i = z * vside + x;
                 float wx = -half + x * step;
                 float wz = -half + z * step;
-                float h = HeightAt(wx, wz);
+                float h = HeightDesign(wx, wz);   // design 좌표로 메시 생성 후 아래에서 worldScale 적용
                 verts[i] = new Vector3(wx, h, wz);
             }
         }
@@ -133,6 +136,10 @@ public class IslandTerrain : MonoBehaviour
                 cols[i] = VertexColor(wx, wz, h, slope);
             }
         }
+
+        // 섬 전체를 worldScale 로 균등 축소(메시·콜라이더). 색/경사는 design 값으로 이미 계산됨(불변).
+        if (worldScale != 1f)
+            for (int i = 0; i < verts.Length; i++) verts[i] *= worldScale;
 
         int t = 0;
         for (int z = 0; z < res; z++)
@@ -191,8 +198,11 @@ public class IslandTerrain : MonoBehaviour
         return v; // 대략 -0.5..0.5
     }
 
-    /// <summary>월드 (x,z) 의 최종 지형 높이.</summary>
-    public float HeightAt(float x, float z)
+    /// <summary>월드 (x,z) 의 최종 지형 높이. (worldScale 반영 — 외부는 항상 이걸 사용)</summary>
+    public float HeightAt(float x, float z) => worldScale * HeightDesign(x / worldScale, z / worldScale);
+
+    // design(원본 1배) 좌표계의 높이. 메시 생성/색/내부에서만 사용.
+    float HeightDesign(float x, float z)
     {
         float dx = x - islandCenter.x, dz = z - islandCenter.y;
         float d = Mathf.Sqrt(dx * dx + dz * dz);
@@ -230,7 +240,7 @@ public class IslandTerrain : MonoBehaviour
         // 용암 강 협곡(canyon): 강 중심으로 갈수록 국소 지형보다 canyonDepth 만큼 내려간 바닥 → 깊고 좁은 골짜기.
         // 바닥(floorHalf 안)은 평평(용암 자리), floorHalf~rimHalf 가 '벽'(폭=rimHalf-floorHalf, 작을수록 가파름).
         // 노이즈는 floor/rim 을 같은 양만큼 밀어 '폭은 유지하며 굽이치게'(메안더) → 림을 줄이면 실제로 좁아짐.
-        float rd = DistanceToRiver(x, z);
+        float rd = DistDesign(x, z);
         float edge = Fbm(x * 0.04f, z * 0.04f) * canyonRimNoise;
         float wall = Mathf.Max(0.6f, canyonRimHalf - canyonFloorHalf);  // 벽 수평폭
         float floorHalf = Mathf.Max(0.4f, canyonFloorHalf + edge);
@@ -256,7 +266,7 @@ public class IslandTerrain : MonoBehaviour
         Color rock = new Color(0.34f, 0.28f, 0.24f);
         Color scorch = new Color(0.16f, 0.09f, 0.07f);
 
-        float rd = DistanceToRiver(x, z);
+        float rd = DistDesign(x, z);
         if (rd < riverWidth * 0.75f)  // 용암 강 둑: 그을린 바위
             return Color.Lerp(scorch, rock, SStep(0f, riverWidth * 0.75f, rd));
 
@@ -273,7 +283,13 @@ public class IslandTerrain : MonoBehaviour
     }
 
     // ---------- 용암 강 경로 유틸 (지형/용암/사망 판정 공유) ----------
-    public float DistanceToRiver(float x, float z)
+    // 공개(월드 스케일 반영) — 외부(JungleStage/LavaRiver)는 이것들을 사용.
+    public float DistanceToRiver(float x, float z) => worldScale * DistDesign(x / worldScale, z / worldScale);
+    public Vector2 NearestRiverPoint(float x, float z) => worldScale * NearestDesign(x / worldScale, z / worldScale);
+    public float SignedSideOfRiver(float x, float z) => SignedDesign(x / worldScale, z / worldScale);   // 부호는 스케일 무관
+    public Vector2 RiverPoint(float u) => worldScale * RiverPointDesign(u);
+
+    float DistDesign(float x, float z)
     {
         if (riverPath == null || riverPath.Length < 2) return 1e9f;
         Vector2 p = new Vector2(x, z);
@@ -290,8 +306,7 @@ public class IslandTerrain : MonoBehaviour
         return Vector2.Distance(p, a + ab * t);
     }
 
-    /// <summary>(x,z)에서 가장 가까운 강 중심선 위의 점(XZ). 용암 표면 높이 = HeightAt(이 점)+lift 로 쓰임.</summary>
-    public Vector2 NearestRiverPoint(float x, float z)
+    Vector2 NearestDesign(float x, float z)
     {
         if (riverPath == null || riverPath.Length == 0) return new Vector2(x, z);
         if (riverPath.Length == 1) return riverPath[0];
@@ -309,8 +324,7 @@ public class IslandTerrain : MonoBehaviour
         return bestPt;
     }
 
-    /// <summary>강 중심선의 어느 쪽인지 부호(+1/-1, 가장 가까운 구간 기준). '건너편'이 아닌 '원래 쪽' 리스폰 판정용.</summary>
-    public float SignedSideOfRiver(float x, float z)
+    float SignedDesign(float x, float z)
     {
         if (riverPath == null || riverPath.Length < 2) return 0f;
         Vector2 p = new Vector2(x, z);
@@ -326,8 +340,7 @@ public class IslandTerrain : MonoBehaviour
         return sign;
     }
 
-    /// <summary>강 중심선을 0..1 로 샘플(균등 보간, 끝점 포함).</summary>
-    public Vector2 RiverPoint(float u)
+    Vector2 RiverPointDesign(float u)
     {
         if (riverPath == null || riverPath.Length == 0) return Vector2.zero;
         if (riverPath.Length == 1) return riverPath[0];
