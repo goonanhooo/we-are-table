@@ -47,9 +47,13 @@ public class PlaytestCheat : MonoBehaviour
         foreach (var rb in bodies)
         {
             if (rb == null || rb.isKinematic) continue;
+            // NaN 가드: 솔버 폭발로 위치가 NaN이면 건드리지 않는다(에러 스팸 방지).
+            // 복구는 SceneReset 워치독이 담당 — 여기서 NaN+delta를 쓰면 매 스텝 오류가 도배된다.
+            var p = rb.position;
+            if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z)) continue;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
-            rb.position += delta;
+            rb.position = p + delta;
         }
     }
 }

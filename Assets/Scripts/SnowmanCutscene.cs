@@ -1,0 +1,226 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+/// <summary>
+/// IceMountain: 굴러다니는 눈사람 '머리'가 고정된 '몸통' 근처로 오면 발동하는 컷신.
+/// 머리가 몸통 위로 올라가 조립 → 대사 2줄(말풍선) → 옆 앵글 → 파란 빛이 테이블로 들어가 번쩍 →
+/// IcePower 잠금 해제(3번으로 눈사람의 힘=얼음 테이블). 기린 컷신(GiraffeCutscene) 패턴을 본뜸.
+/// </summary>
+public class SnowmanCutscene : MonoBehaviour
+{
+    [Header("참조(비우면 이름으로 찾음)")]
+    public Transform body;     // SnowmanBody (고정)
+    public Transform head;     // SnowmanHead (굴러다님)
+    [Tooltip("머리가 조립될 월드 위치(머리 중심). 비우면 body+offset로 계산.")]
+    public Vector3 assembledPos;
+    public float assembledHeadOffsetY = 2.96f;   // body.y 위로 머리중심이 갈 높이
+
+    [Header("발동")]
+    public float triggerRange = 3.2f;   // 머리-몸통 XZ 거리 이내면 조립 시작
+
+    [Header("타이밍(초)")]
+    public float assembleSeconds = 1.5f;
+    public float talkSeconds = 2.6f;
+    public float panSeconds = 1.6f;
+    public float lightSeconds = 2.6f;
+    public float glowSeconds = 2.6f;
+
+    [Header("대사 말풍선(기린과 동일 텍스트 — GiraffeBubble 재활용)")]
+    public Texture2D bubble1;  // "날 도와줘서 고마워.."
+    public Texture2D bubble2;  // "내 힘을 줄게..."
+    Texture2D currentBubble;
+
+    [Header("음성(선택)")]
+    public AudioClip voice1, voice2;
+    AudioSource voiceSrc;
+
+    Transform table, tableTop, cam;
+    Behaviour cameraFollow;
+    Rigidbody headRb;
+    IcePower icePower;
+    bool started, finished;
+
+    void Start()
+    {
+        if (body == null) { var b = GameObject.Find("SnowmanBody"); if (b) body = b.transform; }
+        if (head == null) { var h = GameObject.Find("SnowmanHead"); if (h) head = h.transform; }
+        if (head != null) headRb = head.GetComponent<Rigidbody>();
+        var tgo = GameObject.Find("Table"); if (tgo) table = tgo.transform;
+        var ttgo = GameObject.Find("TableTop"); if (ttgo) tableTop = ttgo.transform;
+        if (Camera.main) { cam = Camera.main.transform; cameraFollow = Camera.main.GetComponent("CameraFollow") as Behaviour; }
+        icePower = Object.FindAnyObjectByType<IcePower>(FindObjectsInactive.Include);
+        if (icePower != null) icePower.unlocked = false;  // 컷신 전까지 잠금
+        if (assembledPos == Vector3.zero && body != null)
+            assembledPos = body.position + Vector3.up * assembledHeadOffsetY;
+    }
+
+    void Update()
+    {
+        if (started || finished || head == null || body == null) return;
+        var a = new Vector2(head.position.x, head.position.z);
+        var b = new Vector2(body.position.x, body.position.z);
+        if (Vector2.Distance(a, b) < triggerRange) Play();
+    }
+
+    public void Play()
+    {
+        if (started || finished || head == null) return;
+        started = true;
+        StartCoroutine(Run());
+    }
+
+    IEnumerator Run()
+    {
+        FreezeTable(true);
+        if (headRb != null) { headRb.linearVelocity = Vector3.zero; headRb.angularVelocity = Vector3.zero; headRb.isKinematic = true; }
+        if (cameraFollow != null) cameraFollow.enabled = false;
+        Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
+
+        // 눈사람 정면(+Z 얼굴 쪽)에서 조금 멀리 — 눈사람과 근처 테이블이 함께 프레임에 들어오게.
+        Vector3 focus = body.position + Vector3.up * 1.7f;
+        Vector3 camFront = body.position + new Vector3(1.6f, 3.2f, 9.5f);  // 정면(+Z) 멀리, 살짝 위·옆
+        Vector3 camLook = body.position + Vector3.up * 1.1f;
+
+        // 1) 머리가 몸통 위로 올라가 조립
+        Vector3 hp0 = head.position; Quaternion hr0 = head.rotation;
+        for (float t = 0; t < assembleSeconds; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0, 1, t / assembleSeconds);
+            // 살짝 호를 그리며(위로 떴다 안착)
+            Vector3 p = Vector3.Lerp(hp0, assembledPos, u); p.y += Mathf.Sin(u * Mathf.PI) * 1.2f;
+            head.position = p;
+            head.rotation = Quaternion.Slerp(hr0, Quaternion.identity, u);
+            SetCam(camFront, camLook); yield return null;
+        }
+        head.position = assembledPos; head.rotation = Quaternion.identity;
+
+        // 2~3) 대사 = 눈사람 머리 옆 말풍선 + 음성
+        currentBubble = bubble1; PlayVoice(voice1);
+        yield return Hold(talkSeconds, camFront, camLook);
+        currentBubble = bubble2; PlayVoice(voice2);
+        yield return Hold(talkSeconds, camFront, camLook);
+        currentBubble = null;
+
+        // 4~5) 파란 빛이 눈사람 → 테이블로 (정면 카메라 유지)
+        yield return Hold(panSeconds * 0.5f, camFront, camLook);
+        var light = MakeLight();
+        Vector3 from = assembledPos;
+        Vector3 tgt = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
+        for (float t = 0; t < lightSeconds; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0, 1, t / lightSeconds);
+            light.transform.position = Vector3.Lerp(from, tgt, u);
+            light.transform.localScale = Vector3.one * Mathf.Lerp(0.6f, 0.12f, u);
+            SetCam(camFront, camLook); yield return null;
+        }
+        Destroy(light);
+        // 테이블 몸이 빛나다 절정에서 얼음(눈사람의 힘)으로 변신 → 빛 잦아들면 얼음 형태 유지(FlashTable 내부).
+        yield return FlashTable(camFront, camLook);
+        yield return Hold(1.3f, camFront, camLook);
+
+        // 7) 눈사람 힘 조작법 이미지 (비활성 오브젝트라 GameObject.Find 안 됨 → FindObjectsInactive)
+        var cg = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
+        if (cg != null) cg.Show();
+
+        // 종료
+        if (cameraFollow != null) cameraFollow.enabled = true;
+        Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
+        FreezeTable(false);
+        finished = true;
+    }
+
+    IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
+    { for (float t = 0; t < dur; t += Time.deltaTime) { SetCam(cp, cl); yield return null; } }
+
+    void PlayVoice(AudioClip c)
+    {
+        if (c == null) return;
+        if (voiceSrc == null) { voiceSrc = GetComponent<AudioSource>(); if (voiceSrc == null) voiceSrc = gameObject.AddComponent<AudioSource>(); voiceSrc.playOnAwake = false; voiceSrc.spatialBlend = 0f; }
+        voiceSrc.PlayOneShot(c);
+    }
+
+    IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)
+    {
+        Quaternion r0 = Quaternion.LookRotation(l0 - p0, Vector3.up), r1 = Quaternion.LookRotation(l1 - p1, Vector3.up);
+        for (float t = 0; t < dur; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0, 1, t / dur);
+            cam.position = Vector3.Lerp(p0, p1, u); cam.rotation = Quaternion.Slerp(r0, r1, u); yield return null;
+        }
+    }
+
+    // 테이블 '몸'이 파랗게 빛나고, 빛이 절정일 때 얼음(눈사람의 힘)으로 변신 →
+    // 빛이 잦아들면 얼음 형태로 남는다. (화면 전체 번쩍임 X — 몸만 은은히 빛나는 세기로 낮춤.)
+    IEnumerator FlashTable(Vector3 cp, Vector3 cl)
+    {
+        var rends = table != null ? table.root.GetComponentsInChildren<MeshRenderer>() : new MeshRenderer[0];
+        var mpb = new MaterialPropertyBlock();
+        float dur = glowSeconds;
+        bool transformed = false;
+        for (float t = 0; t < dur; t += Time.deltaTime)
+        {
+            float u = t / dur;
+            float k = Mathf.Pow(Mathf.Clamp01(u / 0.18f) * Mathf.Clamp01((1f - u) / 0.28f), 0.6f);
+            // 빛 절정(u≥0.45)에서 얼음으로 변신(1회) — 빛나는 도중 형태가 바뀐다.
+            if (!transformed && u >= 0.45f)
+            {
+                transformed = true;
+                if (icePower != null) { icePower.unlocked = true; icePower.active = true; icePower.Apply(); }
+                if (table != null) rends = table.root.GetComponentsInChildren<MeshRenderer>();  // 얼음재질로 스왑된 렌더러 재취득
+            }
+            Color emi = new Color(0.4f, 0.7f, 1.5f) * (k * 1.1f);   // 은은한 '몸빛'(과하지 않게)
+            foreach (var r in rends)
+            {
+                if (r == null) continue;
+                var m = r.sharedMaterial;
+                if (m != null && !m.IsKeywordEnabled("_EMISSION")) { m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
+                r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", emi); r.SetPropertyBlock(mpb);
+            }
+            SetCam(cp, cl); yield return null;
+        }
+        // 빛 종료: MPB 비워 얼음재질 자체의 은은한 발광만 남긴다(검정 override 안 함).
+        foreach (var r in rends) { if (r == null) continue; r.SetPropertyBlock(null); }
+        // 혹시 절정 전에 끝났으면 확실히 변신 보장.
+        if (icePower != null && !icePower.active) { icePower.unlocked = true; icePower.active = true; icePower.Apply(); }
+    }
+
+    GameObject MakeLight()
+    {
+        var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        s.name = "SnowLight"; var c = s.GetComponent<Collider>(); if (c) Destroy(c);
+        s.transform.localScale = Vector3.one * 0.6f;
+        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        var m = new Material(sh != null ? sh : Shader.Find("Standard"));
+        m.color = new Color(0.6f, 0.8f, 1f); m.EnableKeyword("_EMISSION");
+        m.SetColor("_EmissionColor", new Color(0.4f, 0.7f, 1.6f) * 1.6f);
+        m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        s.GetComponent<Renderer>().sharedMaterial = m;
+        // 화면 전체가 파랗게 물드는 것 방지 — 이동하는 작은 구슬빛만(주변만 살짝).
+        var pl = s.AddComponent<Light>(); pl.type = LightType.Point; pl.color = new Color(0.5f, 0.75f, 1f); pl.range = 4.5f; pl.intensity = 1.4f;
+        return s;
+    }
+
+    void SetCam(Vector3 pos, Vector3 look)
+    { if (cam != null) { cam.position = pos; cam.rotation = Quaternion.LookRotation((look - pos).normalized, Vector3.up); } }
+
+    void FreezeTable(bool freeze)
+    {
+        if (table == null) return;
+        foreach (var rb in table.root.GetComponentsInChildren<Rigidbody>(true)) if (rb != null) rb.isKinematic = freeze;
+    }
+
+    void OnGUI()
+    {
+        if (currentBubble == null || body == null) return;
+        var c = Camera.main; if (c == null) return;
+        Vector3 hpos = assembledPos + Vector3.up * 1.0f;     // 눈사람 머리 위
+        Vector3 sp = c.WorldToScreenPoint(hpos);
+        if (sp.z <= 0f) return;
+        float bw = Mathf.Clamp(Screen.width * 0.30f, 240f, 420f);
+        float bh = bw * (currentBubble.height / (float)currentBubble.width);
+        var r = new Rect(sp.x - bw - 55f, (Screen.height - sp.y) - bh * 0.5f, bw, bh);
+        r.x = Mathf.Max(8f, r.x); r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
+        GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
+    }
+}

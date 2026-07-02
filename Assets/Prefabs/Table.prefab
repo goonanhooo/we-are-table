@@ -74,6 +74,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   verticalHoldSeconds: 0.4
+  groundLiftFactor: 0.5
+  flipDot: 0.2
+  flipPromptDelay: 2
+  flipCalmSpeed: 1.2
 --- !u!1 &1600000010
 GameObject:
   m_ObjectHideFlags: 0
@@ -197,7 +201,7 @@ GameObject:
   - component: {fileID: 1600000021}
   - component: {fileID: 1600000022}
   - component: {fileID: 1600000023}
-  - component: {fileID: 1600000024}
+  - component: {fileID: 8337511942651610279}
   m_Layer: 0
   m_Name: Leg_FR
   m_TagString: Untagged
@@ -277,7 +281,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1600000024
+--- !u!65 &8337511942651610279
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -309,7 +313,7 @@ GameObject:
   - component: {fileID: 1600000031}
   - component: {fileID: 1600000032}
   - component: {fileID: 1600000033}
-  - component: {fileID: 1600000034}
+  - component: {fileID: 1831039193707114057}
   m_Layer: 0
   m_Name: Leg_FL
   m_TagString: Untagged
@@ -389,7 +393,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1600000034
+--- !u!65 &1831039193707114057
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -421,7 +425,7 @@ GameObject:
   - component: {fileID: 1600000041}
   - component: {fileID: 1600000042}
   - component: {fileID: 1600000043}
-  - component: {fileID: 1600000044}
+  - component: {fileID: 6020265023366141774}
   m_Layer: 0
   m_Name: Leg_BR
   m_TagString: Untagged
@@ -501,7 +505,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1600000044
+--- !u!65 &6020265023366141774
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -533,7 +537,7 @@ GameObject:
   - component: {fileID: 1600000051}
   - component: {fileID: 1600000052}
   - component: {fileID: 1600000053}
-  - component: {fileID: 1600000054}
+  - component: {fileID: 794901736074600804}
   m_Layer: 0
   m_Name: Leg_BL
   m_TagString: Untagged
@@ -613,7 +617,7 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1600000054
+--- !u!65 &794901736074600804
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -684,6 +688,8 @@ MonoBehaviour:
   controlSet: 1
   swingVelocity: 300
   motorForce: 80
+  idleHoldForce: 220
+  forceMultiplier: 1
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
@@ -782,6 +788,8 @@ MonoBehaviour:
   controlSet: 0
   swingVelocity: 300
   motorForce: 80
+  idleHoldForce: 220
+  forceMultiplier: 1
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
@@ -880,6 +888,8 @@ MonoBehaviour:
   controlSet: 3
   swingVelocity: 300
   motorForce: 80
+  idleHoldForce: 220
+  forceMultiplier: 1
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
@@ -978,6 +988,8 @@ MonoBehaviour:
   controlSet: 2
   swingVelocity: 300
   motorForce: 80
+  idleHoldForce: 220
+  forceMultiplier: 1
   swingLimit: 90
   stopMargin: 12
   hingeAxis: {x: 1, y: 0, z: 0}
@@ -1041,6 +1053,8 @@ GameObject:
   - component: {fileID: 9100000040}
   - component: {fileID: 9100000050}
   - component: {fileID: 7010779908504020114}
+  - component: {fileID: 8545983734449903449}
+  - component: {fileID: 4714383712602322628}
   m_Layer: 0
   m_Name: Table
   m_TagString: Player
@@ -1148,6 +1162,11 @@ MonoBehaviour:
   allShorter: 13
   patternScale: 0.6
   legSpotWorld: 0.08
+  giraffeForceMul: 2.6
+  comDropPerStretch: 0.6
+  maxComDrop: 2.2
+  comDropSpeed: 1
+  stretchAngularDamping: 1.6
 --- !u!114 &7010779908504020114
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1167,3 +1186,31 @@ MonoBehaviour:
   minInterval: 0.07
   minImpact: 0.6
   fullImpact: 4
+--- !u!114 &8545983734449903449
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 026e8a98e11134367b9e17a683d9d0d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CheatMode
+  flySpeed: 16
+  fastMul: 3
+--- !u!114 &4714383712602322628
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73abac2acb16c49d0bdd7bc86f29a72b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NaNBlackBox
+  bufferSteps: 240
+  dumpCooldown: 10

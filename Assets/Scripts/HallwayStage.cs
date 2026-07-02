@@ -271,13 +271,19 @@ public class HallwayStage : MonoBehaviour
                 falling = false;
                 // 추락하던 "자세 + 속도" 전체를 다음 씬으로 전달 → 같은 자세로 이어서 떨어짐
                 var brb = table != null ? table.GetComponent<Rigidbody>() : null;
+                // ⚠️ NaN 가드: 낙하 중 물리가 폭발한 상태로 캡처하면 다음 씬에서 5개 바디 전부에
+                //    NaN이 주입되어 "position is infinite" ×5가 난다 → 유한할 때만 자세/속도 전달.
+                bool poseOk = brb != null
+                    && float.IsFinite(brb.rotation.x) && float.IsFinite(brb.rotation.y) && float.IsFinite(brb.rotation.z) && float.IsFinite(brb.rotation.w)
+                    && float.IsFinite(brb.linearVelocity.x) && float.IsFinite(brb.linearVelocity.y) && float.IsFinite(brb.linearVelocity.z)
+                    && float.IsFinite(brb.angularVelocity.x) && float.IsFinite(brb.angularVelocity.y) && float.IsFinite(brb.angularVelocity.z);
                 FallCarry.active = true;
-                FallCarry.ySpeed = brb != null ? brb.linearVelocity.y : -14f;
-                FallCarry.hasPose = true;
+                FallCarry.ySpeed = poseOk ? brb.linearVelocity.y : -14f;
+                FallCarry.hasPose = poseOk;
                 // ⚠️ 상판(Table) Rigidbody 의 실제 월드 회전을 캡처(빈 부모 root 는 안 구름 → identity라 무의미).
-                FallCarry.rotation = brb != null ? brb.rotation : Quaternion.identity;
-                FallCarry.velocity = brb != null ? brb.linearVelocity : new Vector3(0f, -14f, 0f);
-                FallCarry.angularVelocity = brb != null ? brb.angularVelocity : Vector3.zero;
+                FallCarry.rotation = poseOk ? brb.rotation : Quaternion.identity;
+                FallCarry.velocity = poseOk ? brb.linearVelocity : new Vector3(0f, -14f, 0f);
+                FallCarry.angularVelocity = poseOk ? brb.angularVelocity : Vector3.zero;
                 if (!string.IsNullOrEmpty(nextScene)) SceneManager.LoadScene(nextScene, LoadSceneMode.Single);
             }
         }

@@ -30,6 +30,9 @@ public class LegController : MonoBehaviour
     public float swingVelocity = 300f;
     [Tooltip("모터 힘(토크).")]
     public float motorForce = 60f;
+    [Tooltip("입력 없는 다리를 제자리에 잡아두는 정지 토크(다른 다리가 확 움직여도 안 덜렁거리게). forceMultiplier 곱해짐.")]
+    public float idleHoldForce = 220f;
+    [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드일 때 GiraffeMode가 키움(긴 다리로 몸을 밀 힘)
     [Tooltip("스윙 각도 제한(도): 초기 기준 ±")]
     public float swingLimit = 90f;
     [Tooltip("한계각 앞에서 속도를 줄이기 시작하는 여유 각도(도)")]
@@ -53,6 +56,7 @@ public class LegController : MonoBehaviour
     Rigidbody rb;
     HingeJoint hinge;
     Transform legMesh;
+    TableInput tableInput;   // ★ 입력 허브(멀티 대비) — 키보드를 직접 읽지 않고 여기서 LegInput을 받는다
     float baseLegScaleY = 1f;   // 초기 다리 길이(스케일.y) — 길어지면 각속도를 반비례로 줄여 발끝 속도 일정
     float yaw;
     bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
@@ -101,7 +105,7 @@ public class LegController : MonoBehaviour
     {
         body.maxAngularVelocity = 15f;          // 각속도 상한(폭주 방지)
         body.maxLinearVelocity = 30f;           // 선속도 상한 → 솔버 발산 시 멀리 튀어나가 worldAABB 폭발하는 것 차단(핵심)
-        body.maxDepenetrationVelocity = 3f;     // 깊은 겹침 시 폭발적 분리 방지(핵심)
+        body.maxDepenetrationVelocity = 2f;     // 깊은 겹침 시 폭발적 분리 방지(핵심). ⚠️1.2로 낮췄더니 겹침이 여러 스텝에 걸쳐 반복 보정되며 잔 튐이 늘어 2로 복귀(검증됨)
         body.solverIterations = 40;             // 관절 안정화(하드 고정 떨림 억제 — 절충값)
         body.solverVelocityIterations = 40;
         body.interpolation = RigidbodyInterpolation.Interpolate;  // 렌더링 보간 → 미세 떨림 시각적으로 부드럽게(물리/체감 불변)
@@ -165,9 +169,20 @@ public class LegController : MonoBehaviour
             if (!frozen)
             {
                 float a = hinge.angle;
-                hinge.useMotor = false;
-                hinge.useSpring = false;
+                // ⚠️ 폭발 프레임에 hinge.angle이 NaN이면 NaN 한계가 조인트에 '래치'되어
+                //    워치독이 바디를 복구해도 다음 스텝 또 폭발 → 유한할 때만 잠근다.
+                if (!float.IsFinite(a)) return;
                 hinge.limits = new JointLimits { min = a - 0.05f, max = a + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 0f };
+                hinge.useSpring = false;
+                // ★ 위치는 한계로 고정 + 정지 토크 모터(targetVelocity=0)로 상대 각속도를 강하게 댐핑
+                //   → 다른 다리가 확 반대로 움직여 몸이 휙 젖혀져도 고정 다리가 한계를 넘어 덜렁거리지 않음.
+                hinge.useMotor = true;
+                var hm = hinge.motor;
+                hm.targetVelocity = 0f;
+                // 지라프(긴 다리)에서 너무 빳빳하면 솔버 발산→NaN → 배수를 1.5로 캡.
+                hm.force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);
+                hm.freeSpin = false;
+                hinge.motor = hm;
                 if (rb != null) rb.angularVelocity = Vector3.zero;
                 frozen = true;
             }
@@ -190,11 +205,12 @@ public class LegController : MonoBehaviour
         float dir = (downP ? 1f : 0f) - (upP ? 1f : 0f);
         float v = dir * swingVelocity * lenScale;
         float angle = hinge.angle;
+        if (!float.IsFinite(angle)) { angle = 0f; v = 0f; }   // NaN 각도 → 모터에 NaN 전파 금지
         if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
         if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
 
         var motor = hinge.motor;
-        motor.force = motorForce;
+        motor.force = motorForce * forceMultiplier;
         motor.targetVelocity = v;
         hinge.motor = motor;
 
@@ -212,6 +228,25 @@ public class LegController : MonoBehaviour
     public void HoldVertical(float seconds)
     {
         holdTimer = seconds;
+    }
+
+    /// <summary>
+    /// NaN 폭발 복구 직후 워치독(SceneReset)이 호출 — 조인트에 '래치'된 비유한 한계/모터/축을 기본값으로 소독.
+    /// (바디만 복구하면 조인트에 남은 NaN이 다음 스텝 재폭발을 일으킨다.)
+    /// </summary>
+    public void SanitizeJoint()
+    {
+        if (hinge == null) return;
+        var l = hinge.limits;
+        bool badLim = !float.IsFinite(l.min) || !float.IsFinite(l.max) || l.min > l.max;
+        var m = hinge.motor;
+        bool badMot = !float.IsFinite(m.targetVelocity) || !float.IsFinite(m.force);
+        Vector3 ax = hinge.axis;
+        bool badAx = !float.IsFinite(ax.x) || !float.IsFinite(ax.y) || !float.IsFinite(ax.z) || ax.sqrMagnitude < 1e-6f;
+        if (badLim) hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+        if (badMot) { m.targetVelocity = 0f; m.force = motorForce; hinge.motor = m; }
+        if (badAx) hinge.axis = hingeAxis.normalized;
+        if (badLim || badMot || badAx) frozen = false;   // 다음 프레임 정상 경로로 재잠금
     }
 
     /// <summary>다리 내부 상태(yaw, 힌지 축/한계/모터, 잠금, 메시 회전)를 초기로 되돌린다.</summary>

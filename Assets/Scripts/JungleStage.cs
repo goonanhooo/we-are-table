@@ -96,6 +96,15 @@ public class JungleStage : MonoBehaviour
             FallCarry.active = false;
             FallCarry.hasPose = false;
 
+            // ⚠️ NaN 가드: 이전 씬에서 폭발 중 캡처된 값이면 5개 바디 전부에 NaN이 한 번에
+            //    주입되어 "position is infinite" ×5가 난다 → 비유한 값은 기본값으로 대체.
+            if (!(float.IsFinite(R.x) && float.IsFinite(R.y) && float.IsFinite(R.z) && float.IsFinite(R.w)))
+                R = Quaternion.identity;
+            if (!(float.IsFinite(vel.x) && float.IsFinite(vel.y) && float.IsFinite(vel.z)))
+                vel = new Vector3(0f, defaultFallSpeed, 0f);
+            if (!(float.IsFinite(ang.x) && float.IsFinite(ang.y) && float.IsFinite(ang.z)))
+                ang = Vector3.zero;
+
             // ⚠️ 빈 부모 + 동적 자식 → 부모만 옮기면 안 됨. 상판을 spawnPoint·회전 R 로 두고
             // 전체를 강체이동/회전(상대 배치 유지)해 모든 Rigidbody 를 직접 옮긴다 → Hallway 자세 그대로 이어짐.
             if (board != null)

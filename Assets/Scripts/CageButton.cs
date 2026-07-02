@@ -26,6 +26,7 @@ public class CageButton : MonoBehaviour
     Rigidbody[] tableBodies;
     Vector3 capBasePos;
     bool pressed;
+    Material mat;   // 누르면 초록으로 바꿀 버튼 머티리얼
 
     void Start()
     {
@@ -33,6 +34,8 @@ public class CageButton : MonoBehaviour
         if (cutscene == null) cutscene = Object.FindAnyObjectByType<GiraffeCutscene>();
         if (buttonCap == null) buttonCap = transform;
         capBasePos = buttonCap.localPosition;
+        var r = GetComponent<Renderer>();
+        if (r != null) mat = r.material;
 
         var tgo = GameObject.Find("Table");
         if (tgo != null) tableBodies = tgo.transform.root.GetComponentsInChildren<Rigidbody>(true);
@@ -51,6 +54,13 @@ public class CageButton : MonoBehaviour
 
     IEnumerator Sequence()
     {
+        // 눌리면 초록으로(작동 표시)
+        if (mat != null)
+        {
+            var green = new Color(0.2f, 0.85f, 0.3f);
+            mat.color = green;
+            if (mat.HasProperty("_EmissionColor")) { mat.EnableKeyword("_EMISSION"); mat.SetColor("_EmissionColor", green * 0.6f); }
+        }
         // 버튼 눌림(살짝 내려감)
         for (float t = 0; t < 0.15f; t += Time.deltaTime)
         {

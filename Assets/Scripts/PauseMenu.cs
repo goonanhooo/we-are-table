@@ -31,8 +31,9 @@ public class PauseMenu : MonoBehaviour
     GUIStyle titleStyle, btnStyle, labelStyle, centerStyle;
     Texture2D tex;
 
-    const float PanelW = 380f, PanelH = 602f;
-    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, restartBtn, menuBtn;
+    const float PanelW = 380f, PanelH = 718f;
+    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, lettersBtn, restartBtn, cheatBtn, menuBtn;
+    bool showLetters; int letterPage;   // 편지 열람 화면(조작법 화면과 같은 패턴)
     // 조작법 화면 레이아웃
     Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
 
@@ -76,7 +77,9 @@ public class PauseMenu : MonoBehaviour
         sfxSlider   = new Rect(ix, cy, iw, 22f);   cy += 22f + 14f;
         colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
+        lettersBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
+        cheatBtn    = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         menuBtn     = new Rect(ix, cy, iw, 46f);
     }
 
@@ -111,11 +114,13 @@ public class PauseMenu : MonoBehaviour
     void Update()
     {
         if (IsBackground()) return;
+        if (LetterOverlay.IsOpen) return;   // 편지 오버레이가 열려 있으면 ESC는 그쪽이 먼저 처리
 
         var kb = Keyboard.current;
         if (kb != null && kb.escapeKey.wasPressedThisFrame)
         {
             if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
+            else if (paused && showLetters) showLetters = false; // 편지 화면이면 메뉴로 복귀
             else SetPaused(!paused);
         }
 
@@ -140,6 +145,20 @@ public class PauseMenu : MonoBehaviour
             return;
         }
 
+        // 편지 화면: 페이지 넘김 / 닫기만 처리(조작법 화면과 동일 레이아웃 재사용)
+        if (showLetters)
+        {
+            ComputeControlsLayout();
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                string[] nm; var pg = LetterPages(out nm);
+                if (cClose.Contains(gm)) showLetters = false;
+                else if (pg.Length > 1 && cNext.Contains(gm)) letterPage = (letterPage + 1) % pg.Length;
+                else if (pg.Length > 1 && cPrev.Contains(gm)) letterPage = (letterPage - 1 + pg.Length) % pg.Length;
+            }
+            return;
+        }
+
         ComputeLayout();
 
         // 3개 볼륨 슬라이더 드래그 (마스터 / BGM / SFX)
@@ -160,11 +179,13 @@ public class PauseMenu : MonoBehaviour
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
+            else if (lettersBtn.Contains(gm)) { showLetters = true; letterPage = 0; }
             else if (restartBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single); // 현재 씬 처음부터
             }
+            else if (cheatBtn.Contains(gm)) { CheatMode.Active = !CheatMode.Active; }
             else if (menuBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
@@ -190,6 +211,7 @@ public class PauseMenu : MonoBehaviour
             // 게임으로 복귀: 마우스 시점(CameraFollow)을 위해 다시 잠금
             dragSlider = 0;
             showControls = false;
+            showLetters = false;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -202,6 +224,7 @@ public class PauseMenu : MonoBehaviour
         Vector2 gm = GuiMouse();
 
         if (showControls) { DrawControlsScreen(gm); return; }
+        if (showLetters) { DrawLettersScreen(gm); return; }
 
         ComputeLayout();
 
@@ -226,7 +249,13 @@ public class PauseMenu : MonoBehaviour
 
         DrawButton(controlsBtn, "Controls (조작법)", gm);
 
+        int found = 0;
+        for (int i = 0; i < LetterSystem.Ids.Length; i++) if (LetterSystem.IsCollected(LetterSystem.Ids[i])) found++;
+        DrawButton(lettersBtn, "Letters (편지)  " + found + "/" + LetterSystem.Ids.Length, gm);
+
         DrawButton(restartBtn, "Restart (다시 시작)", gm);
+
+        DrawButton(cheatBtn, "Cheat (치트): " + (CheatMode.Active ? "ON" : "OFF"), gm);
 
         DrawButton(menuBtn, "Main Menu", gm);
     }
@@ -246,6 +275,52 @@ public class PauseMenu : MonoBehaviour
 
         GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, centerStyle);
 
+        if (pages.Length > 1)
+        {
+            DrawButton(cPrev, "◀ 이전", gm);
+            DrawButton(cNext, "다음 ▶", gm);
+        }
+        DrawButton(cClose, "닫기", gm);
+    }
+
+    // 수집한 편지 페이지(텍스처+제목) 목록
+    Texture2D[] LetterPages(out string[] names)
+    {
+        var texs = new System.Collections.Generic.List<Texture2D>();
+        var nms = new System.Collections.Generic.List<string>();
+        for (int i = 0; i < LetterSystem.Ids.Length; i++)
+            if (LetterSystem.IsCollected(LetterSystem.Ids[i]))
+            {
+                texs.Add(LetterSystem.LoadImage(LetterSystem.Ids[i]));
+                nms.Add(LetterSystem.Titles[i]);
+            }
+        names = nms.ToArray();
+        return texs.ToArray();
+    }
+
+    void DrawLettersScreen(Vector2 gm)
+    {
+        ComputeControlsLayout();
+        string[] names; var pages = LetterPages(out names);
+
+        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.04f, 0.04f, 0.06f, 0.97f));
+
+        if (pages.Length == 0)
+        {
+            GUI.Label(ctrlTitle, "편지", titleStyle);
+            GUI.Label(new Rect(0, Screen.height * 0.45f, Screen.width, 40f), "아직 찾은 편지가 없어요 — 맵 곳곳에 떨어져 있어요!", centerStyle);
+            DrawButton(cClose, "닫기", gm);
+            return;
+        }
+        letterPage = Mathf.Clamp(letterPage, 0, pages.Length - 1);
+
+        GUI.Label(ctrlTitle, names[letterPage], titleStyle);
+        if (pages[letterPage] != null)
+            GUI.DrawTexture(ctrlImg, pages[letterPage], ScaleMode.ScaleToFit, true);
+        else
+            GUI.Label(new Rect(0, Screen.height * 0.45f, Screen.width, 40f), "(이미지 없음 — Resources/Letters 에 텍스처 필요)", centerStyle);
+
+        GUI.Label(ctrlPageLbl, (letterPage + 1) + " / " + pages.Length, centerStyle);
         if (pages.Length > 1)
         {
             DrawButton(cPrev, "◀ 이전", gm);

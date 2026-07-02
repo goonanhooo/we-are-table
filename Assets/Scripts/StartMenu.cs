@@ -19,6 +19,7 @@ public class StartMenu : MonoBehaviour
 
     Camera cam;
     PauseMenu pauseMenu;
+    LevelSelect levelSelect;
 
     void Start()
     {
@@ -27,6 +28,7 @@ public class StartMenu : MonoBehaviour
         Unlock();
         cam = Camera.main;
         pauseMenu = Object.FindAnyObjectByType<PauseMenu>();
+        levelSelect = Object.FindAnyObjectByType<LevelSelect>();
     }
 
     // 테이블이 디딜 단단한 흰 바닥(박스). 윗면이 y=0. 그림자는 받되 던지지 않음.
@@ -61,6 +63,8 @@ public class StartMenu : MonoBehaviour
 
         // 옵션 메뉴가 열려 있으면 그 클릭은 PauseMenu가 처리 → 표지판 레이캐스트 안 함.
         if (pauseMenu != null && pauseMenu.IsOpen) return;
+        // 레벨선택이 열려 있으면 그 클릭은 LevelSelect(OnGUI)가 처리 → 표지판 레이캐스트 안 함.
+        if (levelSelect != null && levelSelect.Showing) return;
 
         var mouse = Mouse.current;
         if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
@@ -72,7 +76,10 @@ public class StartMenu : MonoBehaviour
         // 표지판 루트 이름으로 어떤 표지판인지 판별(콜라이더가 표지판 루트에 있음).
         string n = hit.collider.gameObject.name;
         if (n == playSignName)
-            SceneManager.LoadScene(playScene, LoadSceneMode.Single);
+        {
+            if (levelSelect != null) levelSelect.Open();      // 레벨 선택 오버레이 열기(썸네일 클릭으로 이동)
+            else SceneManager.LoadScene(playScene, LoadSceneMode.Single);
+        }
         else if (n == optionSignName && pauseMenu != null)
             pauseMenu.OpenMenu();
     }

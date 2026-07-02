@@ -14,7 +14,7 @@ using UnityEngine.InputSystem;
 /// 콜라이더 길이가 변해 발이 땅을 밀어 몸이 들린다(물리로 자연스럽게).
 /// TablePlayer 루트에 부착한다.
 /// </summary>
-public class GiraffeMode : MonoBehaviour
+public class GiraffeMode : MonoBehaviour, ICheatUnlockable
 {
     [Tooltip("평소 꺼짐. 게임 상태가 이걸 켜면 다리 신축 활성. (테스트는 toggleKey 로)")]
     public bool active = false;
@@ -35,6 +35,9 @@ public class GiraffeMode : MonoBehaviour
 
     /// <summary>기린의 힘을 한 번이라도 얻었는가(컷신 부여 또는 직접 사용). 조작법 메뉴가 기린 조작 표시 여부 판단에 사용.</summary>
     public static bool Unlocked;
+
+    // 치트모드: 잠금 해제 → 토글키(2)가 바로 먹힘.
+    public void CheatUnlock() { locked = false; Unlocked = true; }
 
     static readonly string[] LegNames = { "Leg_FR", "Leg_FL", "Leg_BR", "Leg_BL" };
     static readonly Key[] Shorter = { Key.R, Key.Q, Key.P, Key.U };
@@ -64,6 +67,24 @@ public class GiraffeMode : MonoBehaviour
     Mesh bodyNet, legBox;
     bool skinned;
 
+    [Header("지라프 모드 안정화/힘 (구조 변경 없이 물리값만)")]
+    [Tooltip("지라프 모드일 때 다리 모터 힘 배수(긴 다리로 몸을 밀 힘).")]
+    public float giraffeForceMul = 2.6f;
+    [Tooltip("늘어난 다리 평균 길이 1당 상판 무게중심을 아래로 내리는 양(다리 끝쪽으로, 바닥 무겁게=안정).")]
+    public float comDropPerStretch = 0.6f;
+    [Tooltip("무게중심 최대 하강. ⚠️너무 깊으면(예 4) 힌지 앵커-무게중심 지렛대가 길어져 관절 솔버 폭발(NaN) 위험 — 2.2 안전.")]
+    public float maxComDrop = 2.2f;
+    [Tooltip("무게중심 이동 속도(유닛/초). 다리가 늘어난 '뒤에' 천천히 내려가고, 줄면 천천히 올라온다(급변 금지 — 움직임 위화감 방지).")]
+    public float comDropSpeed = 1.0f;
+    [Tooltip("다리가 늘어났을 때 상판 회전 감쇠 추가치(흔들림/휘청임 억제 — 움직임을 일반 모드처럼 차분하게. 무게중심 하강을 얕게 줄인 대신 이걸로 안정 보상).")]
+    public float stretchAngularDamping = 1.6f;
+    Rigidbody boardRb;        // 상판(샤시) 강체
+    Vector3 boardComBase;     // 원래 무게중심
+    float boardAngDampBase;   // 원래 회전 감쇠
+    float comDrop;            // 현재 적용 중인 하강량(스무딩 상태)
+    bool comStored;
+    LegController[] legCtrls;
+
     void Start()
     {
         int n = LegNames.Length;
@@ -78,6 +99,27 @@ public class GiraffeMode : MonoBehaviour
             baseLen[i] = mesh[i].localScale.y; len[i] = baseLen[i];
             legRb[i] = mesh[i].GetComponentInParent<Rigidbody>();
             if (legRb[i] != null) LockInertia(i);
+        }
+
+        // 상판(샤시) 강체 = 다리 힌지가 연결된 몸체. 다리 컨트롤러들도 수집.
+        for (int i = 0; i < n && boardRb == null; i++)
+            if (legRb[i] != null) { var hj = legRb[i].GetComponent<HingeJoint>(); if (hj != null) boardRb = hj.connectedBody; }
+        if (boardRb == null) boardRb = GetComponentInParent<Rigidbody>();
+        legCtrls = transform.root.GetComponentsInChildren<LegController>(true);
+
+        // ★ NaN(position=∞) 폭발 방지: 상판 Rigidbody의 maxLinearVelocity 기본값이 1e16(무제한)이라
+        //   긴 다리+모터 힘으로 솔버가 발산하면 무한 속도로 튕겨 "Invalid AABB"/NaN 크래시가 남.
+        //   기린 모드가 있는 모든 씬에서 전 바디에 유한 상한 적용(다리는 LegController가 더 낮게 캡 — Min이라 안전).
+        foreach (var rb in transform.root.GetComponentsInChildren<Rigidbody>(true))
+        {
+            if (rb == null) continue;
+            rb.maxLinearVelocity = Mathf.Min(rb.maxLinearVelocity, 40f);
+            rb.maxAngularVelocity = Mathf.Min(rb.maxAngularVelocity, 20f);
+            rb.maxDepenetrationVelocity = Mathf.Min(rb.maxDepenetrationVelocity, 3f);   // ⚠️1.2는 잔 튐 증가(반복 보정) — 3 유지
+            // 관절 안정성은 '연결된 두 바디' 모두의 솔버 반복에 의존 — 다리는 LegController가 40인데
+            // 상판은 기본 6이라 상판 쪽에서 관절이 발산(NaN)할 수 있음 → 전 바디 40 보장.
+            rb.solverIterations = Mathf.Max(rb.solverIterations, 40);
+            rb.solverVelocityIterations = Mathf.Max(rb.solverVelocityIterations, 40);
         }
 
         // 무늬 스킨용 렌더러/메시필터 수집(몸통=TableTop, 다리=각 leg 메시).
@@ -314,8 +356,10 @@ public class GiraffeMode : MonoBehaviour
             len[i] = baseLen[i];
             var s = mesh[i].localScale; s.y = baseLen[i]; mesh[i].localScale = s;
             var p = mesh[i].localPosition; p.y = -baseLen[i] * 0.5f; mesh[i].localPosition = p;
-            if (legRb[i] != null) LockInertia(i);
         }
+        Physics.SyncTransforms();   // AutoSyncTransforms=0 — 관성 재계산 전에 스케일을 물리에 반영
+        for (int i = 0; i < mesh.Length; i++)
+            if (mesh[i] != null && legRb[i] != null) LockInertia(i);
     }
 
     static Transform FindDeep(Transform root, string name)
@@ -379,6 +423,7 @@ public class GiraffeMode : MonoBehaviour
         // 전체 동시 신축(단일키) — 개별키 4개 동시누름의 키보드 고스팅 회피
         bool allUp   = active && allLonger  != Key.None && kb[allLonger].isPressed;
         bool allDown = active && allShorter != Key.None && kb[allShorter].isPressed;
+        int changedMask = 0;
         for (int i = 0; i < mesh.Length; i++)
         {
             if (mesh[i] == null) continue;
@@ -400,11 +445,50 @@ public class GiraffeMode : MonoBehaviour
                 len[i] = target;
                 var s = mesh[i].localScale; s.y = target; mesh[i].localScale = s;
                 var p = mesh[i].localPosition; p.y = -target * 0.5f; mesh[i].localPosition = p;
-                if (legRb[i] != null) LockInertia(i); // 길이 바뀌면 현재 길이 기준 관성/무게중심으로 안정화(NaN·처짐 방지)
+                changedMask |= 1 << i;
             }
+        }
+        if (changedMask != 0)
+        {
+            // ⚠️ 프로젝트가 AutoSyncTransforms=0 — 스케일 변경을 물리에 먼저 동기화하지 않으면
+            //    ResetInertiaTensor가 '낡은 콜라이더' 기준으로 관성을 계산한다(스케일-관성 불일치 → 불안정).
+            Physics.SyncTransforms();
+            for (int i = 0; i < mesh.Length; i++)
+                if ((changedMask & (1 << i)) != 0 && legRb[i] != null) LockInertia(i); // 길이 기준 관성/무게중심 안정화
         }
 
         if (skinned) UpdateLegTiling();   // 다리 길이에 맞춰 무늬 타일 갱신(월드 스케일 유지)
+
+        UpdateGiraffeStability();
+    }
+
+    // 지라프 모드 안정화 (요구사항: 평소=일반 무게중심 그대로 → 다리가 '늘어나면' 그때 천천히
+    // 다리 끝쪽(아래)으로 무게중심 이동 → 넘어지지 않게. 움직임은 일반 모드처럼 차분하게.)
+    //   ① 목표 하강량 = 늘어난 평균 길이에 비례(안 늘었으면 0 = 일반 모드와 동일).
+    //   ② 실제 하강은 comDropSpeed 로 '천천히' 따라감(즉시 점프 금지 — 급변이 움직임 위화감의 원인).
+    //   ③ 늘어난 만큼 상판 회전 감쇠를 더해 긴 다리 특유의 휘청임을 눌러 일반 모드 감각 유지.
+    // 구조·질량 변경 없이 CoM·damping·force만 — 크래시 안전.
+    void UpdateGiraffeStability()
+    {
+        if (boardRb == null) return;
+        if (!comStored) { boardComBase = boardRb.centerOfMass; boardAngDampBase = boardRb.angularDamping; comStored = true; }
+
+        float avgStretch = 0f;
+        if (active)
+        {
+            for (int i = 0; i < len.Length; i++) avgStretch += Mathf.Max(0f, len[i] - baseLen[i]);
+            if (len.Length > 0) avgStretch /= len.Length;
+        }
+        float targetDrop = Mathf.Min(maxComDrop, avgStretch * comDropPerStretch);   // 안 늘었으면 0
+        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.deltaTime);
+        boardRb.centerOfMass = boardComBase + new Vector3(0f, -comDrop, 0f);        // 상판 로컬 아래(다리 끝 방향)
+
+        // 늘어난 정도(0~1)에 비례해 회전 감쇠 추가 → 흔들림 억제(일반 모드 감각)
+        float stretchNorm = maxComDrop > 1e-4f ? Mathf.Clamp01(comDrop / maxComDrop) : 0f;
+        boardRb.angularDamping = boardAngDampBase + stretchAngularDamping * stretchNorm;
+
+        float mul = active ? giraffeForceMul : 1f;
+        if (legCtrls != null) foreach (var lc in legCtrls) if (lc != null) lc.forceMultiplier = mul;
     }
 
     bool AllLegsBase()

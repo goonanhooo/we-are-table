@@ -76,8 +76,19 @@ public class CameraFollow : MonoBehaviour
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 pivot = target.position + Vector3.up * height;
+        // ★대상(테이블)이 NaN/폭발로 비정상 위치가 되면 카메라를 따라보내지 않는다(이전 위치 유지).
+        //   안 그러면 카메라/오디오리스너가 non-finite가 되어 'IsFinite(distanceAlongView)','Invalid worldAABB' 어설션 폭주.
+        if (!Sane(pivot)) return;
         Vector3 pos = pivot - rot * Vector3.forward * distance;
+        if (!Sane(pos)) return;
         transform.SetPositionAndRotation(pos, rot);
+    }
+
+    // 유한하고 원점에서 너무 멀지 않은(폭발 아님) 위치인지
+    static bool Sane(Vector3 v)
+    {
+        return float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z)
+            && v.sqrMagnitude < 1e8f;
     }
 
     void SetCursor(bool locked)

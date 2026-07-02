@@ -53,6 +53,19 @@ public class SceneReset : MonoBehaviour
         }
 
         bodies = list.ToArray();
+        // ★속도 상한(전 씬 공통): 기본값 maxLinearVelocity=1e16(무제한)이라 공중에서 다리가 휘둘리다
+        //   모서리에 부딪히면 속도가 폭발→좌표 Inf→렌더 AABB 깨짐('Invalid AABB'). GiraffeMode가 없는
+        //   Hallway 등에서도 안전하도록 여기서 캡을 건다. (GiraffeMode 씬은 매 프레임 더 강한 캡으로 덮어씀.)
+        // 작은 타임스텝 = 깊은 침투↓ = 접촉 폭발↓ (속도/움직임 자체엔 영향 없음 — 물리가 더 정밀해질 뿐).
+        Time.fixedDeltaTime = 0.005f;
+        foreach (var b in bodies)
+        {
+            if (b == null) continue;
+            b.maxLinearVelocity = 40f;
+            b.maxAngularVelocity = 25f;
+            b.maxDepenetrationVelocity = 2f;   // 깊이 박혀도 부드럽게 밀어냄(폭발성 튕김 차단) — 움직임 무관
+            if (b.solverIterations < 16) b.solverIterations = 16;
+        }
         initPos = new Vector3[bodies.Length];
         initRot = new Quaternion[bodies.Length];
         for (int i = 0; i < bodies.Length; i++)
@@ -129,6 +142,70 @@ public class SceneReset : MonoBehaviour
     bool ShowFlipPrompt =>
         flippedSince >= 0f && (Time.unscaledTime - flippedSince) >= flipPromptDelay;
 
+    Vector2 lastGoodXZ; bool haveGoodXZ;
+    static bool Finite(Vector3 v) => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
+    static bool FiniteQ(Quaternion q) => float.IsFinite(q.x) && float.IsFinite(q.y) && float.IsFinite(q.z) && float.IsFinite(q.w);
+    // 정상 = 유한 + 원점에서 합리적 거리(폭발로 멀리 날아가면 '거대하지만 유한'이라 Finite는 통과하므로 거리도 검사).
+    static bool BodyOk(Rigidbody b) => Finite(b.position) && FiniteQ(b.rotation) && Finite(b.linearVelocity) && Finite(b.angularVelocity)
+        && b.position.sqrMagnitude < 600f * 600f && b.position.y > -150f;
+
+    // NaN 안전망: 긴 다리+강한 힘으로 솔버가 가끔 NaN(위치/회전/속도)을 내면 렌더 전(매 물리스텝)에 잡는다.
+    // → 카메라 'IsFinite(distanceAlongView)' 어설션, 'Invalid AABB'(렌더 바운드 깨짐) 방지.
+    // 복구는 부드럽게: NaN 난 '다리'만 상판 기준 제자리로 되돌림(상판 정상일 때). 상판 자체가 NaN이면 전체 자세 리셋.
+    void FixedUpdate() { Watchdog(); }
+
+    // ★ LateUpdate = 물리 step '이후' · 렌더 '직전'. FixedUpdate 워치독은 물리 step 이전에 돌아서
+    //   폭발(NaN/거대화)을 항상 한 프레임 늦게 잡고, 그 사이 깨진 렌더 AABB가 그대로 그려져
+    //   'Invalid AABB'/'Invalid worldAABB' 어설션이 GUIUtility:ProcessEvent에서 폭주 → 에디터 프리즈/크래시.
+    //   여기서 한 번 더 정상화하면 '렌더 전에' 좌표가 유한해져 어설션·크래시가 사라진다(감각 변화 0).
+    void LateUpdate() { Watchdog(); }
+
+    void Watchdog()
+    {
+        if (bodies == null || bodies.Length == 0 || bodies[0] == null) return;
+
+        bool boardOk = BodyOk(bodies[0]);
+        bool anyBad = false;
+        for (int i = 0; i < bodies.Length; i++)
+        {
+            var b = bodies[i];
+            if (b == null || BodyOk(b)) continue;
+            anyBad = true;
+            b.linearVelocity = Vector3.zero;
+            b.angularVelocity = Vector3.zero;
+            if (i > 0 && boardOk && relPos != null && relPos.Length > i)
+            {
+                // 다리: 상판 기준 깨끗한 상대배치로 즉시 복원(길이는 유지, 전체 리셋 아님)
+                Vector3 bp = bodies[0].position; Quaternion br = bodies[0].rotation;
+                Vector3 p = bp + br * relPos[i];
+                Quaternion r = br * relRot[i];
+                if (Finite(p) && FiniteQ(r)) { b.position = p; b.rotation = r; b.transform.SetPositionAndRotation(p, r); }
+            }
+        }
+
+        if (anyBad)
+        {
+            // 조인트 소독: 폭발 프레임에 LegController가 NaN 각도로 한계/모터를 써넣었을 수 있음 —
+            // 바디만 복구하면 조인트에 래치된 NaN이 다음 스텝 재폭발을 일으킨다.
+            for (int i = 0; i < bodies.Length; i++)
+            {
+                var lc = bodies[i] != null ? bodies[i].GetComponent<LegController>() : null;
+                if (lc != null) lc.SanitizeJoint();
+            }
+        }
+
+        if (anyBad && !boardOk)
+        {
+            Vector2 xz = haveGoodXZ ? lastGoodXZ : new Vector2(initPos[0].x, initPos[0].z);
+            ResetPoseAtXZ(xz.x, xz.y);   // 상판 NaN → 마지막 정상 위치로 전체 자세 복구
+        }
+        else if (boardOk)
+        {
+            var p = bodies[0].position;
+            lastGoodXZ = new Vector2(p.x, p.z); haveGoodXZ = true;
+        }
+    }
+
     /// <summary>
     /// '1' 키: 처음 위치로 리스폰하지 않고 — 지금 있는 자리(XZ)·바라보는 방향(yaw)은 유지한 채
     /// 기울기/다리만 초기 상태로 똑바로 세운다.
@@ -161,12 +238,18 @@ public class SceneReset : MonoBehaviour
             Vector3 f = cam.transform.forward; f.y = 0f;
             if (f.sqrMagnitude > 1e-4f) yaw = Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
         }
+        // ★방탄: board/카메라가 NaN이면 yaw가 NaN이 되어 복구해도 다시 NaN(무한 루프). NaN이면 0으로.
+        if (!float.IsFinite(yaw)) yaw = 0f;
         // 항상 '완전히 똑바로'(yaw만) 세운다. 스폰/낙하 중 잡힌 board 기울기를 절대 물려받지 않음.
         // (빌드는 실행·물리 순서가 달라 Start()가 board가 기운 뒤 호출될 수 있어, 그 tilt가 리셋마다 박히던 버그 수정.)
         Quaternion newBoardRot = Quaternion.Euler(0f, yaw, 0f);
         // 지면 위로 '테이블 절반 높이'만큼 띄워 생성 → 지형에 잠기지 않고 살짝 위에서 똑바로 안착.
         float lift = boardClearance + tableHeight * groundLiftFactor;
-        Vector3 newBoardPos = new Vector3(xz.x, GroundYAt(xz, scanFromY) + lift, xz.y);
+        // ★방탄: 스캔 시작점/결과가 NaN이면 폴백 높이로(스폰 근처 안전고도).
+        if (!float.IsFinite(scanFromY)) scanFromY = 500f;
+        float gy = GroundYAt(xz, scanFromY);
+        if (!float.IsFinite(gy)) gy = 30f;
+        Vector3 newBoardPos = new Vector3(xz.x, gy + lift, xz.y);
 
         for (int i = 0; i < bodies.Length; i++)
         {
@@ -222,17 +305,17 @@ public class SceneReset : MonoBehaviour
         if (!ShowFlipPrompt) return;
         EnsureFlipStyles();
 
-        float w = 440f, h = 96f;
-        float x = (Screen.width - w) * 0.5f, y = Screen.height - h - 64f;
+        float w = 372f, h = 80f;
+        float x = (Screen.width - w) * 0.5f, y = Screen.height - h - 56f;
         Color prev = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.62f);
+        GUI.color = new Color(0f, 0f, 0f, 0.6f);
         GUI.DrawTexture(new Rect(x, y, w, h), flipTex);
         GUI.color = new Color(1f, 0.78f, 0.25f, 1f);
-        GUI.DrawTexture(new Rect(x, y, w, 5f), flipTex);                 // 상단 강조선
+        GUI.DrawTexture(new Rect(x, y, w, 4f), flipTex);                 // 상단 강조선
         GUI.color = prev;
 
-        GUI.Label(new Rect(x, y + 12f, w, 46f), "Press \"1\"", flipBig);
-        GUI.Label(new Rect(x, y + 56f, w, 30f), "테이블이 뒤집혔어요 — 자세 다시 잡기", flipSmall);
+        GUI.Label(new Rect(x, y + 10f, w, 40f), "Press \"1\"", flipBig);
+        GUI.Label(new Rect(x, y + 48f, w, 24f), "테이블이 뒤집혔어요 — 자세 다시 잡기", flipSmall);
     }
 
     void EnsureFlipStyles()
@@ -240,10 +323,10 @@ public class SceneReset : MonoBehaviour
         if (flipBig != null) return;
         flipTex = Texture2D.whiteTexture;
         flipBig = new GUIStyle(GUI.skin.label)
-        { fontSize = 34, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        { fontSize = 29, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         flipBig.normal.textColor = new Color(1f, 0.85f, 0.4f, 1f);
         flipSmall = new GUIStyle(GUI.skin.label)
-        { fontSize = 17, alignment = TextAnchor.MiddleCenter };
+        { fontSize = 15, alignment = TextAnchor.MiddleCenter };
         flipSmall.normal.textColor = Color.white;
     }
 }

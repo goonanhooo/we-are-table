@@ -253,8 +253,8 @@ public class GiraffeCutscene : MonoBehaviour
         float bh = bw * (currentBubble.height / (float)currentBubble.width);
         float gx = sp.x;
         float gy = Screen.height - sp.y;                         // GUI 좌표(상단 원점)
-        // 기린 왼쪽: 말풍선 꼬리(오른쪽)가 기린 머리에 닿도록 머리 왼쪽에 배치
-        var r = new Rect(gx - bw + 8f, gy - bh * 0.5f, bw, bh);
+        // 기린 왼쪽: 말풍선 전체를 머리보다 확실히 왼쪽에(겹치지 않게 여백). 꼬리(오른쪽)가 기린을 가리킴.
+        var r = new Rect(gx - bw - 55f, gy - bh * 0.5f, bw, bh);
         r.x = Mathf.Max(8f, r.x);
         r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
         GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);

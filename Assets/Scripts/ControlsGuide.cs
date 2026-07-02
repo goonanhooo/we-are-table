@@ -31,7 +31,12 @@ public class ControlsGuide : MonoBehaviour
         group.alpha = 1f;
 
         float h = 0f;
-        while (h < hold) { if (h >= minShow && AnyMoveKey()) break; h += Time.deltaTime; yield return null; }
+        while (h < hold)
+        {
+            bool clicked = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+            if ((h >= minShow && AnyMoveKey()) || (h >= 0.4f && clicked)) break;  // 이동키 또는 클릭으로 넘김
+            h += Time.deltaTime; yield return null;
+        }
 
         for (float t = 0; t < fadeOut; t += Time.deltaTime) { group.alpha = 1f - Mathf.Clamp01(t / fadeOut); yield return null; }
         group.alpha = 0f;

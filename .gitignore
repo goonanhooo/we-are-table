@@ -49,3 +49,6 @@ crashlog*
 
 # Unity 6 솔루션 파일
 *.slnx
+
+# NaN 블랙박스 덤프(진단용 임시 파일)
+NaNDump_*.txt

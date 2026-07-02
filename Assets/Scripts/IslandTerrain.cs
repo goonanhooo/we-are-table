@@ -38,6 +38,19 @@ public class IslandTerrain : MonoBehaviour
     public float spawnHillRadius = 24f;
     public float spawnHillHeight = 5.5f;
 
+    [Header("스폰 바다쪽 방어 능선 (사용 안 함 — 오목 분지로 대체)")]
+    public bool seaBarrier = false;
+    public Vector2 barrierA = new Vector2(-44f, 4f);
+    public Vector2 barrierB = new Vector2(80f, 4f);
+    public float barrierHeight = 19f;
+    public float barrierHalfWidth = 13f;
+
+    [Header("스폰 오목 분지 (테이블이 굴러나가지 않게 아주 약간 오목) — design 좌표")]
+    public bool spawnDish = true;
+    public Vector2 spawnDishCenter = new Vector2(16f, 30f);  // = 월드 스폰 (8,15)
+    public float spawnDishRadius = 26f;                      // design (~13 월드)
+    public float spawnDishDepth = 3f;                        // design (~1.5 월드) — 아주 약간
+
     [Header("화산")]
     public Vector2 volcanoCenter = new Vector2(36f, 188f);
     public float volcanoRadius = 70f;
@@ -90,6 +103,8 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + coastNoise.GetHashCode();
             h = h * 31 + hillHeight.GetHashCode() + hillScale.GetHashCode();
             h = h * 31 + spawnHillCenter.GetHashCode() + spawnHillRadius.GetHashCode() + spawnHillHeight.GetHashCode();
+            h = h * 31 + (seaBarrier ? 1 : 0) + barrierA.GetHashCode() + barrierB.GetHashCode() + barrierHeight.GetHashCode() + barrierHalfWidth.GetHashCode();
+            h = h * 31 + (spawnDish ? 1 : 0) + spawnDishCenter.GetHashCode() + spawnDishRadius.GetHashCode() + spawnDishDepth.GetHashCode();
             h = h * 31 + seed;
             h = h * 31 + volcanoCenter.GetHashCode() + volcanoRadius.GetHashCode() + volcanoHeight.GetHashCode();
             h = h * 31 + craterRadius.GetHashCode() + craterDepth.GetHashCode() + volcanoChannelDepth.GetHashCode();
@@ -186,6 +201,18 @@ public class IslandTerrain : MonoBehaviour
         return t * t * (3f - 2f * t);
     }
 
+    // (x,z)에서 선분 A-B 까지의 최단 거리(design 좌표).
+    static float DistToSegDesign(float x, float z, Vector2 a, Vector2 b)
+    {
+        float abx = b.x - a.x, abz = b.y - a.y;
+        float apx = x - a.x, apz = z - a.y;
+        float len2 = abx * abx + abz * abz;
+        float t = len2 > 1e-6f ? Mathf.Clamp01((apx * abx + apz * abz) / len2) : 0f;
+        float cx = a.x + abx * t, cz = a.y + abz * t;
+        float ddx = x - cx, ddz = z - cz;
+        return Mathf.Sqrt(ddx * ddx + ddz * ddz);
+    }
+
     float Fbm(float x, float z)
     {
         float s = seed * 0.1234f;
@@ -223,6 +250,22 @@ public class IslandTerrain : MonoBehaviour
             float shd = Mathf.Sqrt((x - spawnHillCenter.x) * (x - spawnHillCenter.x) + (z - spawnHillCenter.y) * (z - spawnHillCenter.y));
             float k = Mathf.Clamp01(1f - shd / spawnHillRadius);
             h += spawnHillHeight * (k * k * (3f - 2f * k)) * landMask;
+        }
+
+        // 스폰 바다(남)쪽 방어 능선 (기본 끔)
+        if (seaBarrier && barrierHeight != 0f && barrierHalfWidth > 0.01f)
+        {
+            float bd = DistToSegDesign(x, z, barrierA, barrierB);
+            float bk = Mathf.Clamp01(1f - bd / barrierHalfWidth);
+            h += barrierHeight * (bk * bk * (3f - 2f * bk)) * landMask;
+        }
+
+        // 스폰 오목 분지 — 중심이 가장 낮은 완만한 그릇 모양(테이블이 자연스레 가운데로 모임).
+        if (spawnDish && spawnDishDepth != 0f && spawnDishRadius > 0.01f)
+        {
+            float shd = Mathf.Sqrt((x - spawnDishCenter.x) * (x - spawnDishCenter.x) + (z - spawnDishCenter.y) * (z - spawnDishCenter.y));
+            float k = Mathf.Clamp01(1f - shd / spawnDishRadius);
+            h -= spawnDishDepth * (k * k * (3f - 2f * k)) * landMask;
         }
 
         // 화산 원뿔 + 평평한 바닥의 분화구 웅덩이
