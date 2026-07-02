@@ -126,7 +126,7 @@ public class LegController : MonoBehaviour
             hinge.useMotor = false;
             hinge.useSpring = false;
             hinge.limits = new JointLimits { min = -0.1f, max = 0.1f }; // 0도 부근으로 잠금 = 수직
-            if (rb != null) rb.angularVelocity = Vector3.zero;
+            if (rb != null && !rb.isKinematic) rb.angularVelocity = Vector3.zero;
             if (holdTimer <= 0f)
             {
                 // 해제: 정상 한계/모터 복원
@@ -168,7 +168,7 @@ public class LegController : MonoBehaviour
                 hm.force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);
                 hm.freeSpin = false;
                 hinge.motor = hm;
-                if (rb != null) rb.angularVelocity = Vector3.zero;
+                if (rb != null && !rb.isKinematic) rb.angularVelocity = Vector3.zero;
                 frozen = true;
             }
             return;
@@ -275,7 +275,7 @@ public class LegController : MonoBehaviour
         if (rb != null)
         {
             rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (!rb.isKinematic) rb.angularVelocity = Vector3.zero;
         }
     }
 }

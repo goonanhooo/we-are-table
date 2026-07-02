@@ -78,11 +78,13 @@ public class TableInput : MonoBehaviour
             current[i] = source[i] == LegSource.Local ? PollLocal(kb, i) : external[i];
     }
 
-    LegInput PollLocal(Keyboard kb, int i)
+    /// <summary>키셋 하나의 로컬 키보드 상태(보조키 제외) — 게스트가 자기 다리 입력을 읽어 서버로 보낼 때도 사용.</summary>
+    public static LegInput PollKeyset(LegControlSet set)
     {
+        var kb = Keyboard.current;
         if (kb == null) return default;
-        var m = Map[i];
-        var inp = new LegInput
+        var m = Map[(int)set];
+        return new LegInput
         {
             up      = kb[m[0]].isPressed,
             down    = kb[m[1]].isPressed,
@@ -91,6 +93,12 @@ public class TableInput : MonoBehaviour
             longer  = kb[m[4]].isPressed,
             shorter = kb[m[5]].isPressed,
         };
+    }
+
+    LegInput PollLocal(Keyboard kb, int i)
+    {
+        if (kb == null) return default;
+        var inp = PollKeyset((LegControlSet)i);
         var alt = altKeys[i];
         if (alt != null)
         {
