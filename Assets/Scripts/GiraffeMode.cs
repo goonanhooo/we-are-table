@@ -47,6 +47,9 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     float[] baseLen, len;
     // 다리 피벗 Rigidbody. 길이 변할 때마다 관성/무게중심을 '현재 길이 기준'으로 안정화(StabilizeInertia).
     Rigidbody[] legRb;
+    // ★ 멀티 대비: 신축 입력도 TableInput 경유(각 다리 주인의 키셋 소유). legSets[i]=그 다리의 키셋.
+    TableInput tableInput;
+    LegControlSet[] legSets;
 
     [Header("기린 무늬 스킨(지라프 모드 켜질 때 몸통+다리)")]
     [Tooltip("몸통(상판) 무늬 스케일(단위당 타일 수, 월드). 클수록 점 작아짐.")]
@@ -99,6 +102,16 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             baseLen[i] = mesh[i].localScale.y; len[i] = baseLen[i];
             legRb[i] = mesh[i].GetComponentInParent<Rigidbody>();
             if (legRb[i] != null) LockInertia(i);
+        }
+
+        // ★ 입력 허브 + 다리별 키셋 파악(신축 입력을 그 다리 주인의 LegInput에서 읽기 위함)
+        tableInput = TableInput.Of(this);
+        legSets = new LegControlSet[n];
+        for (int i = 0; i < n; i++)
+        {
+            legSets[i] = (LegControlSet)i;   // 폴백(구 매핑)
+            var lc = legRb[i] != null ? legRb[i].GetComponent<LegController>() : null;
+            if (lc != null) legSets[i] = lc.controlSet;
         }
 
         // 상판(샤시) 강체 = 다리 힌지가 연결된 몸체. 다리 컨트롤러들도 수집.
@@ -430,8 +443,11 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             float target = len[i];
             if (active)
             {
-                if (allUp   || kb[Longer[i]].isPressed)  target += speed * dt;
-                if (allDown || kb[Shorter[i]].isPressed) target -= speed * dt;
+                // 신축 입력 = 그 다리 주인의 LegInput(TableInput 경유 — 로컬 키보드/네트워크 동일 경로)
+                LegInput li = tableInput != null && legSets != null ? tableInput.Get(legSets[i])
+                              : new LegInput { longer = kb[Longer[i]].isPressed, shorter = kb[Shorter[i]].isPressed };
+                if (allUp   || li.longer)  target += speed * dt;
+                if (allDown || li.shorter) target -= speed * dt;
             }
             else
             {

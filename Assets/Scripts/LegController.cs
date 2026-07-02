@@ -69,6 +69,10 @@ public class LegController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         StabilizeBody(rb);
 
+        // ★ 입력 허브 연결 + 보조 키 등록(멀티 대비) — 키보드 폴링은 TableInput이 담당
+        tableInput = TableInput.Of(this);
+        if (tableInput != null) tableInput.RegisterAltKeys(controlSet, altUp, altDown, altLeft, altRight);
+
         Rigidbody chassis = null;
         var go = GameObject.Find(chassisName);
         if (go != null) chassis = go.GetComponent<Rigidbody>();
@@ -133,30 +137,11 @@ public class LegController : MonoBehaviour
             return; // 고정 중에는 입력 무시
         }
 
-        var kb = Keyboard.current;
-
-        Key up, down, left, right;
-        switch (controlSet)
-        {
-            case LegControlSet.TFGH:   up = Key.T;       down = Key.G;         left = Key.F;         right = Key.H;          break;
-            case LegControlSet.IJKL:   up = Key.I;       down = Key.K;         left = Key.J;         right = Key.L;          break;
-            case LegControlSet.Arrows: up = Key.UpArrow; down = Key.DownArrow; left = Key.LeftArrow; right = Key.RightArrow; break;
-            default:                   up = Key.W;       down = Key.S;         left = Key.A;         right = Key.D;          break; // WASD
-        }
-
-        // 이 다리에 해당하는 키들의 입력 상태
-        bool upP    = kb != null && kb[up].isPressed;
-        bool downP  = kb != null && kb[down].isPressed;
-        bool leftP  = kb != null && kb[left].isPressed;
-        bool rightP = kb != null && kb[right].isPressed;
-        // 보조 키(설정된 경우 OR로 추가) → 같은 다리를 추가 키로도 조작
-        if (kb != null)
-        {
-            if (altUp    != Key.None && kb[altUp].isPressed)    upP    = true;
-            if (altDown  != Key.None && kb[altDown].isPressed)  downP  = true;
-            if (altLeft  != Key.None && kb[altLeft].isPressed)  leftP  = true;
-            if (altRight != Key.None && kb[altRight].isPressed) rightP = true;
-        }
+        // ★ 입력은 TableInput(입력 허브)에서 받는다 — 로컬 키보드든(기본) 네트워크 주입(External)이든
+        //   다리 입장에선 동일한 LegInput. (멀티: 네트워크 레이어가 TableInput.SetExternal로 주입)
+        if (tableInput == null) tableInput = TableInput.Of(this);
+        LegInput inp = tableInput != null ? tableInput.Get(controlSet) : LegacyPoll();
+        bool upP = inp.up, downP = inp.down, leftP = inp.left, rightP = inp.right;
         bool hasInput = upP || downP || leftP || rightP;
 
         // 자기 키가 하나도 안 눌리면, 상판과의 상대 각도를 그대로 '잠근다'(힌지 한계를 현재 각으로 고정).
@@ -222,6 +207,27 @@ public class LegController : MonoBehaviour
             if (legMesh != null) legMesh.localRotation = Quaternion.Euler(0f, yaw, 0f);
             hinge.axis = (Quaternion.AngleAxis(yaw, Vector3.up) * hingeAxis).normalized;
         }
+    }
+
+    // TableInput이 없는 씬 안전망 — 기존 직접 폴링(동작 동일). 정상 경로는 TableInput.Get().
+    LegInput LegacyPoll()
+    {
+        var kb = Keyboard.current;
+        if (kb == null) return default;
+        Key up, down, left, right;
+        switch (controlSet)
+        {
+            case LegControlSet.TFGH:   up = Key.T;       down = Key.G;         left = Key.F;         right = Key.H;          break;
+            case LegControlSet.IJKL:   up = Key.I;       down = Key.K;         left = Key.J;         right = Key.L;          break;
+            case LegControlSet.Arrows: up = Key.UpArrow; down = Key.DownArrow; left = Key.LeftArrow; right = Key.RightArrow; break;
+            default:                   up = Key.W;       down = Key.S;         left = Key.A;         right = Key.D;          break; // WASD
+        }
+        var inp = new LegInput { up = kb[up].isPressed, down = kb[down].isPressed, left = kb[left].isPressed, right = kb[right].isPressed };
+        if (altUp    != Key.None && kb[altUp].isPressed)    inp.up    = true;
+        if (altDown  != Key.None && kb[altDown].isPressed)  inp.down  = true;
+        if (altLeft  != Key.None && kb[altLeft].isPressed)  inp.left  = true;
+        if (altRight != Key.None && kb[altRight].isPressed) inp.right = true;
+        return inp;
     }
 
     /// <summary>지정 시간(초) 동안 다리를 수직(각도 0)으로 강제 고정한다. (리셋 직후 안착 보정용)</summary>

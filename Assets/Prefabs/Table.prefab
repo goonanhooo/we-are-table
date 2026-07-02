@@ -1055,6 +1055,7 @@ GameObject:
   - component: {fileID: 7010779908504020114}
   - component: {fileID: 8545983734449903449}
   - component: {fileID: 4714383712602322628}
+  - component: {fileID: 104643513103032725}
   m_Layer: 0
   m_Name: Table
   m_TagString: Player
@@ -1214,3 +1215,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NaNBlackBox
   bufferSteps: 240
   dumpCooldown: 10
+--- !u!114 &104643513103032725
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70e75379363e840a2b5492af894a46c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TableInput
