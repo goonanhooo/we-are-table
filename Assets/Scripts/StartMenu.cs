@@ -78,7 +78,7 @@ public class StartMenu : MonoBehaviour
         if (n == playSignName)
         {
             if (levelSelect != null) levelSelect.Open();      // 레벨 선택 오버레이 열기(썸네일 클릭으로 이동)
-            else SceneManager.LoadScene(playScene, LoadSceneMode.Single);
+            else NetScene.Load(playScene);   // 멀티: 호스트가 전원 씬 전환
         }
         else if (n == optionSignName && pauseMenu != null)
             pauseMenu.OpenMenu();

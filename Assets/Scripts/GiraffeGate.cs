@@ -63,7 +63,7 @@ public class GiraffeGate : MonoBehaviour
         if (!opened || transitioned) return;
         transitioned = true;
         Time.timeScale = 1f;
-        SceneManager.LoadScene(nextScene, LoadSceneMode.Single);
+        NetScene.Load(nextScene);   // 멀티: 호스트가 전원 씬 전환(게스트 트리거는 무시)
     }
 
     IEnumerator OpenCutscene()

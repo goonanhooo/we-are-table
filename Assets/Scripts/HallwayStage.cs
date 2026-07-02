@@ -284,7 +284,7 @@ public class HallwayStage : MonoBehaviour
                 FallCarry.rotation = poseOk ? brb.rotation : Quaternion.identity;
                 FallCarry.velocity = poseOk ? brb.linearVelocity : new Vector3(0f, -14f, 0f);
                 FallCarry.angularVelocity = poseOk ? brb.angularVelocity : Vector3.zero;
-                if (!string.IsNullOrEmpty(nextScene)) SceneManager.LoadScene(nextScene, LoadSceneMode.Single);
+                if (!string.IsNullOrEmpty(nextScene)) NetScene.Load(nextScene);   // 멀티: 호스트가 전원 씬 전환
             }
         }
     }

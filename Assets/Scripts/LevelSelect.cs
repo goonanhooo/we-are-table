@@ -87,7 +87,7 @@ public class LevelSelect : MonoBehaviour
             if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none))
             {
                 Time.timeScale = 1f;
-                SceneManager.LoadScene(levels[i].scene, LoadSceneMode.Single);
+                NetScene.Load(levels[i].scene);   // 멀티: 호스트가 전원 씬 전환
             }
         }
 

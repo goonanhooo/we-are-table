@@ -51,6 +51,32 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     TableInput tableInput;
     LegControlSet[] legSets;
 
+    // ★ 멀티 게스트 모드: 입력/물리(신축·관성·무게중심)는 전부 끄고, NetVisualSync가 주는
+    //   시각 상태(다리 길이·스킨)만 NetApplyVisual로 반영한다. (물리는 호스트 전용)
+    [HideInInspector] public bool netVisualOnly;
+
+    /// <summary>현재 다리 길이(NetVisualSync가 호스트에서 읽어 동기화).</summary>
+    public float GetLen(int i) => len != null && i >= 0 && i < len.Length ? len[i] : 0f;
+
+    /// <summary>게스트 시각 적용(물리 없음): 다리 길이 + 기린 스킨. 매 프레임 호출해도 무해(멱등).</summary>
+    public void NetApplyVisual(bool on, float l0, float l1, float l2, float l3)
+    {
+        if (mesh == null || len == null) return;   // Start 전 — 다음 프레임 재시도됨
+        float[] ls = { l0, l1, l2, l3 };
+        for (int i = 0; i < mesh.Length && i < 4; i++)
+        {
+            if (mesh[i] == null || ls[i] <= 0f) continue;
+            if (Mathf.Abs(len[i] - ls[i]) < 1e-4f) continue;
+            len[i] = ls[i];
+            var s = mesh[i].localScale; s.y = ls[i]; mesh[i].localScale = s;
+            var p = mesh[i].localPosition; p.y = -ls[i] * 0.5f; mesh[i].localPosition = p;
+        }
+        if (on && !skinned) ApplyGiraffeSkin();
+        else if (!on && skinned) RemoveGiraffeSkin();
+        if (skinned) UpdateLegTiling();
+        active = on;   // 좌상단 기린 아이콘 표시 일치
+    }
+
     [Header("기린 무늬 스킨(지라프 모드 켜질 때 몸통+다리)")]
     [Tooltip("몸통(상판) 무늬 스케일(단위당 타일 수, 월드). 클수록 점 작아짐.")]
     public float patternScale = 0.6f;
@@ -421,6 +447,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
+        if (netVisualOnly) return;   // ★ 멀티 게스트: 입력/물리 없음 — NetVisualSync가 시각만 반영
         if (mesh == null) return;
         var kb = Keyboard.current;
         if (kb == null) return;

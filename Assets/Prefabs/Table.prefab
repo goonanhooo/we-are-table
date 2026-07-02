@@ -1383,6 +1383,7 @@ GameObject:
   - component: {fileID: 104643513103032725}
   - component: {fileID: 7387522618337251565}
   - component: {fileID: 1678603598061326513}
+  - component: {fileID: 27931991182146071}
   m_Layer: 0
   m_Name: Table
   m_TagString: Player
@@ -1488,6 +1489,7 @@ MonoBehaviour:
   speed: 0.8
   allLonger: 14
   allShorter: 13
+  netVisualOnly: 0
   patternScale: 0.6
   legSpotWorld: 0.08
   giraffeForceMul: 2.6
@@ -1591,4 +1593,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1bbdab5cd1a3446d59300830fd502ec0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetLegLink
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &27931991182146071
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90ac3b8ab68274dc8a2d3f8aabd3977f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetVisualSync
   ShowTopMostFoldoutHeaderGroup: 1

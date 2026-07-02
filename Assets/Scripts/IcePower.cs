@@ -51,8 +51,20 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
         }
     }
 
+    // ★ 멀티 게스트 모드: 키 입력 무시 — NetVisualSync가 NetSetIceVisual로 얼음 재질만 반영.
+    [HideInInspector] public bool netVisualOnly;
+
+    /// <summary>게스트 시각 적용: 호스트의 얼음 모드 상태를 재질로 반영(마찰 변경은 kinematic이라 무해).</summary>
+    public void NetSetIceVisual(bool on)
+    {
+        if (active == on) return;
+        active = on;
+        Apply();
+    }
+
     void Update()
     {
+        if (netVisualOnly) return;   // ★ 멀티 게스트: 3키 토글 금지(호스트 상태를 따라감)
         var kb = Keyboard.current;
         if (kb == null) return;
         if (unlocked && kb.digit3Key.wasPressedThisFrame)

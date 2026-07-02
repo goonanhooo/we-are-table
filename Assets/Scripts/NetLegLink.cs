@@ -148,16 +148,17 @@ public class NetLegLink : NetworkBehaviour
     static LegInput Unpack(byte b) => new LegInput
     { up = (b & 1) != 0, down = (b & 2) != 0, left = (b & 4) != 0, right = (b & 8) != 0, longer = (b & 16) != 0, shorter = (b & 32) != 0 };
 
-    // ── 게스트 모드: 물리/치트/능력 스크립트는 호스트 전용 — 게스트에선 끔(포즈는 NetworkTransform 수신) ──
+    // ── 게스트 모드: 물리/치트 스크립트는 호스트 전용 — 게스트에선 끔(포즈는 NetworkTransform 수신).
+    //    GiraffeMode/IcePower는 끄지 않고 netVisualOnly — NetVisualSync가 시각(길이·스킨·재질)만 반영. ──
     void ApplyGuestMode()
     {
         var root = transform.root;
         foreach (var lc in root.GetComponentsInChildren<LegController>(true)) lc.enabled = false;
         Toggle<SceneReset>(root, false);
         Toggle<PlaytestCheat>(root, false);
-        Toggle<GiraffeMode>(root, false);
-        Toggle<IcePower>(root, false);
         Toggle<NaNBlackBox>(root, false);
+        foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
+        foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;
     }
 
     static void Toggle<T>(Transform root, bool on) where T : MonoBehaviour

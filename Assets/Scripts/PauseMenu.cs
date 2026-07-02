@@ -183,13 +183,13 @@ public class PauseMenu : MonoBehaviour
             else if (restartBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single); // 현재 씬 처음부터
+                NetScene.Reload(); // 현재 씬 처음부터(멀티: 호스트만 유효 — 전원 재시작)
             }
             else if (cheatBtn.Contains(gm)) { CheatMode.Active = !CheatMode.Active; }
             else if (menuBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
-                SceneManager.LoadScene(startScene, LoadSceneMode.Single);
+                NetScene.LeaveToLocal(startScene);   // 멀티: 세션에서 나만 빠져나가 메뉴로(호스트면 세션 종료)
             }
             else if (!volSlider.Contains(gm) && !bgmSlider.Contains(gm) && !sfxSlider.Contains(gm))
                 SetPaused(false); // 바깥/패널 빈 곳 클릭 → 닫기
