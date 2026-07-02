@@ -30,8 +30,9 @@ public class NetLegLink : NetworkBehaviour
         new LegOwners { s0 = NONE, s1 = NONE, s2 = NONE, s3 = NONE },
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    // 게스트 접속 순서대로 배정할 다리(호스트는 WASD 유지)
-    static readonly LegControlSet[] AssignOrder = { LegControlSet.TFGH, LegControlSet.IJKL, LegControlSet.Arrows };
+    // 게임 시작 여부(호스트가 로비에서 시작 누름) — 시작 후엔 다리 변경 금지, 세션도 잠김(난입 차단)
+    readonly NetworkVariable<bool> started = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     TableInput tableInput;
     int myLeg = -1;              // 게스트: 내가 배정받은 다리(키셋 인덱스). -1=없음
@@ -39,12 +40,43 @@ public class NetLegLink : NetworkBehaviour
     float lastHeartbeat;
 
     public LegControlSet? MyLeg => myLeg >= 0 ? (LegControlSet)myLeg : (LegControlSet?)null;
+    public bool Started => started.Value;
+    /// <summary>다리 주인 표시용: -2=빈 자리, -1=호스트, 그 외=clientId.</summary>
+    public long OwnerOf(int leg)
+    {
+        ulong v = owners.Value.Get(leg);
+        if (v == NONE) return -2;
+        if (NetworkManager != null && v == NetworkManager.LocalClientId && IsServer) return -1;
+        return (long)v;
+    }
+    public bool IsMine(int leg) => NetworkManager != null && owners.Value.Get(leg) == NetworkManager.LocalClientId;
     public string OwnersDebug()
     {
         var o = owners.Value; var sb = new System.Text.StringBuilder();
         for (int i = 0; i < 4; i++)
-            sb.Append((LegControlSet)i).Append('=').Append(o.Get(i) == NONE ? "호스트" : "P" + o.Get(i)).Append(i < 3 ? "  " : "");
+            sb.Append((LegControlSet)i).Append('=').Append(o.Get(i) == NONE ? "빈자리" : "P" + o.Get(i)).Append(i < 3 ? "  " : "");
         return sb.ToString();
+    }
+
+    /// <summary>로비에서 다리 선택(모든 클라 호출 가능 — 서버가 검증). 이미 주인 있으면 무시, 내 기존 다리는 해제.</summary>
+    [Rpc(SendTo.Server)]
+    public void ClaimLegRpc(byte leg, RpcParams rpc = default)
+    {
+        if (leg > 3 || started.Value) return;                       // 시작 후 변경 금지
+        ulong who = rpc.Receive.SenderClientId;
+        var o = owners.Value;
+        if (o.Get(leg) != NONE && o.Get(leg) != who) return;        // 남의 자리
+        for (int i = 0; i < 4; i++) if (o.Get(i) == who) o.Set(i, NONE);   // 내 기존 자리 해제
+        o.Set(leg, who);
+        owners.Value = o;
+    }
+
+    /// <summary>호스트: 게임 시작 — 다리 고정 + 세션 잠금(중간 난입 차단).</summary>
+    public void StartGame()
+    {
+        if (!IsServer || started.Value) return;
+        started.Value = true;
+        _ = NetSession.LockAsync();
     }
 
     public override void OnNetworkSpawn()
@@ -53,10 +85,7 @@ public class NetLegLink : NetworkBehaviour
         owners.OnValueChanged += OnOwnersChanged;
 
         if (IsServer)
-        {
-            NetworkManager.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-        }
         if (IsClient && !IsServer) ApplyGuestMode();
         OnOwnersChanged(default, owners.Value);
     }
@@ -65,28 +94,13 @@ public class NetLegLink : NetworkBehaviour
     {
         owners.OnValueChanged -= OnOwnersChanged;
         if (IsServer && NetworkManager != null)
-        {
-            NetworkManager.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-        }
         // 세션 종료 → 전 다리 로컬 복귀(호스트가 싱글로 이어서 조작 가능)
         if (tableInput != null)
             for (int i = 0; i < 4; i++) tableInput.SetSource((LegControlSet)i, TableInput.LegSource.Local);
     }
 
-    // ── 서버: 접속/퇴장 시 다리 배정 ──
-    void OnClientConnected(ulong clientId)
-    {
-        if (clientId == NetworkManager.LocalClientId) return;   // 호스트 자신
-        var o = owners.Value;
-        foreach (var set in AssignOrder)
-        {
-            int i = (int)set;
-            if (o.Get(i) == NONE) { o.Set(i, clientId); owners.Value = o; return; }
-        }
-        Debug.Log("[NetLegLink] 빈 다리 없음 — 관전만: client " + clientId);
-    }
-
+    // ── 서버: 퇴장 시 그 사람 다리 해제(호스트 로컬 복귀) ──
     void OnClientDisconnected(ulong clientId)
     {
         var o = owners.Value; bool ch = false;
@@ -103,12 +117,10 @@ public class NetLegLink : NetworkBehaviour
                 tableInput.SetSource((LegControlSet)i,
                     o.Get(i) == NONE ? TableInput.LegSource.Local : TableInput.LegSource.External);
 
-        if (IsClient && !IsServer)
-        {
-            myLeg = -1;
-            for (int i = 0; i < 4; i++)
-                if (o.Get(i) == NetworkManager.LocalClientId) myLeg = i;
-        }
+        // 내 다리 파악(호스트 포함 — 표시용. 게스트는 입력 전송에도 사용)
+        myLeg = -1;
+        for (int i = 0; i < 4; i++)
+            if (o.Get(i) == NetworkManager.LocalClientId) myLeg = i;
     }
 
     // ── 게스트: 자기 다리 입력을 서버로 (변화 시 즉시 + 0.2s 하트비트) ──

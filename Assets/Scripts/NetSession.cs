@@ -89,6 +89,20 @@ public static class NetSession
         finally { Busy = false; }
     }
 
+    /// <summary>세션 잠금(호스트 전용) — 게임 시작 후 방코드 참가 차단(중간 난입 방지).</summary>
+    public static async Task LockAsync()
+    {
+        if (Session == null) return;
+        try
+        {
+            var host = Session.AsHost();
+            host.IsLocked = true;
+            await host.SavePropertiesAsync();
+            Debug.Log("[NetSession] 세션 잠금(난입 차단)");
+        }
+        catch (System.Exception e) { Debug.LogWarning("[NetSession] 잠금 실패: " + e.Message); }
+    }
+
     /// <summary>세션 떠나기(호스트가 떠나면 세션 종료 → 게스트들은 연결 해제됨 = 설계대로).</summary>
     public static async Task LeaveAsync()
     {
