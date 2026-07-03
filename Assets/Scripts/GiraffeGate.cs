@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -48,6 +49,13 @@ public class GiraffeGate : MonoBehaviour
 
     void Update()
     {
+        // [테스트] 치트 ON(옵션 메뉴) 상태에서 F6 = 버튼 없이 문 열기 — 구멍 낙하만 바로 확인용
+        if (!opened && CheatMode.Active)
+        {
+            var kb = Keyboard.current;
+            if (kb != null && kb.f6Key.wasPressedThisFrame) ForceOpen();
+        }
+
         if (!opened && buttons != null && buttons.Length > 0)
         {
             bool all = true;
