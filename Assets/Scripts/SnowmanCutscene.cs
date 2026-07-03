@@ -127,23 +127,39 @@ public class SnowmanCutscene : MonoBehaviour
         currentBubble = null;
         Vector3 camTalkEnd = camNear;
 
-        // 4~5) 파란 빛이 눈사람 → 테이블로, 살짝 호를 그리며 (정면 카메라 유지)
-        yield return Hold(panSeconds * 0.5f, camTalkEnd, camLook);
+        // 4) ★힘 전달 앵글: 눈사람↔테이블 라인의 옆(방 앞쪽)에서 둘 다 프레임에 담는 뷰로 이동
+        Vector3 tablePos = (tableTop != null ? tableTop.position : table.position);
+        Vector3 focusA = assembledPos;                       // 눈사람 머리
+        Vector3 focusB = tablePos + Vector3.up * 0.4f;       // 테이블
+        Vector3 mid = (focusA + focusB) * 0.5f;
+        Vector3 line = focusB - focusA; line.y = 0f;
+        float sep = Mathf.Max(line.magnitude, 2.5f);
+        Vector3 side = line.sqrMagnitude > 1e-4f ? Vector3.Cross(line.normalized, Vector3.up) : Vector3.forward;
+        if (side.z < 0f) side = -side;                       // 방 앞(+Z, 입구쪽)에서 봐 벽에 안 박히게
+        Vector3 camPow = mid + side * (sep * 1.15f + 5.5f) + Vector3.up * 2.6f;
+        // 동굴 방 안으로 클램프(내부 x±16 z[-7,24] y26~36 — 여유 두고)
+        camPow.x = Mathf.Clamp(camPow.x, body.position.x - 14f, body.position.x + 14f);
+        camPow.z = Mathf.Clamp(camPow.z, body.position.z - 2f, body.position.z + 25f);
+        camPow.y = Mathf.Min(camPow.y, body.position.y + 8f);
+        Vector3 camPowLook = mid + Vector3.up * 0.2f;
+        yield return CamLerp(camTalkEnd, camLook, camPow, camPowLook, panSeconds * 0.7f);
+
+        // 5) 파란 빛이 눈사람 → 테이블로, 살짝 호를 그리며 (양쪽이 다 보이는 앵글 유지)
         var light = MakeLight();
         Vector3 from = assembledPos;
-        Vector3 tgt = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
+        Vector3 tgt = tablePos + Vector3.up * 0.2f;
         for (float t = 0; t < lightSeconds; t += Time.deltaTime)
         {
             float u = Mathf.SmoothStep(0, 1, t / lightSeconds);
             Vector3 lp = Vector3.Lerp(from, tgt, u); lp.y += Mathf.Sin(u * Mathf.PI) * 1.1f;   // 포물선 궤적
             light.transform.position = lp;
             light.transform.localScale = Vector3.one * Mathf.Lerp(0.6f, 0.12f, u);
-            SetCam(camTalkEnd, camLook); yield return null;
+            SetCam(camPow, camPowLook); yield return null;
         }
         Destroy(light);
         // 테이블 몸이 빛나다 절정에서 얼음(눈사람의 힘)으로 변신 → 빛 잦아들면 얼음 형태 유지(FlashTable 내부).
-        yield return FlashTable(camTalkEnd, camLook);
-        yield return Hold(1.3f, camTalkEnd, camLook);
+        yield return FlashTable(camPow, camPowLook);
+        yield return Hold(1.3f, camPow, camPowLook);
 
         // 7) 눈사람 힘 조작법 이미지 (비활성 오브젝트라 GameObject.Find 안 됨 → FindObjectsInactive)
         var cg = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
