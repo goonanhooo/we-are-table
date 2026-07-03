@@ -228,10 +228,10 @@ public class PauseMenu : MonoBehaviour
 
         ComputeLayout();
 
-        // 화면 어둡게
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.55f));
-        // 패널
-        Fill(panel, new Color(0.12f, 0.12f, 0.14f, 0.97f));
+        // 화면 살짝 어둡게(흰 패널이 도드라지게)
+        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
+        // 패널: 흰 배경 + 얇은 검은 테두리
+        UiKit.Panel(panel, 0.97f);
 
         GUI.Label(titleRect, "PAUSED", titleStyle);
 
@@ -267,7 +267,7 @@ public class PauseMenu : MonoBehaviour
         if (pages.Length == 0) { showControls = false; return; }
         controlsPage = Mathf.Clamp(controlsPage, 0, pages.Length - 1);
 
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.04f, 0.04f, 0.06f, 0.97f));
+        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
 
         GUI.Label(ctrlTitle, "조작법 — " + names[controlsPage], titleStyle);
         if (pages[controlsPage] != null)
@@ -303,7 +303,7 @@ public class PauseMenu : MonoBehaviour
         ComputeControlsLayout();
         string[] names; var pages = LetterPages(out names);
 
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.04f, 0.04f, 0.06f, 0.97f));
+        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
 
         if (pages.Length == 0)
         {
@@ -331,46 +331,34 @@ public class PauseMenu : MonoBehaviour
 
     void DrawButton(Rect r, string label, Vector2 gm)
     {
-        bool hover = r.Contains(gm);
-        Fill(r, hover ? new Color(0.30f, 0.55f, 0.95f, 1f) : new Color(0.22f, 0.32f, 0.45f, 1f));
-        GUI.Label(r, label, btnStyle);
+        UiKit.Button(r, label, r.Contains(gm));   // 흰 배경+검은 테두리+검은 글씨(hover=옅은 회색)
     }
 
-    void DrawSlider(Rect r, float v)
-    {
-        v = Mathf.Clamp01(v);
-        Fill(r, new Color(0.25f, 0.25f, 0.28f, 1f));                       // 트랙
-        Fill(new Rect(r.x, r.y, r.width * v, r.height), new Color(0.30f, 0.65f, 1f, 1f)); // 채움
-        Fill(new Rect(r.x + r.width * v - 4f, r.y - 2f, 8f, r.height + 4f), Color.white);  // 손잡이
-    }
+    void DrawSlider(Rect r, float v) => UiKit.Slider(r, v);
 
-    void Fill(Rect r, Color c)
-    {
-        Color prev = GUI.color;
-        GUI.color = c;
-        GUI.DrawTexture(r, tex);
-        GUI.color = prev;
-    }
+    void Fill(Rect r, Color c) => UiKit.Fill(r, c);
 
     void EnsureStyles()
     {
         if (titleStyle != null) return;
         tex = Texture2D.whiteTexture;
+        // 통일 스타일: 검은 글씨(UiKit과 동일 톤)
+        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
 
         titleStyle = new GUIStyle(GUI.skin.label)
         { fontSize = 32, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        titleStyle.normal.textColor = Color.white;
+        titleStyle.normal.textColor = ink;
 
         btnStyle = new GUIStyle(GUI.skin.label)
         { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btnStyle.normal.textColor = Color.white;
+        btnStyle.normal.textColor = ink;
 
         labelStyle = new GUIStyle(GUI.skin.label)
         { fontSize = 16, alignment = TextAnchor.MiddleLeft };
-        labelStyle.normal.textColor = Color.white;
+        labelStyle.normal.textColor = ink;
 
         centerStyle = new GUIStyle(GUI.skin.label)
         { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-        centerStyle.normal.textColor = new Color(0.85f, 0.85f, 0.9f, 1f);
+        centerStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
     }
 }

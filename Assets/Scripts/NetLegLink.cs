@@ -159,7 +159,6 @@ public class NetLegLink : NetworkBehaviour
         var abs2 = root.GetComponentsInChildren<ArticulationBody>(true);
         for (int i = abs2.Length - 1; i >= 0; i--) abs2[i].enabled = false;
         Toggle<SceneReset>(root, false);
-        Toggle<PlaytestCheat>(root, false);
         Toggle<NaNBlackBox>(root, false);
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
         foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;

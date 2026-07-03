@@ -88,25 +88,46 @@ public class LevelSelect : MonoBehaviour
     void EnsureStyles()
     {
         if (labelStyle != null) return;
+        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
         labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        labelStyle.normal.textColor = Color.white;
+        labelStyle.normal.textColor = ink;
         titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        titleStyle.normal.textColor = Color.white;
-        backStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold };
-        btnStyle = new GUIStyle(GUI.skin.button) { fontSize = 21, fontStyle = FontStyle.Bold };
+        titleStyle.normal.textColor = ink;
+        backStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        backStyle.normal.textColor = ink;
+        btnStyle = new GUIStyle(GUI.skin.label) { fontSize = 21, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        btnStyle.normal.textColor = ink;
         smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
-        smallStyle.normal.textColor = new Color(0.85f, 0.88f, 0.92f, 1f);
+        smallStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
     }
 
     void Rect2(Rect r, Color c) { var p = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = p; }
+
+    /// <summary>흰 배경+검은 테두리+검은 글씨 버튼(클릭은 투명 GUI.Button). disabled 시 흐리게.</summary>
+    bool WhiteBtn(Rect r, string text, GUIStyle style, bool enabled = true)
+    {
+        UiKit.Panel(r);
+        bool hover = r.Contains(Event.current.mousePosition);
+        if (!enabled) UiKit.Fill(r, new Color(1f, 1f, 1f, 0.55f));
+        else if (hover) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.10f));
+        GUI.Label(r, text, style);
+        return enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
+    }
+
+    /// <summary>제목/안내문 뒤에 흰 칩을 깔고 글자를 그린다(어두운 딤 위 가독성).</summary>
+    void ChipLabel(float y, float w, float h, string text, GUIStyle style)
+    {
+        var r = UiKit.Chip(Screen.width * 0.5f, y, w, h);
+        GUI.Label(r, text, style);
+    }
 
     void OnGUI()
     {
         if (!Showing) return;
         EnsureStyles();
 
-        // 어둡게 깔기
-        Rect2(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.6f));
+        // 살짝 어둡게 깔기(흰 칩/버튼이 도드라지게)
+        Rect2(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.45f));
 
         // ESC = 한 단계 뒤로
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
@@ -125,7 +146,7 @@ public class LevelSelect : MonoBehaviour
     // ── ① 스테이지 선택(기존 UI) ──
     void DrawStageSelect()
     {
-        GUI.Label(new Rect(0, Screen.height * 0.5f - 175f, Screen.width, 50f), "스테이지 선택", titleStyle);
+        ChipLabel(Screen.height * 0.5f - 175f, 340f, 50f, "스테이지 선택", titleStyle);
 
         int n = levels.Length;
         float gap = 36f;
@@ -142,10 +163,14 @@ public class LevelSelect : MonoBehaviour
             Rect thumbR = new Rect(x, y, tw, th);
             bool hover = thumbR.Contains(Event.current.mousePosition);
 
-            Rect2(new Rect(x - 4, y - 4, tw + 8, th + 8), hover ? new Color(1f, 0.85f, 0.3f, 1f) : new Color(1f, 1f, 1f, 0.85f));
+            // 흰 프레임 + 얇은 검은 테두리(hover 시 테두리 두껍게)
+            float b = hover ? 4f : 2f;
+            Rect2(new Rect(x - 4f - b, y - 4f - b, tw + 8f + b * 2f, th + 8f + b * 2f), Color.black);
+            Rect2(new Rect(x - 4f, y - 4f, tw + 8f, th + 8f), Color.white);
             if (thumbs[i] != null) GUI.DrawTexture(thumbR, thumbs[i], ScaleMode.ScaleAndCrop);
-            else Rect2(thumbR, new Color(0.3f, 0.3f, 0.35f, 1f));
-            GUI.Label(new Rect(x, y + th + 8f, tw, 30f), levels[i].label, labelStyle);
+            else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
+            var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
+            GUI.Label(nameChip, levels[i].label, labelStyle);
 
             if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none))
             {
@@ -154,25 +179,25 @@ public class LevelSelect : MonoBehaviour
             }
         }
 
-        if (GUI.Button(new Rect(Screen.width * 0.5f - 60f, y + th + 56f, 120f, 40f), "뒤로", backStyle)) Close();
+        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle)) Close();
     }
 
     // ── ② 모드 선택: 1인 / 로컬 멀티(동일) / 온라인 멀티 ──
     void DrawModeSelect()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        GUI.Label(new Rect(0, cy - 170f, Screen.width, 44f), levels[selIndex].label + " — 어떻게 플레이할까요?", titleStyle);
+        ChipLabel(cy - 170f, 560f, 44f, levels[selIndex].label + " — 어떻게 플레이할까요?", titleStyle);
 
         float bw = 320f, bh = 56f, gap = 18f;
         float y = cy - 96f;
 
-        if (GUI.Button(new Rect(cx - bw * 0.5f, y, bw, bh), "1인 플레이", btnStyle)) LoadLocal();
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "1인 플레이", btnStyle)) LoadLocal();
         y += bh + gap;
-        if (GUI.Button(new Rect(cx - bw * 0.5f, y, bw, bh), "로컬 멀티 (한 키보드 최대 4인)", btnStyle)) LoadLocal();
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "로컬 멀티 (한 키보드 최대 4인)", btnStyle)) LoadLocal();
         y += bh + gap;
-        if (GUI.Button(new Rect(cx - bw * 0.5f, y, bw, bh), "온라인 멀티 (방 코드)", btnStyle)) { step = 2; codeInput = ""; typing = false; }
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "온라인 멀티 (방 코드)", btnStyle)) { step = 2; codeInput = ""; typing = false; }
         y += bh + gap + 8f;
-        if (GUI.Button(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) step = 0;
+        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) step = 0;
     }
 
     void LoadLocal()
@@ -186,32 +211,34 @@ public class LevelSelect : MonoBehaviour
     void DrawOnlineMenu()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        GUI.Label(new Rect(0, cy - 190f, Screen.width, 44f), "온라인 멀티 — " + levels[selIndex].label, titleStyle);
+        ChipLabel(cy - 190f, 480f, 44f, "온라인 멀티 — " + levels[selIndex].label, titleStyle);
 
         float bw = 340f, bh = 56f;
         float y = cy - 120f;
 
-        GUI.enabled = !busy;
-        if (GUI.Button(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "방 만들기 (호스트)", btnStyle)) HostAndLoad();
-        GUI.enabled = true;
-        GUI.Label(new Rect(0, y + bh + 4f, Screen.width, 24f), "방을 만들면 코드가 발급돼요 — 친구에게 알려주세요", smallStyle);
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "방 만들기 (호스트)", btnStyle, !busy)) HostAndLoad();
+        var hint1 = UiKit.Chip(cx, y + bh + 6f, 420f, 24f);
+        GUI.Label(hint1, "방을 만들면 코드가 발급돼요 — 친구에게 알려주세요", smallStyle);
 
         y += bh + 52f;
-        // 방코드 입력칸(클릭 → 타이핑 모드)
+        // 방코드 입력칸(클릭 → 타이핑 모드) — 흰 배경, 입력 중엔 옅은 회색
         Rect codeR = new Rect(cx - bw * 0.5f, y, bw, 46f);
-        Rect2(codeR, typing ? new Color(0.16f, 0.28f, 0.45f, 1f) : new Color(0.18f, 0.18f, 0.22f, 1f));
+        UiKit.Panel(codeR);
+        if (typing) UiKit.Fill(codeR, new Color(0f, 0f, 0f, 0.08f));
         GUI.Label(codeR, codeInput.Length > 0 ? codeInput : (typing ? "코드 입력 중… (엔터=참가)" : "여기 클릭 후 친구의 방 코드 입력"), labelStyle);
         if (GUI.Button(codeR, GUIContent.none, GUIStyle.none)) typing = true;
 
         y += 54f;
-        GUI.enabled = !busy && codeInput.Length >= 4;
-        if (GUI.Button(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "참가", btnStyle)) JoinRoom();
-        GUI.enabled = true;
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "참가", btnStyle, !busy && codeInput.Length >= 4)) JoinRoom();
 
         y += bh + 14f;
-        GUI.Label(new Rect(0, y, Screen.width, 26f), NetSession.Status, smallStyle);
+        if (!string.IsNullOrEmpty(NetSession.Status))
+        {
+            var st = UiKit.Chip(cx, y, 420f, 26f);
+            GUI.Label(st, NetSession.Status, smallStyle);
+        }
 
         y += 36f;
-        if (GUI.Button(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) { step = 1; typing = false; }
+        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) { step = 1; typing = false; }
     }
 }

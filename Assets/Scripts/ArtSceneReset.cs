@@ -111,14 +111,15 @@ public class ArtSceneReset : MonoBehaviour
         if (bannerStyle == null)
         {
             white = Texture2D.whiteTexture;
+            Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
             bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 29, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            bannerStyle.normal.textColor = Color.white;
+            bannerStyle.normal.textColor = ink;
             bannerSub = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
-            bannerSub.normal.textColor = new Color(0.9f, 0.9f, 0.95f, 1f);
+            bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         }
         float w = 372f, h = 80f;
         var r = new Rect((Screen.width - w) * 0.5f, Screen.height * 0.18f, w, h);
-        var pc = GUI.color; GUI.color = new Color(0f, 0f, 0f, 0.6f); GUI.DrawTexture(r, white); GUI.color = pc;
+        UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
         GUI.Label(new Rect(r.x, r.y + 8f, r.width, 36f), "Press 1", bannerStyle);
         GUI.Label(new Rect(r.x, r.y + 46f, r.width, 24f), "뒤집혔어요 — 1 키로 자세 복구", bannerSub);
     }

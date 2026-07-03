@@ -89,13 +89,22 @@ public class NetDebugPanel : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
     }
 
+    Vector2 GuiMouse()
+    {
+        var m = Mouse.current;
+        if (m == null) return new Vector2(-1f, -1f);
+        Vector2 p = m.position.ReadValue();
+        return new Vector2(p.x, Screen.height - p.y);
+    }
+
     void OnGUI()
     {
         if (NM == null || !InSession) return;   // ★ 세션 없으면 아무것도 안 그림
         if (!visible && !InLobby) return;
         EnsureStyles();
         var panel = Panel();
-        Fill(panel, new Color(0.08f, 0.08f, 0.11f, InLobby ? 0.95f : 0.85f));
+        UiKit.Panel(panel, 0.97f);   // 흰 배경 + 얇은 검은 테두리
+        Vector2 gm = GuiMouse();
 
         if (InLobby)
         {
@@ -112,15 +121,18 @@ public class NetDebugPanel : MonoBehaviour
                 long owner = link != null ? link.OwnerOf(i) : -2;
                 bool mine = link != null && link.IsMine(i);
                 var r = LegBtn(i);
-                Fill(r, mine ? new Color(0.2f, 0.55f, 0.3f, 1f) : owner == -2 ? new Color(0.22f, 0.32f, 0.45f, 1f) : new Color(0.3f, 0.3f, 0.34f, 1f));
+                UiKit.Panel(r);
+                if (mine) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.14f));            // 내 자리 = 진한 음영
+                else if (owner != -2) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.05f)); // 남의 자리 = 옅은 음영
+                else if (r.Contains(gm)) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.08f));
                 string who = mine ? "★ 나" : owner == -2 ? "빈 자리" : owner == -1 ? "호스트" : "P" + owner;
                 GUI.Label(new Rect(r.x, r.y + 10f, r.width, 28f), LegNames[i], btn);
                 GUI.Label(new Rect(r.x, r.y + 42f, r.width, 26f), who, small);
             }
 
-            if (NM.IsHost) Button(R(20f, 348f, 200f, 44f), "게임 시작");
+            if (NM.IsHost) Button(R(20f, 348f, 200f, 44f), "게임 시작", gm);
             else GUI.Label(R(20f, 348f, 200f, 44f), "호스트 대기 중…", btn);
-            Button(R(240f, 348f, 200f, 44f), "나가기");
+            Button(R(240f, 348f, 200f, 44f), "나가기", gm);
             return;
         }
 
@@ -128,22 +140,22 @@ public class NetDebugPanel : MonoBehaviour
         var lk = Link;
         string mine2 = lk != null && lk.MyLeg.HasValue ? LegNames[(int)lk.MyLeg.Value] : "(호스트 전체 조종)";
         GUI.Label(R(12f, 6f, 228f, 48f), (NM.IsHost ? "호스트" : "게스트") + " · " + NM.ConnectedClientsList.Count + "명 (F9 숨김)\n내 다리: " + mine2 + " " + status, small);
-        Button(R(12f, 56f, 228f, 30f), "나가기");
+        Button(R(12f, 56f, 228f, 30f), "나가기", gm);
     }
 
-    void Button(Rect r, string text) { Fill(r, new Color(0.24f, 0.36f, 0.52f, 1f)); GUI.Label(r, text, btn); }
-    void Fill(Rect r, Color c) { var pc = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = pc; }
+    void Button(Rect r, string text, Vector2 gm) => UiKit.Button(r, text, r.Contains(gm));
     void EnsureStyles()
     {
         if (label != null) return;
         white = Texture2D.whiteTexture;
+        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
         label = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
-        label.normal.textColor = Color.white;
+        label.normal.textColor = ink;
         btn = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btn.normal.textColor = Color.white;
+        btn.normal.textColor = ink;
         big = new GUIStyle(GUI.skin.label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        big.normal.textColor = Color.white;
+        big.normal.textColor = ink;
         small = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
-        small.normal.textColor = new Color(0.8f, 0.85f, 0.9f, 1f);
+        small.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
     }
 }

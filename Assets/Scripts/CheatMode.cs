@@ -135,11 +135,13 @@ public class CheatMode : MonoBehaviour
     {
         if (!Active) return;
         if (hintStyle == null)
+        {
             hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft };
-        hintStyle.normal.textColor = new Color(1f, 0.85f, 0.3f);
+            hintStyle.normal.textColor = new Color(0.08f, 0.08f, 0.08f, 1f);
+        }
         var r = new Rect(12, 12, 560, 70);
-        GUI.color = new Color(0f, 0f, 0f, 0.5f); GUI.DrawTexture(r, Texture2D.whiteTexture); GUI.color = Color.white;
+        UiKit.Panel(r, 0.92f);   // 흰 배경 + 얇은 검은 테두리 + 검은 글씨(통일 스타일)
         GUI.Label(new Rect(r.x + 8, r.y + 6, r.width - 16, r.height - 12),
-            "🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  모든 능력 해금(기린=,-  얼음3)", hintStyle);
+            "🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2  얼음3)", hintStyle);
     }
 }

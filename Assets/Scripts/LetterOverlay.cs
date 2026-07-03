@@ -58,14 +58,15 @@ public class LetterOverlay : MonoBehaviour
         if (tex == null) return;
         if (titleStyle == null)
         {
+            Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
             titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            titleStyle.normal.textColor = Color.white;
+            titleStyle.normal.textColor = ink;
             hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-            hintStyle.normal.textColor = new Color(0.85f, 0.85f, 0.9f, 1f);
+            hintStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         }
-        // 어두운 배경
+        // 흰 배경(통일 스타일 — 편지가 종이 위에 놓인 느낌)
         Color pc = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.82f);
+        GUI.color = new Color(1f, 1f, 1f, 0.94f);
         GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
         GUI.color = pc;
 
