@@ -149,9 +149,13 @@ public class HallwayStage : MonoBehaviour
     // ---------- 테이블 정지/해제 ----------
     void FreezeTable(bool freeze)
     {
-        if (tableBodies == null) return;
-        foreach (var rb in tableBodies)
-            if (rb != null) rb.isKinematic = freeze;
+        if (tableBodies != null)
+            foreach (var rb in tableBodies)
+                if (rb != null) rb.isKinematic = freeze;
+        // ★ ArticulationBody 테이블
+        if (table != null)
+            foreach (var ab in table.root.GetComponentsInChildren<ArticulationBody>(true))
+                if (ab != null && ab.isRoot) { ab.immovable = freeze; if (freeze) { ab.linearVelocity = Vector3.zero; ab.angularVelocity = Vector3.zero; } }
     }
 
     // ---------- 컷신 ----------
@@ -262,6 +266,8 @@ public class HallwayStage : MonoBehaviour
             if (tableBodies != null)
                 foreach (var rb in tableBodies)
                     if (rb != null && !rb.isKinematic) rb.linearDamping = 0.4f;
+            // ★ ArticulationBody: 루트에만 공기저항
+            if (table != null) { var fab = table.GetComponent<ArticulationBody>(); if (fab != null) fab.linearDamping = 0.4f; }
         }
         if (falling)
         {
@@ -271,6 +277,20 @@ public class HallwayStage : MonoBehaviour
                 falling = false;
                 // 추락하던 "자세 + 속도" 전체를 다음 씬으로 전달 → 같은 자세로 이어서 떨어짐
                 var brb = table != null ? table.GetComponent<Rigidbody>() : null;
+                // ★ ArticulationBody 테이블이면 그쪽에서 캡처
+                var bab = table != null ? table.GetComponent<ArticulationBody>() : null;
+                if (brb == null && bab != null)
+                {
+                    bool ok2 = float.IsFinite(bab.linearVelocity.y) && float.IsFinite(table.rotation.x);
+                    FallCarry.active = true;
+                    FallCarry.ySpeed = ok2 ? bab.linearVelocity.y : -14f;
+                    FallCarry.hasPose = ok2;
+                    FallCarry.rotation = ok2 ? table.rotation : Quaternion.identity;
+                    FallCarry.velocity = ok2 ? bab.linearVelocity : new Vector3(0f, -14f, 0f);
+                    FallCarry.angularVelocity = ok2 ? bab.angularVelocity : Vector3.zero;
+                    if (!string.IsNullOrEmpty(nextScene)) NetScene.Load(nextScene);
+                    return;   // Update()이므로 return (art 경로 처리 완료)
+                }
                 // ⚠️ NaN 가드: 낙하 중 물리가 폭발한 상태로 캡처하면 다음 씬에서 5개 바디 전부에
                 //    NaN이 주입되어 "position is infinite" ×5가 난다 → 유한할 때만 자세/속도 전달.
                 bool poseOk = brb != null

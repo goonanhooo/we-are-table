@@ -237,6 +237,9 @@ public class GiraffeCutscene : MonoBehaviour
         if (table == null) return;
         foreach (var rb in table.root.GetComponentsInChildren<Rigidbody>(true))
             if (rb != null) rb.isKinematic = freeze;
+        // ★ ArticulationBody 테이블: 루트 고정(immovable)으로 동결
+        foreach (var ab in table.root.GetComponentsInChildren<ArticulationBody>(true))
+            if (ab != null && ab.isRoot) { ab.immovable = freeze; if (freeze) { ab.linearVelocity = Vector3.zero; ab.angularVelocity = Vector3.zero; } }
     }
 
     // 기린 대사 = 기린 머리 왼쪽에 말풍선 이미지(텍스트는 빌드에 폰트가 없어 안 나오므로 이미지로 구워 표시).

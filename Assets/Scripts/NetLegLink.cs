@@ -154,6 +154,10 @@ public class NetLegLink : NetworkBehaviour
     {
         var root = transform.root;
         foreach (var lc in root.GetComponentsInChildren<LegController>(true)) lc.enabled = false;
+        // ★ ArticulationBody 테이블: 게스트는 시뮬 끄고 NetworkTransform 포즈 수신만(자식→루트 역순 비활성)
+        foreach (var alc in root.GetComponentsInChildren<ArtLegController>(true)) alc.enabled = false;
+        var abs2 = root.GetComponentsInChildren<ArticulationBody>(true);
+        for (int i = abs2.Length - 1; i >= 0; i--) abs2[i].enabled = false;
         Toggle<SceneReset>(root, false);
         Toggle<PlaytestCheat>(root, false);
         Toggle<NaNBlackBox>(root, false);

@@ -39,10 +39,12 @@ public class LetterPickup : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         if (Time.unscaledTime - lastShow < cooldown) return;
-        var rb = other.attachedRigidbody;
-        if (rb == null) return;
-        // 테이블(상판/다리)인지 판별 — 루트에 LegController가 있으면 플레이어 테이블
-        if (rb.transform.root.GetComponentInChildren<LegController>() == null) return;
+        Transform bodyRoot = other.attachedRigidbody != null ? other.attachedRigidbody.transform.root
+                           : other.attachedArticulationBody != null ? other.attachedArticulationBody.transform.root : null;
+        if (bodyRoot == null) return;
+        // 테이블(상판/다리)인지 판별 — 루트에 다리 컨트롤러(힌지판 또는 art판)가 있으면 플레이어 테이블
+        if (bodyRoot.GetComponentInChildren<LegController>() == null &&
+            bodyRoot.GetComponentInChildren<ArtLegController>() == null) return;
         lastShow = Time.unscaledTime;
         LetterSystem.Collect(letterId);
         LetterOverlay.Show(letterId);

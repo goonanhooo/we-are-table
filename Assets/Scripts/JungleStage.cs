@@ -105,6 +105,15 @@ public class JungleStage : MonoBehaviour
             if (!(float.IsFinite(ang.x) && float.IsFinite(ang.y) && float.IsFinite(ang.z)))
                 ang = Vector3.zero;
 
+            // ★ ArticulationBody 테이블: TeleportRoot 하나로 전체 사슬 이동(관절 상태 보존)
+            var artBoard = table.GetComponent<ArticulationBody>();
+            if (artBoard != null)
+            {
+                artBoard.TeleportRoot(spawnPoint, R);
+                artBoard.linearVelocity = vel;
+                artBoard.angularVelocity = ang;
+            }
+            else
             // ⚠️ 빈 부모 + 동적 자식 → 부모만 옮기면 안 됨. 상판을 spawnPoint·회전 R 로 두고
             // 전체를 강체이동/회전(상대 배치 유지)해 모든 Rigidbody 를 직접 옮긴다 → Hallway 자세 그대로 이어짐.
             if (board != null)
@@ -212,6 +221,8 @@ public class JungleStage : MonoBehaviour
                                         : new Vector2(table.position.x, table.position.z);
         Vector3 safe = FindNearestSafe(fell, lastSafeSide);
 
+        var artReset = Object.FindAnyObjectByType<ArtSceneReset>();   // ★ ArticulationBody 테이블
+        if (artReset != null) { artReset.ResetPoseAtXZ(safe.x, safe.z); return; }
         if (sceneReset != null) { sceneReset.ResetPoseAtXZ(safe.x, safe.z); return; }
 
         // 폴백: SceneReset 이 없을 때만 직접 강체이동.

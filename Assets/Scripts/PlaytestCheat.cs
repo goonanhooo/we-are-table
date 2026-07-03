@@ -44,6 +44,14 @@ public class PlaytestCheat : MonoBehaviour
         if (x == 0f && z == 0f) return;
 
         Vector3 delta = new Vector3(x, 0f, z).normalized * speed * Time.fixedDeltaTime;
+        // ★ ArticulationBody 테이블: 루트 TeleportRoot로 전체 이동
+        if (bodies.Length == 0)
+        {
+            foreach (var ab in FindObjectsByType<ArticulationBody>(FindObjectsSortMode.None))
+                if (ab.isRoot && float.IsFinite(ab.transform.position.x))
+                    ab.TeleportRoot(ab.transform.position + delta, ab.transform.rotation);
+            return;
+        }
         foreach (var rb in bodies)
         {
             if (rb == null || rb.isKinematic) continue;

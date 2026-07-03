@@ -63,11 +63,13 @@ public class CheatMode : MonoBehaviour
         if (Active && !cheatPhysics)
         {
             for (int i = 0; i < bodies.Length; i++) if (bodies[i] != null) { bodies[i].linearVelocity = Vector3.zero; bodies[i].angularVelocity = Vector3.zero; bodies[i].isKinematic = true; }
+            foreach (var ab in FindObjectsByType<ArticulationBody>(FindObjectsSortMode.None)) if (ab.isRoot) { ab.immovable = true; ab.linearVelocity = Vector3.zero; ab.angularVelocity = Vector3.zero; }   // ★ art 테이블
             cheatPhysics = true;
         }
         else if (!Active && cheatPhysics)
         {
             for (int i = 0; i < bodies.Length; i++) if (bodies[i] != null) bodies[i].isKinematic = origKinematic[i];
+            foreach (var ab in FindObjectsByType<ArticulationBody>(FindObjectsSortMode.None)) if (ab.isRoot) ab.immovable = false;   // ★ art 테이블
             cheatPhysics = false;
         }
     }

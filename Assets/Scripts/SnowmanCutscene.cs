@@ -208,6 +208,9 @@ public class SnowmanCutscene : MonoBehaviour
     {
         if (table == null) return;
         foreach (var rb in table.root.GetComponentsInChildren<Rigidbody>(true)) if (rb != null) rb.isKinematic = freeze;
+        // ★ ArticulationBody 테이블: 루트 고정(immovable)으로 동결
+        foreach (var ab in table.root.GetComponentsInChildren<ArticulationBody>(true))
+            if (ab != null && ab.isRoot) { ab.immovable = freeze; if (freeze) { ab.linearVelocity = Vector3.zero; ab.angularVelocity = Vector3.zero; } }
     }
 
     void OnGUI()

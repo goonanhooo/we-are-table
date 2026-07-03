@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 /// - ResetAll(): 처음(지면 스냅된) 위치로 텔레포트. 용암 사망 리스폰 등에서 호출.
 /// 상판(Table) GameObject에 부착한다.
 /// </summary>
-[RequireComponent(typeof(Rigidbody))]
+// [RequireComponent(typeof(Rigidbody))]  ★art 전환: Rigidbody 없는 프리팹 허용(Awake에서 자가 비활성)
 public class SceneReset : MonoBehaviour
 {
     [Tooltip("리셋 직후 다리를 수직으로 강제 고정하는 시간(초). 안착 보정용.")]
@@ -53,6 +53,9 @@ public class SceneReset : MonoBehaviour
         }
 
         bodies = list.ToArray();
+        // ★ ArticulationBody 테이블(프리팹 전환 후): Rigidbody 없음 → 이 컴포넌트 비활성
+        //   ('1' 리셋/뒤집힘 안내는 ArtSceneReset이 담당. fixedDeltaTime 설정은 유지 위해 아래 줄 이후에 disable)
+        if (bodies.Length == 0) { Time.fixedDeltaTime = 0.005f; enabled = false; return; }
         // ★속도 상한(전 씬 공통): 기본값 maxLinearVelocity=1e16(무제한)이라 공중에서 다리가 휘둘리다
         //   모서리에 부딪히면 속도가 폭발→좌표 Inf→렌더 AABB 깨짐('Invalid AABB'). GiraffeMode가 없는
         //   Hallway 등에서도 안전하도록 여기서 캡을 건다. (GiraffeMode 씬은 매 프레임 더 강한 캡으로 덮어씀.)
