@@ -19,13 +19,29 @@ public class PopProbe : MonoBehaviour
     {
         public float t; public string body; public float dv; public Vector3 v0, v1;
         public string contact; public float impulse; public float minSep; public Vector3 pos;
+        public string hinges;   // 이벤트 순간 4다리 힌지각/한계근접 요약 (예: "FR:89.7*")
     }
     public readonly List<PopEvent> events = new();
 
     Rigidbody[] bodies; Vector3[] prevV;
     ContactTap[] taps;
+    HingeJoint[] hinges;   // 바디별 힌지(상판은 null)
     TableInput ti;
     float t0; int stepCount;
+
+    string HingeSummary()
+    {
+        var sb = new StringBuilder();
+        for (int i = 0; i < bodies.Length; i++)
+        {
+            var h = hinges[i]; if (h == null) continue;
+            float a = h.angle;
+            bool nearLimit = Mathf.Abs(a) > 87f;   // swingLimit 90 기준 한계 근접
+            sb.Append(bodies[i].gameObject.name.Replace("Leg_", "").Replace("_Pivot", ""))
+              .Append(':').Append(a.ToString("F0")).Append(nearLimit ? "*" : "").Append(' ');
+        }
+        return sb.ToString();
+    }
 
     // 같은 스텝의 접촉 정보 캡처(바디별)
     public class ContactTap : MonoBehaviour
@@ -52,11 +68,13 @@ public class PopProbe : MonoBehaviour
         bodies = root.GetComponentsInChildren<Rigidbody>(true);
         prevV = new Vector3[bodies.Length];
         taps = new ContactTap[bodies.Length];
+        hinges = new HingeJoint[bodies.Length];
         for (int i = 0; i < bodies.Length; i++)
         {
             prevV[i] = bodies[i].linearVelocity;
             taps[i] = bodies[i].gameObject.GetComponent<ContactTap>();
             if (taps[i] == null) taps[i] = bodies[i].gameObject.AddComponent<ContactTap>();
+            hinges[i] = bodies[i].GetComponent<HingeJoint>();
         }
         ti = TableInput.Of(this);
         t0 = Time.time;
@@ -68,18 +86,18 @@ public class PopProbe : MonoBehaviour
         // 자동 보행: 대각선 다리 교대(0.45s 주기) — 접촉/스텝 이벤트를 대량 생성
         if (walk && ti != null)
         {
-            // 실제 '전진 보행': 대각 페어가 위/아래 스윙을 교대(사람이 걷는 조작과 동일) → 테이블이 이동하며
-            // 지형 삼각형/모서리를 밟는다. 0.4s 반주기.
-            bool phase = Mathf.FloorToInt((Time.time - t0) / 0.4f) % 2 == 0;
+            // ★ 사용자 재현 시나리오: '한 방향으로 계속 밀기' — 네 다리 모두 같은 방향으로 2.4s씩 길게 유지.
+            //   다리가 땅을 밀어 몸이 나가고, 다리가 한계각(±90°)까지 가서 '더 밀 것이 없는' 상태를 만든다.
+            bool phase = Mathf.FloorToInt((Time.time - t0) / 2.4f) % 2 == 0;
             ti.SetSource(LegControlSet.WASD, TableInput.LegSource.External);
             ti.SetSource(LegControlSet.TFGH, TableInput.LegSource.External);
             ti.SetSource(LegControlSet.IJKL, TableInput.LegSource.External);
             ti.SetSource(LegControlSet.Arrows, TableInput.LegSource.External);
-            // FL(WASD)+BR(Arrows) ↔ FR(TFGH)+BL(IJKL) — 한 쌍은 앞스윙(up), 다른 쌍은 뒤스윙(down)
-            ti.SetExternal(LegControlSet.WASD,   new LegInput { up = phase,  down = !phase });
-            ti.SetExternal(LegControlSet.Arrows, new LegInput { up = phase,  down = !phase });
-            ti.SetExternal(LegControlSet.TFGH,   new LegInput { up = !phase, down = phase });
-            ti.SetExternal(LegControlSet.IJKL,   new LegInput { up = !phase, down = phase });
+            var all = new LegInput { up = phase, down = !phase };
+            ti.SetExternal(LegControlSet.WASD, all);
+            ti.SetExternal(LegControlSet.Arrows, all);
+            ti.SetExternal(LegControlSet.TFGH, all);
+            ti.SetExternal(LegControlSet.IJKL, all);
         }
 
         if (Time.time - t0 < warmup) { Snapshot(); return; }
@@ -100,6 +118,7 @@ public class PopProbe : MonoBehaviour
                     impulse = sameFrame ? tap.lastImpulse : 0f,
                     minSep = sameFrame ? tap.minSep : 999f,
                     pos = rb.position,
+                    hinges = HingeSummary(),
                 });
             }
         }
@@ -135,6 +154,7 @@ public class PopProbe : MonoBehaviour
               .Append(" 상대=").Append(e.contact)
               .Append(" imp=").Append(e.impulse.ToString("F1"))
               .Append(" sep=").Append(e.minSep < 900f ? e.minSep.ToString("F3") : "-")
+              .Append(" 힌지[").Append(e.hinges).Append(']')
               .Append('\n');
         }
         return sb.ToString();

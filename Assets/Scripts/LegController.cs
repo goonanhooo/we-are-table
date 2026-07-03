@@ -37,6 +37,8 @@ public class LegController : MonoBehaviour
     public float swingLimit = 90f;
     [Tooltip("한계각 앞에서 속도를 줄이기 시작하는 여유 각도(도)")]
     public float stopMargin = 12f;
+    [Tooltip("힌지 리밋 제약을 한계각 몇 도 앞에서 미리 활성화할지. 다리가 빠르게 스윙하다 한계각(±90°)에 '쾅' 박혀 몸이 튕기던 것을 솔버가 여러 스텝에 걸쳐 부드럽게 흡수(측정: 큰 튐의 100%가 한계각 충돌). 리밋 위치·모터 체감 불변.")]
+    public float limitContactDistance = 8f;
     [Tooltip("힌지 회전축(로컬). (1,0,0) = 앞뒤 스윙")]
     public Vector3 hingeAxis = new Vector3(1f, 0f, 0f);
 
@@ -93,7 +95,7 @@ public class LegController : MonoBehaviour
         else hinge.autoConfigureConnectedAnchor = true;
         hinge.useSpring = false;
         hinge.useLimits = true;
-        hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+        hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
         hinge.useMotor = true;
 
         var m = hinge.motor;
@@ -130,7 +132,7 @@ public class LegController : MonoBehaviour
             if (holdTimer <= 0f)
             {
                 // 해제: 정상 한계/모터 복원
-                hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+                hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
                 hinge.useMotor = true;
                 frozen = false;
             }
@@ -176,7 +178,7 @@ public class LegController : MonoBehaviour
         // 자기 키가 눌리면 잠금 해제: 한계를 ±스윙으로 되돌리고 모터 재가동
         if (frozen)
         {
-            hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+            hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
             hinge.useMotor = true;
             frozen = false;
         }
@@ -249,7 +251,7 @@ public class LegController : MonoBehaviour
         bool badMot = !float.IsFinite(m.targetVelocity) || !float.IsFinite(m.force);
         Vector3 ax = hinge.axis;
         bool badAx = !float.IsFinite(ax.x) || !float.IsFinite(ax.y) || !float.IsFinite(ax.z) || ax.sqrMagnitude < 1e-6f;
-        if (badLim) hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+        if (badLim) hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
         if (badMot) { m.targetVelocity = 0f; m.force = motorForce; hinge.motor = m; }
         if (badAx) hinge.axis = hingeAxis.normalized;
         if (badLim || badMot || badAx) frozen = false;   // 다음 프레임 정상 경로로 재잠금
@@ -266,7 +268,7 @@ public class LegController : MonoBehaviour
             hinge.axis = hingeAxis.normalized;
             hinge.useSpring = false;
             hinge.useMotor = true;
-            hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit };
+            hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
             var m = hinge.motor;
             m.force = motorForce;
             m.targetVelocity = 0f;
