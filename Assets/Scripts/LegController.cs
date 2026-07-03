@@ -60,7 +60,9 @@ public class LegController : MonoBehaviour
     Transform legMesh;
     TableInput tableInput;   // ★ 입력 허브(멀티 대비) — 키보드를 직접 읽지 않고 여기서 LegInput을 받는다
     float baseLegScaleY = 1f;   // 초기 다리 길이(스케일.y) — 길어지면 각속도를 반비례로 줄여 발끝 속도 일정
-    float yaw;
+    float yaw;         // 물리에 적용된 실제 축 회전(FixedUpdate에서 균일 증가)
+    float targetYaw;   // 입력이 올리는 목표 축 회전(Update)
+    bool freezePending; // 동결 밴드 잠금 예약 — FixedUpdate에서 '신선한 각도'로 적용
     bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
 
@@ -155,11 +157,10 @@ public class LegController : MonoBehaviour
             // bounciness=0 + 미세 타임스텝/솔버/인터폴레이션으로 하중 시 떨림을 억제.
             if (!frozen)
             {
-                float a = hinge.angle;
-                // ⚠️ 폭발 프레임에 hinge.angle이 NaN이면 NaN 한계가 조인트에 '래치'되어
-                //    워치독이 바디를 복구해도 다음 스텝 또 폭발 → 유한할 때만 잠근다.
-                if (!float.IsFinite(a)) return;
-                hinge.limits = new JointLimits { min = a - 0.05f, max = a + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 0f };
+                // ★ 밴드 잠금은 FixedUpdate에서 '신선한 각도'로 적용(freezePending).
+                //   Update(렌더 프레임)에서 읽은 hinge.angle은 물리 3~4스텝 전 값이라, 낡은 각도에
+                //   잠그면 다음 물리스텝에 즉시 밴드 위반→교정 저크(퍼저 측정: freeze 계열 몸통 튐).
+                freezePending = true;
                 hinge.useSpring = false;
                 // ★ 위치는 한계로 고정 + 정지 토크 모터(targetVelocity=0)로 상대 각속도를 강하게 댐핑
                 //   → 다른 다리가 확 반대로 움직여 몸이 휙 젖혀져도 고정 다리가 한계를 넘어 덜렁거리지 않음.
@@ -170,7 +171,6 @@ public class LegController : MonoBehaviour
                 hm.force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);
                 hm.freeSpin = false;
                 hinge.motor = hm;
-                if (rb != null && !rb.isKinematic) rb.angularVelocity = Vector3.zero;
                 frozen = true;
             }
             return;
@@ -178,6 +178,7 @@ public class LegController : MonoBehaviour
         // 자기 키가 눌리면 잠금 해제: 한계를 ±스윙으로 되돌리고 모터 재가동
         if (frozen)
         {
+            freezePending = false;   // 잠금 예약 취소(적용 전에 입력이 재개된 경우)
             hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
             hinge.useMotor = true;
             frozen = false;
@@ -205,10 +206,45 @@ public class LegController : MonoBehaviour
         float spin = (leftP ? 1f : 0f) - (rightP ? 1f : 0f);
         if (spin != 0f)
         {
-            yaw += spin * spinSpeed * lenScale * Time.deltaTime;
-            if (legMesh != null) legMesh.localRotation = Quaternion.Euler(0f, yaw, 0f);
-            hinge.axis = (Quaternion.AngleAxis(yaw, Vector3.up) * hingeAxis).normalized;
+            // ★ 한계각 근처에서 스핀(축 회전) 감쇠: 리밋 제약이 활성인 채 힌지 축을 돌리면
+            //   리밋 기하가 재해석되며 몸통 대형 저크(퍼저 측정: 몸통 튐의 84%가 스핀+한계각 조합,
+            //   Δw 최대 30rad/s). 스윙 모터의 stopMargin과 같은 문법 — 70°부터 서서히, 84°에서 0.
+            //   평상시(작은 각) 회전 체감은 동일.
+            float spinScale = Mathf.Clamp01((swingLimit - 6f - Mathf.Abs(angle)) / 14f);
+            if (spinScale > 0f)
+            {
+                targetYaw += spin * spinSpeed * lenScale * spinScale * Time.deltaTime;
+                if (legMesh != null) legMesh.localRotation = Quaternion.Euler(0f, targetYaw, 0f);
+                // ⚠️ hinge.axis는 여기서 바꾸지 않는다 — FixedUpdate에서 스텝당 균일 적용(아래 참조)
+            }
         }
+    }
+
+    // ★ 힌지 축(스핀) 적용은 물리 스텝당 균일하게. Update(렌더 프레임)에서 axis를 한 번에 여러 도(°)
+    //   점프시키면 — 렌더 1프레임 = 물리 3~4스텝(정글 fixedDT 0.005) — 힌지의 '축외 정렬' 하드 제약이
+    //   다리를 한 스텝에 강제 재정렬하며 몸통 저크 발생(퍼저 측정: 몸통 튐 84%가 스핀 활성 중,
+    //   다리가 수평(한계각)일수록 재정렬 지렛대가 커져 증폭). 입력·회전 속도는 동일, 적용만 잘게 나눔.
+    void FixedUpdate()
+    {
+        if (hinge == null) return;
+
+        // 동결 밴드 잠금 적용(신선한 각도 — Update의 낡은 각도 사용 금지)
+        if (freezePending)
+        {
+            freezePending = false;
+            float fa = hinge.angle;
+            // ⚠️ 폭발 프레임에 NaN이면 NaN 리밋이 '래치'되므로 유한할 때만
+            if (float.IsFinite(fa))
+            {
+                hinge.limits = new JointLimits { min = fa - 0.05f, max = fa + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 2f };
+                if (rb != null && !rb.isKinematic) rb.angularVelocity = Vector3.zero;
+            }
+        }
+
+        if (Mathf.Approximately(yaw, targetYaw)) return;
+        float maxStep = spinSpeed * Time.fixedDeltaTime;   // 스텝당 최대 축 회전(도)
+        yaw = Mathf.MoveTowards(yaw, targetYaw, maxStep);
+        hinge.axis = (Quaternion.AngleAxis(yaw, Vector3.up) * hingeAxis).normalized;
     }
 
     // TableInput이 없는 씬 안전망 — 기존 직접 폴링(동작 동일). 정상 경로는 TableInput.Get().
@@ -261,6 +297,7 @@ public class LegController : MonoBehaviour
     public void ResetState()
     {
         yaw = 0f;
+        targetYaw = 0f;
         frozen = false;
         if (legMesh != null) legMesh.localRotation = Quaternion.identity;
         if (hinge != null)
