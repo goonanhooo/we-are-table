@@ -108,6 +108,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("다리가 늘어났을 때 상판 회전 감쇠 추가치(흔들림/휘청임 억제 — 움직임을 일반 모드처럼 차분하게. 무게중심 하강을 얕게 줄인 대신 이걸로 안정 보상).")]
     public float stretchAngularDamping = 1.6f;
     Rigidbody boardRb;        // 상판(샤시) 강체
+    ArticulationBody artBoard;          // ★ ArticulationBody 테이블(테스트 씬)의 상판 — boardRb 없을 때 사용
+    ArtLegController[] artCtrls;        // ★ art 다리 컨트롤러(forceMultiplier 전달용)
     Vector3 boardComBase;     // 원래 무게중심
     float boardAngDampBase;   // 원래 회전 감쇠
     float comDrop;            // 현재 적용 중인 하강량(스무딩 상태)
@@ -138,7 +140,17 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             legSets[i] = (LegControlSet)i;   // 폴백(구 매핑)
             var lc = legRb[i] != null ? legRb[i].GetComponent<LegController>() : null;
             if (lc != null) legSets[i] = lc.controlSet;
+            // ★ ArticulationBody 테이블: 피벗에 ArtLegController
+            if (lc == null && mesh[i] != null)
+            {
+                var alc = mesh[i].GetComponentInParent<ArtLegController>();
+                if (alc != null) legSets[i] = alc.controlSet;
+            }
         }
+        // ★ art 보드/컨트롤러(테스트 씬) — Rigidbody 경로가 비면 이쪽을 사용
+        foreach (var ab in transform.root.GetComponentsInChildren<ArticulationBody>(true))
+            if (ab.isRoot) { artBoard = ab; break; }
+        artCtrls = transform.root.GetComponentsInChildren<ArtLegController>(true);
 
         // 상판(샤시) 강체 = 다리 힌지가 연결된 몸체. 다리 컨트롤러들도 수집.
         for (int i = 0; i < n && boardRb == null; i++)
@@ -513,7 +525,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     // 구조·질량 변경 없이 CoM·damping·force만 — 크래시 안전.
     void UpdateGiraffeStability()
     {
-        if (boardRb == null) return;
+        if (boardRb == null && artBoard == null) return;
+        if (boardRb == null) { UpdateArtStability(); return; }   // ★ ArticulationBody 경로
         if (!comStored) { boardComBase = boardRb.centerOfMass; boardAngDampBase = boardRb.angularDamping; comStored = true; }
 
         float avgStretch = 0f;
@@ -532,6 +545,32 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
 
         float mul = active ? giraffeForceMul : 1f;
         if (legCtrls != null) foreach (var lc in legCtrls) if (lc != null) lc.forceMultiplier = mul;
+        if (artCtrls != null) foreach (var ac in artCtrls) if (ac != null) ac.forceMultiplier = mul;
+    }
+
+    // ★ ArticulationBody 테이블(테스트 씬)의 안정화 — Rigidbody 판과 동일한 정책(CoM 하강 스무딩+감쇠)
+    void UpdateArtStability()
+    {
+        if (!comStored)
+        {
+            artBoard.automaticCenterOfMass = false;   // 수동 CoM 제어
+            boardComBase = artBoard.centerOfMass;
+            boardAngDampBase = artBoard.angularDamping;
+            comStored = true;
+        }
+        float avgStretch = 0f;
+        if (active && len != null)
+        {
+            for (int i = 0; i < len.Length; i++) avgStretch += Mathf.Max(0f, len[i] - baseLen[i]);
+            if (len.Length > 0) avgStretch /= len.Length;
+        }
+        float targetDrop = Mathf.Min(maxComDrop, avgStretch * comDropPerStretch);
+        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.deltaTime);
+        artBoard.centerOfMass = boardComBase + new Vector3(0f, -comDrop, 0f);
+        float stretchNorm = maxComDrop > 1e-4f ? Mathf.Clamp01(comDrop / maxComDrop) : 0f;
+        artBoard.angularDamping = boardAngDampBase + stretchAngularDamping * stretchNorm;
+        float mul = active ? giraffeForceMul : 1f;
+        if (artCtrls != null) foreach (var ac in artCtrls) if (ac != null) ac.forceMultiplier = mul;
     }
 
     bool AllLegsBase()

@@ -32,6 +32,8 @@ public class PopProbe : MonoBehaviour
     public readonly List<PopEvent> events = new();
 
     Rigidbody[] bodies; Vector3[] prevV; Vector3 prevW; int tableIdx = -1;
+    ArticulationBody[] arts;            // ★ ArticulationBody 테이블 지원(bodies 비면 사용)
+    ArtLegController[] artLegs;         // art 힌지각 요약용(바디 인덱스 병렬)
     ContactTap[] taps;
     HingeJoint[] hinges;
     LegController[] legCtrls;           // 바디별(상판 null)
@@ -70,25 +72,44 @@ public class PopProbe : MonoBehaviour
     {
         var root = transform.root;
         bodies = root.GetComponentsInChildren<Rigidbody>(true);
-        prevV = new Vector3[bodies.Length];
-        taps = new ContactTap[bodies.Length];
-        hinges = new HingeJoint[bodies.Length];
-        legCtrls = new LegController[bodies.Length];
-        for (int i = 0; i < bodies.Length; i++)
+        if (bodies.Length == 0)
         {
-            prevV[i] = bodies[i].linearVelocity;
-            taps[i] = bodies[i].gameObject.GetComponent<ContactTap>() ?? bodies[i].gameObject.AddComponent<ContactTap>();
-            hinges[i] = bodies[i].GetComponent<HingeJoint>();
-            legCtrls[i] = bodies[i].GetComponent<LegController>();
-            if (bodies[i].gameObject.name == "Table") { tableIdx = i; prevW = bodies[i].angularVelocity; }
+            // ★ ArticulationBody 테이블: arts 배열로 동작(아래 접근은 Vel()/BodyName() 헬퍼 경유)
+            arts = root.GetComponentsInChildren<ArticulationBody>(true);
+            artLegs = new ArtLegController[arts.Length];
+            for (int i = 0; i < arts.Length; i++) artLegs[i] = arts[i].GetComponent<ArtLegController>();
+        }
+        int n2 = bodies.Length > 0 ? bodies.Length : (arts != null ? arts.Length : 0);
+        prevV = new Vector3[n2];
+        taps = new ContactTap[n2];
+        hinges = new HingeJoint[n2];
+        legCtrls = new LegController[n2];
+        for (int i = 0; i < n2; i++)
+        {
+            var go = BodyGo(i);
+            prevV[i] = Vel(i);
+            taps[i] = go.GetComponent<ContactTap>() ?? go.AddComponent<ContactTap>();
+            hinges[i] = go.GetComponent<HingeJoint>();
+            legCtrls[i] = go.GetComponent<LegController>();
+            if (go.name == "Table") { tableIdx = i; prevW = AngVel(i); }
         }
         ti = TableInput.Of(this);
-        if (tableIdx >= 0) tableTf = bodies[tableIdx].transform;
+        if (tableIdx >= 0) tableTf = BodyGo(tableIdx).transform;   // ★ art 지원(빈 bodies 인덱싱 금지)
         sceneReset = FindAnyObjectByType<SceneReset>();
         rng = new System.Random(seed);
         t0 = Time.time;
         for (int s = 0; s < 4; s++) lastToggleStep[s] = -999;
     }
+
+    // ★ Rigidbody/ArticulationBody 공용 접근 헬퍼
+    int BodyCount => bodies.Length > 0 ? bodies.Length : (arts != null ? arts.Length : 0);
+    GameObject BodyGo(int i) => bodies.Length > 0 ? bodies[i].gameObject : arts[i].gameObject;
+    Vector3 Vel(int i) => bodies.Length > 0 ? (bodies[i] != null ? bodies[i].linearVelocity : Vector3.zero)
+                                            : (arts[i] != null ? arts[i].linearVelocity : Vector3.zero);
+    Vector3 AngVel(int i) => bodies.Length > 0 ? (bodies[i] != null ? bodies[i].angularVelocity : Vector3.zero)
+                                               : (arts[i] != null ? arts[i].angularVelocity : Vector3.zero);
+    Vector3 Pos(int i) => bodies.Length > 0 ? (bodies[i] != null ? bodies[i].position : Vector3.zero)
+                                            : (arts[i] != null ? arts[i].transform.position : Vector3.zero);
 
     void OnDestroy()
     {
@@ -159,13 +180,12 @@ public class PopProbe : MonoBehaviour
         // 기록 게이트: 워밍업/뒤집힘/리셋 직후 구간은 무효 데이터 — 기록 안 함
         if (now < warmup || flipped || now < suppressUntil) { Snapshot(); return; }
 
-        for (int i = 0; i < bodies.Length; i++)
+        for (int i = 0; i < BodyCount; i++)
         {
-            var rb = bodies[i]; if (rb == null) continue;
-            Vector3 v = rb.linearVelocity;
+            Vector3 v = Vel(i);
             float dv = (v - prevV[i]).magnitude;
             float dw = 0f;
-            if (i == tableIdx) { dw = (rb.angularVelocity - prevW).magnitude; }
+            if (i == tableIdx) { dw = (AngVel(i) - prevW).magnitude; }
             bool pop = (dv > dvThreshold || dw > wThreshold) && float.IsFinite(dv) && float.IsFinite(dw);
             if (!pop) continue;
 
@@ -175,7 +195,7 @@ public class PopProbe : MonoBehaviour
             string flags = Classify(i, hingeStr, sameFrame);
             events.Add(new PopEvent
             {
-                t = now, body = rb.gameObject.name, dv = dv, dw = dw,
+                t = now, body = BodyGo(i).name, dv = dv, dw = dw,
                 contact = sameFrame ? tap.lastOther : "",
                 impulse = sameFrame ? tap.lastImpulse : 0f,
                 minSep = sameFrame ? tap.minSep : 999f,
@@ -188,6 +208,19 @@ public class PopProbe : MonoBehaviour
     string HingeSummary()
     {
         var sb = new StringBuilder();
+        // ★ art 경로: ArtLegController.SwingAngle
+        if (bodies.Length == 0 && artLegs != null)
+        {
+            for (int i = 0; i < artLegs.Length; i++)
+            {
+                var al = artLegs[i]; if (al == null) continue;
+                float aa = al.SwingAngle;
+                bool inp2 = ti != null && ti.Get(al.controlSet).Any;
+                sb.Append(al.gameObject.name.Replace("Leg_", "").Replace("_Pivot", ""))
+                  .Append(':').Append(aa.ToString("F0")).Append(Mathf.Abs(aa) > 85f ? "*" : "").Append(inp2 ? "" : "F").Append(' ');
+            }
+            return sb.ToString();
+        }
         for (int i = 0; i < bodies.Length; i++)
         {
             var h = hinges[i]; if (h == null) continue;
@@ -228,8 +261,8 @@ public class PopProbe : MonoBehaviour
 
     void Snapshot()
     {
-        for (int i = 0; i < bodies.Length; i++) if (bodies[i] != null) prevV[i] = bodies[i].linearVelocity;
-        if (tableIdx >= 0 && bodies[tableIdx] != null) prevW = bodies[tableIdx].angularVelocity;
+        for (int i = 0; i < BodyCount; i++) prevV[i] = Vel(i);
+        if (tableIdx >= 0) prevW = AngVel(tableIdx);
     }
 
     public string Report(int top = 15)
