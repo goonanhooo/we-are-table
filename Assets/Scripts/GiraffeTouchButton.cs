@@ -9,7 +9,7 @@ using System.Collections.Generic;
 public class GiraffeTouchButton : MonoBehaviour
 {
     [Tooltip("발이 이 거리 안에 있는 동안 눌림.")]
-    public float touchRadius = 0.6f;
+    public float touchRadius = 0.9f;
     [Tooltip("true면 늘어난 다리(길이>stretchThreshold)의 발만 인식 = 지라프 전용.")]
     public bool requireStretched = true;
     public float stretchThreshold = 1.0f;

@@ -49,11 +49,11 @@ public class GiraffeGate : MonoBehaviour
 
     void Update()
     {
-        // [테스트] 치트 ON(옵션 메뉴) 상태에서 F6 = 버튼 없이 문 열기 — 구멍 낙하만 바로 확인용
+        // [테스트] 치트 ON(옵션 메뉴) 상태에서 `(물결/백쿼트 키) = 버튼 없이 문 열기 — 구멍 낙하만 바로 확인용
         if (!opened && CheatMode.Active)
         {
             var kb = Keyboard.current;
-            if (kb != null && kb.f6Key.wasPressedThisFrame) ForceOpen();
+            if (kb != null && kb.backquoteKey.wasPressedThisFrame) ForceOpen();
         }
 
         if (!opened && buttons != null && buttons.Length > 0)

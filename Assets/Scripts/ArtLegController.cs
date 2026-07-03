@@ -25,7 +25,7 @@ public class ArtLegController : MonoBehaviour
     public float motorForce = 80f;       // 토크 상한
     public float idleHoldForce = 220f;   // 정지 유지 토크 상한
     [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드
-    public float swingLimit = 90f;
+    public float swingLimit = 95f;   // 95: 감속(stopMargin)+하중을 이기고 실질 90° 도달 보장
     public float stopMargin = 12f;
     [Tooltip("목표속도 램프(도/초²) — 계단 입력 반작용 저크 분산")]
     public float motorAccel = 4000f;

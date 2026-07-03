@@ -832,7 +832,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: 0.7, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -905,7 +905,7 @@ MonoBehaviour:
   motorForce: 80
   idleHoldForce: 220
   forceMultiplier: 1
-  swingLimit: 90
+  swingLimit: 95
   stopMargin: 12
   motorAccel: 4000
   spinSpeed: 180
@@ -1023,7 +1023,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: 0.7, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1096,7 +1096,7 @@ MonoBehaviour:
   motorForce: 80
   idleHoldForce: 220
   forceMultiplier: 1
-  swingLimit: 90
+  swingLimit: 95
   stopMargin: 12
   motorAccel: 4000
   spinSpeed: 180
@@ -1214,7 +1214,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: 0.7, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1287,7 +1287,7 @@ MonoBehaviour:
   motorForce: 80
   idleHoldForce: 220
   forceMultiplier: 1
-  swingLimit: 90
+  swingLimit: 95
   stopMargin: 12
   motorAccel: 4000
   spinSpeed: 180
@@ -1405,7 +1405,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: 0.7, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1478,7 +1478,7 @@ MonoBehaviour:
   motorForce: 80
   idleHoldForce: 220
   forceMultiplier: 1
-  swingLimit: 90
+  swingLimit: 95
   stopMargin: 12
   motorAccel: 4000
   spinSpeed: 180
@@ -1745,3 +1745,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 53f696862fa7142af9b416fe8d26ed4b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArtSceneReset
+  verticalHoldSeconds: 0.4
+  groundLiftFactor: 0.5
+  flipDot: 0.2
+  flipPromptDelay: 2
+  flipCalmSpeed: 1.2

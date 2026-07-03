@@ -1182,7 +1182,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6473041bd8d7f4303ae967272ebd8800, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GiraffeTouchButton
-  touchRadius: 0.6
+  touchRadius: 0.9
   requireStretched: 1
   stretchThreshold: 1
   upColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
@@ -38730,7 +38730,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6473041bd8d7f4303ae967272ebd8800, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GiraffeTouchButton
-  touchRadius: 0.6
+  touchRadius: 0.9
   requireStretched: 1
   stretchThreshold: 1
   upColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
@@ -40448,7 +40448,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6473041bd8d7f4303ae967272ebd8800, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GiraffeTouchButton
-  touchRadius: 0.6
+  touchRadius: 0.9
   requireStretched: 1
   stretchThreshold: 1
   upColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
@@ -45976,7 +45976,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6473041bd8d7f4303ae967272ebd8800, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GiraffeTouchButton
-  touchRadius: 0.6
+  touchRadius: 0.9
   requireStretched: 1
   stretchThreshold: 1
   upColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
