@@ -58,6 +58,18 @@ public class TableInput : MonoBehaviour
         if (nm == null || !nm.IsListening)
             foreach (var rb in transform.root.GetComponentsInChildren<Rigidbody>(true))
                 rb.isKinematic = false;
+
+        // ★ 다리끼리 충돌 무시: 앞다리 뒤스윙 + 뒷다리 앞스윙이 겹치는 순간 서로 박아
+        //   임펄스 킥(측정: impulse 10, Δv 8)으로 테이블이 '툭' 튀던 원인. 다리-다리 충돌은
+        //   게임플레이 기능이 아니므로 무시해도 체감 손실 없음(지형/상판 충돌은 그대로).
+        var legCols = new System.Collections.Generic.List<Collider[]>();
+        foreach (var lc in transform.root.GetComponentsInChildren<LegController>(true))
+            legCols.Add(lc.GetComponentsInChildren<Collider>(true));
+        for (int a = 0; a < legCols.Count; a++)
+            for (int b = a + 1; b < legCols.Count; b++)
+                foreach (var ca in legCols[a])
+                    foreach (var cb in legCols[b])
+                        if (ca != null && cb != null) Physics.IgnoreCollision(ca, cb, true);
     }
 
     /// <summary>이 키셋 다리의 현재 프레임 입력.</summary>
