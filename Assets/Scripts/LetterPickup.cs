@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 월드에 떨어져 있는 편지(봉투 더미). 테이블(다리 포함)이 닿으면 화면에 편지를 띄우고 수집 처리.
-/// 트리거 콜라이더 필요. 수집 후에도 봉투는 남아 다시 닿으면 재열람 가능.
+/// 트리거 콜라이더 필요. ★한 번 먹으면 봉투는 사라짐(세션 넘어도 — 이미 수집한 편지는 Start에서 숨김).
+/// 재열람은 메뉴(PauseMenu > Letters)에서.
 /// 살짝 떠서 위아래로 흔들리는 연출(눈에 띄게) — 시각 자식(visual)만 움직여 콜라이더는 고정.
 /// </summary>
 public class LetterPickup : MonoBehaviour
@@ -21,6 +22,8 @@ public class LetterPickup : MonoBehaviour
 
     void Start()
     {
+        // 이미 수집한 편지는 다시 안 나타남(재열람은 메뉴에서)
+        if (LetterSystem.IsCollected(letterId)) { gameObject.SetActive(false); return; }
         var v = transform.Find("Visual");
         if (v != null) { visual = v; visualBase = v.localPosition; }
     }
@@ -48,5 +51,6 @@ public class LetterPickup : MonoBehaviour
         lastShow = Time.unscaledTime;
         LetterSystem.Collect(letterId);
         LetterOverlay.Show(letterId);
+        gameObject.SetActive(false);   // ★한 번 먹으면 봉투 사라짐
     }
 }
