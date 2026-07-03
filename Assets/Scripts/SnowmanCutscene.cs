@@ -78,11 +78,13 @@ public class SnowmanCutscene : MonoBehaviour
         Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
 
         // 눈사람 정면(+Z 얼굴 쪽)에서 조금 멀리 — 눈사람과 근처 테이블이 함께 프레임에 들어오게.
-        Vector3 focus = body.position + Vector3.up * 1.7f;
         Vector3 camFront = body.position + new Vector3(1.6f, 3.2f, 9.5f);  // 정면(+Z) 멀리, 살짝 위·옆
         Vector3 camLook = body.position + Vector3.up * 1.1f;
 
-        // 1) 머리가 몸통 위로 올라가 조립
+        // 0→1) 머리가 몸통 위로 올라가 조립 — 카메라는 플레이어 시점에서 정면 샷으로 '부드럽게' 넘어감(스냅 X)
+        Vector3 cp0 = cam != null ? cam.position : camFront;
+        Quaternion cr0 = cam != null ? cam.rotation : Quaternion.identity;
+        Quaternion crF = Quaternion.LookRotation((camLook - camFront).normalized, Vector3.up);
         Vector3 hp0 = head.position; Quaternion hr0 = head.rotation;
         for (float t = 0; t < assembleSeconds; t += Time.deltaTime)
         {
@@ -91,33 +93,57 @@ public class SnowmanCutscene : MonoBehaviour
             Vector3 p = Vector3.Lerp(hp0, assembledPos, u); p.y += Mathf.Sin(u * Mathf.PI) * 1.2f;
             head.position = p;
             head.rotation = Quaternion.Slerp(hr0, Quaternion.identity, u);
-            SetCam(camFront, camLook); yield return null;
+            float cu = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / Mathf.Min(0.9f, assembleSeconds)));
+            if (cam != null) { cam.position = Vector3.Lerp(cp0, camFront, cu); cam.rotation = Quaternion.Slerp(cr0, crF, cu); }
+            yield return null;
         }
         head.position = assembledPos; head.rotation = Quaternion.identity;
 
-        // 2~3) 대사 = 눈사람 머리 옆 말풍선 + 음성
-        currentBubble = bubble1; PlayVoice(voice1);
-        yield return Hold(talkSeconds, camFront, camLook);
-        currentBubble = bubble2; PlayVoice(voice2);
-        yield return Hold(talkSeconds, camFront, camLook);
-        currentBubble = null;
+        // 1.5) 안착 후 살짝 '통통' 정착 바운스(귀엽게)
+        for (float t = 0; t < 0.42f; t += Time.deltaTime)
+        {
+            float u = t / 0.42f;
+            head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(u * Mathf.PI * 2f)) * 0.14f * (1f - u));
+            SetCam(camFront, camLook); yield return null;
+        }
+        head.position = assembledPos;
 
-        // 4~5) 파란 빛이 눈사람 → 테이블로 (정면 카메라 유지)
-        yield return Hold(panSeconds * 0.5f, camFront, camLook);
+        // 2~3) 대사 = 눈사람 머리 옆 말풍선 + 음성. 카메라는 아주 천천히 다가감(정적인 롱테이크 방지)
+        Vector3 camNear = Vector3.Lerp(camFront, camLook, 0.14f);
+        float talkTotal = talkSeconds * 2f;
+        currentBubble = bubble1; PlayVoice(voice1);
+        bool second = false;
+        for (float t = 0; t < talkTotal; t += Time.deltaTime)
+        {
+            if (!second && t >= talkSeconds) { second = true; currentBubble = bubble2; PlayVoice(voice2); }
+            float u = Mathf.SmoothStep(0, 1, t / talkTotal);
+            SetCam(Vector3.Lerp(camFront, camNear, u), camLook);
+            // 첫 마디에 맞춰 머리가 아주 살짝 두 번 까딱(생동감)
+            if (t < 0.9f)
+                head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(t / 0.9f * Mathf.PI * 2f)) * 0.05f);
+            else head.position = assembledPos;
+            yield return null;
+        }
+        currentBubble = null;
+        Vector3 camTalkEnd = camNear;
+
+        // 4~5) 파란 빛이 눈사람 → 테이블로, 살짝 호를 그리며 (정면 카메라 유지)
+        yield return Hold(panSeconds * 0.5f, camTalkEnd, camLook);
         var light = MakeLight();
         Vector3 from = assembledPos;
         Vector3 tgt = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
         for (float t = 0; t < lightSeconds; t += Time.deltaTime)
         {
             float u = Mathf.SmoothStep(0, 1, t / lightSeconds);
-            light.transform.position = Vector3.Lerp(from, tgt, u);
+            Vector3 lp = Vector3.Lerp(from, tgt, u); lp.y += Mathf.Sin(u * Mathf.PI) * 1.1f;   // 포물선 궤적
+            light.transform.position = lp;
             light.transform.localScale = Vector3.one * Mathf.Lerp(0.6f, 0.12f, u);
-            SetCam(camFront, camLook); yield return null;
+            SetCam(camTalkEnd, camLook); yield return null;
         }
         Destroy(light);
         // 테이블 몸이 빛나다 절정에서 얼음(눈사람의 힘)으로 변신 → 빛 잦아들면 얼음 형태 유지(FlashTable 내부).
-        yield return FlashTable(camFront, camLook);
-        yield return Hold(1.3f, camFront, camLook);
+        yield return FlashTable(camTalkEnd, camLook);
+        yield return Hold(1.3f, camTalkEnd, camLook);
 
         // 7) 눈사람 힘 조작법 이미지 (비활성 오브젝트라 GameObject.Find 안 됨 → FindObjectsInactive)
         var cg = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
@@ -217,12 +243,19 @@ public class SnowmanCutscene : MonoBehaviour
     {
         if (currentBubble == null || body == null) return;
         var c = Camera.main; if (c == null) return;
-        Vector3 hpos = assembledPos + Vector3.up * 1.0f;     // 눈사람 머리 위
-        Vector3 sp = c.WorldToScreenPoint(hpos);
+        // ★꼬리(버블 텍스처 오른쪽 가장자리, 위에서 ~43% 높이)가 '머리 공 왼쪽 가장자리'에 닿게 배치.
+        Vector3 headC = assembledPos;                        // 조립된 머리 중심
+        Vector3 sp = c.WorldToScreenPoint(headC);
         if (sp.z <= 0f) return;
+        // 머리 공의 화면 반지름(px): 중심에서 카메라-오른쪽으로 반경만큼 이동한 점을 투영해 계산
+        Vector3 spEdge = c.WorldToScreenPoint(headC - c.transform.right * 0.72f);
+        float rPix = Mathf.Abs(sp.x - spEdge.x);
         float bw = Mathf.Clamp(Screen.width * 0.30f, 240f, 420f);
         float bh = bw * (currentBubble.height / (float)currentBubble.width);
-        var r = new Rect(sp.x - bw - 55f, (Screen.height - sp.y) - bh * 0.5f, bw, bh);
+        float headGuiY = Screen.height - sp.y;               // GUI 좌표계 머리 중심
+        var r = new Rect(sp.x - rPix - bw + 6f,              // 오른쪽 끝(꼬리 끝)이 공 왼쪽에 살짝 겹침
+                         headGuiY - bh * 0.43f,              // 꼬리 높이(43%)를 머리 중심에 맞춤
+                         bw, bh);
         r.x = Mathf.Max(8f, r.x); r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
         GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
     }
