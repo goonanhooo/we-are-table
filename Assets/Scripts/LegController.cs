@@ -39,6 +39,8 @@ public class LegController : MonoBehaviour
     public float stopMargin = 12f;
     [Tooltip("힌지 리밋 제약을 한계각 몇 도 앞에서 미리 활성화할지. 다리가 빠르게 스윙하다 한계각(±90°)에 '쾅' 박혀 몸이 튕기던 것을 솔버가 여러 스텝에 걸쳐 부드럽게 흡수(측정: 큰 튐의 100%가 한계각 충돌). 리밋 위치·모터 체감 불변.")]
     public float limitContactDistance = 8f;
+    [Tooltip("모터 목표속도 가속률(도/초²). 키 에지의 계단 입력(0↔300°/s)이 1~2스텝 만에 도달하며 몸통 반작용 저크(~1.8rad/s)를 만들던 것을 ~75ms 램프로 분산 — 최고속도·조작 지연 체감 동일.")]
+    public float motorAccel = 4000f;
     [Tooltip("힌지 회전축(로컬). (1,0,0) = 앞뒤 스윙")]
     public Vector3 hingeAxis = new Vector3(1f, 0f, 0f);
 
@@ -62,7 +64,8 @@ public class LegController : MonoBehaviour
     float baseLegScaleY = 1f;   // 초기 다리 길이(스케일.y) — 길어지면 각속도를 반비례로 줄여 발끝 속도 일정
     float yaw;         // 물리에 적용된 실제 축 회전(FixedUpdate에서 균일 증가)
     float targetYaw;   // 입력이 올리는 목표 축 회전(Update)
-    bool freezePending; // 동결 밴드 잠금 예약 — FixedUpdate에서 '신선한 각도'로 적용
+    bool freezePending; // 동결 잠금 예약 — FixedUpdate에서 '신선한 각도'로 적용
+    float rampedV;      // 램프 적용된 현재 모터 목표속도(도/초)
     bool frozen;     // 입력 없을 때 현재 각도로 하드 고정(상판과의 상대 각도 잠금 → 안 휨)
     float holdTimer; // >0 동안 다리를 수직(각도 0)으로 강제 고정 (리셋 보정용)
 
@@ -160,17 +163,18 @@ public class LegController : MonoBehaviour
                 // ★ 밴드 잠금은 FixedUpdate에서 '신선한 각도'로 적용(freezePending).
                 //   Update(렌더 프레임)에서 읽은 hinge.angle은 물리 3~4스텝 전 값이라, 낡은 각도에
                 //   잠그면 다음 물리스텝에 즉시 밴드 위반→교정 저크(퍼저 측정: freeze 계열 몸통 튐).
-                freezePending = true;
+                // ⚠️스프링 동결 실험 실패(2026-07-04): Unity 힌지 스프링 강성 단위가 °당 토크라
+                //   250은 초고강성 + 댐퍼3은 무감쇠 → 다리 관성(0.164)에 비감쇠 진동자 = 발산
+                //   (각도 -167°까지 리밋 관통, Δv 176). 검증된 하드 밴드+브레이크로 복원.
+                freezePending = true;   // 실제 적용은 FixedUpdate(신선한 각도)
                 hinge.useSpring = false;
-                // ★ 위치는 한계로 고정 + 정지 토크 모터(targetVelocity=0)로 상대 각속도를 강하게 댐핑
-                //   → 다른 다리가 확 반대로 움직여 몸이 휙 젖혀져도 고정 다리가 한계를 넘어 덜렁거리지 않음.
                 hinge.useMotor = true;
                 var hm = hinge.motor;
                 hm.targetVelocity = 0f;
-                // 지라프(긴 다리)에서 너무 빳빳하면 솔버 발산→NaN → 배수를 1.5로 캡.
-                hm.force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);
+                hm.force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);   // 지라프 캡 1.5
                 hm.freeSpin = false;
                 hinge.motor = hm;
+                rampedV = 0f;
                 frozen = true;
             }
             return;
@@ -179,8 +183,10 @@ public class LegController : MonoBehaviour
         if (frozen)
         {
             freezePending = false;   // 잠금 예약 취소(적용 전에 입력이 재개된 경우)
+            hinge.useSpring = false;
             hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
             hinge.useMotor = true;
+            rampedV = 0f;   // 정지에서 램프 시작(계단 방지)
             frozen = false;
         }
 
@@ -197,9 +203,11 @@ public class LegController : MonoBehaviour
         if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
         if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
 
+        // ★ 램프: 목표속도를 계단이 아니라 motorAccel로 서서히 도달(반작용 저크 분산)
+        rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.deltaTime);
         var motor = hinge.motor;
         motor.force = motorForce * forceMultiplier;
-        motor.targetVelocity = v;
+        motor.targetVelocity = rampedV;
         hinge.motor = motor;
 
         // 좌/우 = 다리를 긴 축(Y)으로 회전 + 스윙 축도 같이 회전
@@ -233,7 +241,7 @@ public class LegController : MonoBehaviour
         {
             freezePending = false;
             float fa = hinge.angle;
-            // ⚠️ 폭발 프레임에 NaN이면 NaN 리밋이 '래치'되므로 유한할 때만
+            // ⚠️ 폭발 프레임에 NaN이면 NaN 스프링/리밋이 '래치'되므로 유한할 때만
             if (float.IsFinite(fa))
             {
                 hinge.limits = new JointLimits { min = fa - 0.05f, max = fa + 0.05f, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = 2f };
@@ -287,6 +295,8 @@ public class LegController : MonoBehaviour
         bool badMot = !float.IsFinite(m.targetVelocity) || !float.IsFinite(m.force);
         Vector3 ax = hinge.axis;
         bool badAx = !float.IsFinite(ax.x) || !float.IsFinite(ax.y) || !float.IsFinite(ax.z) || ax.sqrMagnitude < 1e-6f;
+        var sp = hinge.spring;
+        if (!float.IsFinite(sp.spring) || !float.IsFinite(sp.targetPosition)) { hinge.useSpring = false; frozen = false; }
         if (badLim) hinge.limits = new JointLimits { min = -swingLimit, max = swingLimit, bounciness = 0f, bounceMinVelocity = 0f, contactDistance = limitContactDistance };
         if (badMot) { m.targetVelocity = 0f; m.force = motorForce; hinge.motor = m; }
         if (badAx) hinge.axis = hingeAxis.normalized;
