@@ -28,9 +28,16 @@ public class GiraffeGate : MonoBehaviour
     public float fallTriggerY = 5f;
     public float holeRadius = 2.5f;
 
+    [Header("페이드(기둥 속에서 어두워졌다 빙산에서 밝아짐)")]
+    [Tooltip("보드가 이 y 아래로 내려가면(구멍 XZ 안) 페이드 아웃 시작.")]
+    public float fadeStartY = -2f;
+    public float fadeOutSeconds = 1.2f;
+    public float fadeInDelay = 0.5f;     // 빙산 로드 후 검정 유지 시간
+    public float fadeInSeconds = 1.8f;
+
     Transform board;
     Vector2 holeXZ;
-    bool opened, transitioned;
+    bool opened, transitioned, fadeStarted;
 
     void Start()
     {
@@ -48,10 +55,13 @@ public class GiraffeGate : MonoBehaviour
             if (all) { opened = true; StartCoroutine(OpenCutscene()); }
         }
 
-        if (opened && !transitioned && board != null && board.position.y < fallTriggerY
-            && new Vector2(board.position.x - holeXZ.x, board.position.z - holeXZ.y).sqrMagnitude < holeRadius * holeRadius)
+        if (opened && !transitioned && board != null)
         {
-            TryFall();
+            bool inHole = new Vector2(board.position.x - holeXZ.x, board.position.z - holeXZ.y).sqrMagnitude < holeRadius * holeRadius;
+            // 기둥 속으로 떨어지기 시작하면 서서히 어두워짐(씬 전환 전에 완전 검정 도달)
+            if (!fadeStarted && inHole && board.position.y < fadeStartY)
+            { fadeStarted = true; ScreenFader.FadeOut(fadeOutSeconds); }
+            if (inHole && board.position.y < fallTriggerY) TryFall();
         }
     }
 
@@ -64,6 +74,8 @@ public class GiraffeGate : MonoBehaviour
         if (!opened || transitioned) return;
         transitioned = true;
         Time.timeScale = 1f;
+        ScreenFader.FadeOut(0.25f);                              // 안전망: 아직 안 어두우면 즉시 마저 어둡게
+        ScreenFader.FadeInAfterNextLoad(fadeInDelay, fadeInSeconds);  // 빙산: 검정 유지 후 서서히 밝아짐
         NetScene.Load(nextScene);   // 멀티: 호스트가 전원 씬 전환(게스트 트리거는 무시)
     }
 

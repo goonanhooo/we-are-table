@@ -571,8 +571,8 @@ Transform:
   m_GameObject: {fileID: 29844105}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1.8, z: -28.882164}
-  m_LocalScale: {x: 54, y: 4, z: 18.235674}
+  m_LocalPosition: {x: 0, y: -1.8, z: -29.28}
+  m_LocalScale: {x: 54, y: 4, z: 17.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 637943575}
@@ -1459,8 +1459,8 @@ Transform:
   m_GameObject: {fileID: 48075161}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1.8, z: 11.517837}
-  m_LocalScale: {x: 54, y: 4, z: 52.964325}
+  m_LocalPosition: {x: 0, y: -1.8, z: 11.92}
+  m_LocalScale: {x: 54, y: 4, z: 52.16}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 637943575}
@@ -6661,8 +6661,8 @@ Transform:
   m_GameObject: {fileID: 263987700}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -14.70601, y: -1.8, z: -17.364326}
-  m_LocalScale: {x: 24.58798, y: 4, z: 4.8}
+  m_LocalPosition: {x: -15.11, y: -1.8, z: -17.36}
+  m_LocalScale: {x: 23.79, y: 4, z: 6.4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 637943575}
@@ -8782,7 +8782,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.87771225, z: -0, w: 0.4791881}
   m_LocalPosition: {x: -46.3, y: 6.33, z: 45.7}
-  m_LocalScale: {x: 3.5, y: 0.14, z: 3.5}
+  m_LocalScale: {x: 5.4, y: 0.14, z: 5.4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1661235631}
@@ -15486,7 +15486,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.87771225, z: -0, w: 0.4791881}
   m_LocalPosition: {x: -46.3, y: 6.4, z: 45.7}
-  m_LocalScale: {x: 3, y: 0.16, z: 3}
+  m_LocalScale: {x: 4.6, y: 0.16, z: 4.6}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1661235631}
@@ -27529,8 +27529,8 @@ Transform:
   m_GameObject: {fileID: 1151684594}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 14.69399, y: -1.8, z: -17.364326}
-  m_LocalScale: {x: 24.61202, y: 4, z: 4.8}
+  m_LocalPosition: {x: 15.1, y: -1.8, z: -17.36}
+  m_LocalScale: {x: 23.81, y: 4, z: 6.4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 637943575}
@@ -33051,9 +33051,9 @@ MonoBehaviour:
   holeShaft: 1
   holeShaftXWorld: -46.3
   holeShaftZWorld: 45.7
-  holeShaftRadiusWorld: 1.9
-  holeShaftEdgeWorld: 1.8
-  holeShaftFloorWorld: -28
+  holeShaftRadiusWorld: 2.75
+  holeShaftEdgeWorld: 2
+  holeShaftFloorWorld: -70
   volcanoCenter: {x: 36, y: 188}
   volcanoRadius: 77.8
   volcanoHeight: 63.1
@@ -35813,8 +35813,12 @@ MonoBehaviour:
   cutsceneHold: 1
   cornerLocal: {x: -22, y: 24, z: 30}
   nextScene: IceMountain
-  fallTriggerY: -8
+  fallTriggerY: -30
   holeRadius: 2.5
+  fadeStartY: -2
+  fadeOutSeconds: 1.2
+  fadeInDelay: 0.5
+  fadeInSeconds: 1.8
 --- !u!4 &1661235631
 Transform:
   m_ObjectHideFlags: 0
@@ -42360,7 +42364,7 @@ Transform:
   m_GameObject: {fileID: 1964184046}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.87771225, z: -0, w: 0.4791881}
-  m_LocalPosition: {x: -46.3, y: -8, z: 45.7}
+  m_LocalPosition: {x: -46.3, y: -30, z: 45.7}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -42398,7 +42402,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 3, y: 3, z: 3}
+  m_Size: {x: 4.6, y: 4, z: 4.6}
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!1001 &1967059761
 PrefabInstance:
