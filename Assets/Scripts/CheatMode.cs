@@ -18,6 +18,7 @@ public class CheatMode : MonoBehaviour
     public float fastMul = 3f;
 
     Rigidbody[] bodies;
+    ArticulationBody artRoot;   // ★ art 테이블: 루트 하나만 TeleportRoot로 사슬 전체 이동
     bool[] origGravity;
     IcePower ice;
     bool gravityOff;
@@ -36,6 +37,8 @@ public class CheatMode : MonoBehaviour
             if (rb != null && !list.Contains(rb)) list.Add(rb);
         }
         bodies = list.ToArray();
+        foreach (var ab in transform.root.GetComponentsInChildren<ArticulationBody>(true))
+            if (ab.isRoot) { artRoot = ab; break; }
         origGravity = new bool[bodies.Length];
         origKinematic = new bool[bodies.Length];
         for (int i = 0; i < bodies.Length; i++) { origGravity[i] = bodies[i].useGravity; origKinematic[i] = bodies[i].isKinematic; }
@@ -97,6 +100,9 @@ public class CheatMode : MonoBehaviour
             if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z)) continue;  // 안전 가드(혹시 모를 비유한)
             rb.position = p + delta;   // kinematic 텔레포트(노클립) — 입력 없으면 제자리, 충돌 폭발 없음
         }
+        // ★ art 테이블: 루트 TeleportRoot로 사슬 전체 이동(immovable 상태에서도 동작 — 관절 보존)
+        if (artRoot != null && delta != Vector3.zero && float.IsFinite(artRoot.transform.position.x))
+            artRoot.TeleportRoot(artRoot.transform.position + delta, artRoot.transform.rotation);
     }
 
     void TeleportToLook()
@@ -114,6 +120,12 @@ public class CheatMode : MonoBehaviour
                 if (rb == null) continue;
                 if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
                 rb.position += off;
+            }
+            // ★ art 테이블: 루트 TeleportRoot로 사슬 전체 이동
+            if (artRoot != null && float.IsFinite(artRoot.transform.position.x))
+            {
+                artRoot.TeleportRoot(artRoot.transform.position + off, artRoot.transform.rotation);
+                if (!artRoot.immovable) { artRoot.linearVelocity = Vector3.zero; artRoot.angularVelocity = Vector3.zero; }
             }
         }
     }

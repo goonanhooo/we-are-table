@@ -23,7 +23,7 @@ public class CageButton : MonoBehaviour
     public float riseHeight = 60f;      // 철창이 올라갈 높이
     public float riseSeconds = 3.2f;    // 올라가는 시간
 
-    Rigidbody[] tableBodies;
+    Transform[] tableBodies;   // 상판+다리 바디(Transform — Rigidbody/ArticulationBody 테이블 공용)
     Vector3 capBasePos;
     bool pressed;
     Material mat;   // 누르면 초록으로 바꿀 버튼 머티리얼
@@ -38,17 +38,28 @@ public class CageButton : MonoBehaviour
         if (r != null) mat = r.material;
 
         var tgo = GameObject.Find("Table");
-        if (tgo != null) tableBodies = tgo.transform.root.GetComponentsInChildren<Rigidbody>(true);
+        if (tgo != null) tableBodies = CollectBodies(tgo.transform.root);
+    }
+
+    /// <summary>테이블 바디들의 Transform 수집 — Rigidbody(구 힌지판)와 ArticulationBody(현행) 모두 지원.</summary>
+    static Transform[] CollectBodies(Transform root)
+    {
+        var rbs = root.GetComponentsInChildren<Rigidbody>(true);
+        var abs = root.GetComponentsInChildren<ArticulationBody>(true);
+        var arr = new Transform[rbs.Length + abs.Length];
+        for (int i = 0; i < rbs.Length; i++) arr[i] = rbs[i].transform;
+        for (int i = 0; i < abs.Length; i++) arr[rbs.Length + i] = abs[i].transform;
+        return arr;
     }
 
     void Update()
     {
         if (pressed || tableBodies == null) return;
         Vector3 p = transform.position;
-        foreach (var rb in tableBodies)
+        foreach (var b in tableBodies)
         {
-            if (rb == null) continue;
-            if (Vector3.Distance(rb.position, p) < pressRadius) { pressed = true; StartCoroutine(Sequence()); break; }
+            if (b == null) continue;
+            if (Vector3.Distance(b.position, p) < pressRadius) { pressed = true; StartCoroutine(Sequence()); break; }
         }
     }
 

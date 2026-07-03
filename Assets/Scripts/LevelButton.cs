@@ -16,7 +16,7 @@ public class LevelButton : MonoBehaviour
     [Tooltip("눌리면 색을 이 색으로(빨강→초록 같은 피드백). 비활성 시 무시.")]
     public bool tintOnPress = true;
 
-    Rigidbody[] tableBodies;
+    Transform[] tableBodies;   // 상판+다리 바디(Transform — Rigidbody/ArticulationBody 테이블 공용)
     Vector3 capBase;
     bool pressed;
     Renderer capRend;
@@ -28,7 +28,15 @@ public class LevelButton : MonoBehaviour
         capRend = cap.GetComponent<Renderer>();
         var tgo = GameObject.Find("Table");
         if (tgo == null) tgo = GameObject.Find("TablePlayer");
-        if (tgo != null) tableBodies = tgo.transform.root.GetComponentsInChildren<Rigidbody>(true);
+        if (tgo != null)
+        {
+            var root = tgo.transform.root;
+            var rbs = root.GetComponentsInChildren<Rigidbody>(true);
+            var abs = root.GetComponentsInChildren<ArticulationBody>(true);
+            tableBodies = new Transform[rbs.Length + abs.Length];
+            for (int i = 0; i < rbs.Length; i++) tableBodies[i] = rbs[i].transform;
+            for (int i = 0; i < abs.Length; i++) tableBodies[rbs.Length + i] = abs[i].transform;
+        }
     }
 
     void Update()
