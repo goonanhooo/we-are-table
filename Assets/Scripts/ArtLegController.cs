@@ -39,6 +39,12 @@ public class ArtLegController : MonoBehaviour
     public float yawDamping = 30f;
     public float yawForce = 120f;
 
+    [Header("보조 키(선택) — 이 다리를 추가 키로도 조작 (본게임 Arrows 다리: [=위 '=아래 ;=왼쪽 오른쪽Enter=오른쪽)")]
+    public UnityEngine.InputSystem.Key altUp = UnityEngine.InputSystem.Key.None;
+    public UnityEngine.InputSystem.Key altDown = UnityEngine.InputSystem.Key.None;
+    public UnityEngine.InputSystem.Key altLeft = UnityEngine.InputSystem.Key.None;
+    public UnityEngine.InputSystem.Key altRight = UnityEngine.InputSystem.Key.None;
+
     [Header("Freeze (입력 없음 — 위치 드라이브 유지)")]
     [Tooltip("동결 위치 드라이브 강성(축소좌표라 스냅 없음 — 강해도 안전)")]
     public float holdStiffness = 3000f;
@@ -59,6 +65,8 @@ public class ArtLegController : MonoBehaviour
     {
         ab = GetComponent<ArticulationBody>();
         tableInput = TableInput.Of(this);
+        // 보조 키 등록(본게임 LegController와 동일 경로 — TableInput이 OR로 합침)
+        if (tableInput != null) tableInput.RegisterAltKeys(controlSet, altUp, altDown, altLeft, altRight);
         if (transform.childCount > 0) { legMesh = transform.GetChild(0); baseLegScaleY = legMesh.localScale.y; }
         SetupJoint();
     }

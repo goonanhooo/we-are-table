@@ -626,6 +626,10 @@ MonoBehaviour:
   yawStiffness: 600
   yawDamping: 30
   yawForce: 120
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   holdStiffness: 3000
   holdDamping: 80
 --- !u!171741748 &580328367
@@ -638,7 +642,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: -0.050000012, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -753,6 +757,10 @@ MonoBehaviour:
   yawStiffness: 600
   yawDamping: 30
   yawForce: 120
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   holdStiffness: 3000
   holdDamping: 80
 --- !u!171741748 &624218681
@@ -765,7 +773,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: -0.050000012, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1658,6 +1666,10 @@ MonoBehaviour:
   yawStiffness: 600
   yawDamping: 30
   yawForce: 120
+  altUp: 11
+  altDown: 5
+  altLeft: 6
+  altRight: 2
   holdStiffness: 3000
   holdDamping: 80
 --- !u!171741748 &1378861269
@@ -1670,7 +1682,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: -0.050000012, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -2237,6 +2249,10 @@ MonoBehaviour:
   yawStiffness: 600
   yawDamping: 30
   yawForce: 120
+  altUp: 0
+  altDown: 0
+  altLeft: 0
+  altRight: 0
   holdStiffness: 3000
   holdDamping: 80
 --- !u!171741748 &1948807368
@@ -2249,7 +2265,7 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 1
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: -0.050000012, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
