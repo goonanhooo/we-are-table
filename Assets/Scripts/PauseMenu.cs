@@ -31,8 +31,8 @@ public class PauseMenu : MonoBehaviour
     GUIStyle titleStyle, btnStyle, labelStyle, centerStyle;
     Texture2D tex;
 
-    const float PanelW = 380f, PanelH = 718f;
-    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, lettersBtn, restartBtn, cheatBtn, menuBtn;
+    const float PanelW = 380f, PanelH = 776f;
+    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, lettersBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     bool showLetters; int letterPage;   // 편지 열람 화면(조작법 화면과 같은 패턴)
     // 조작법 화면 레이아웃
     Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
@@ -80,6 +80,7 @@ public class PauseMenu : MonoBehaviour
         lettersBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
+        quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         cheatBtn    = new Rect(ix, cy, iw, 46f);   // 맨 아래 '숨은' 버튼 — 호버해야만 보임
     }
 
@@ -191,6 +192,14 @@ public class PauseMenu : MonoBehaviour
                 Time.timeScale = 1f;
                 NetScene.LeaveToLocal(startScene);   // 멀티: 세션에서 나만 빠져나가 메뉴로(호스트면 세션 종료)
             }
+            else if (quitBtn.Contains(gm))
+            {
+                Time.timeScale = 1f;
+                Application.Quit();                  // 빌드: 게임 종료
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;   // 에디터: 플레이 정지
+#endif
+            }
             else if (!volSlider.Contains(gm) && !bgmSlider.Contains(gm) && !sfxSlider.Contains(gm))
                 SetPaused(false); // 바깥/패널 빈 곳 클릭 → 닫기
         }
@@ -256,6 +265,8 @@ public class PauseMenu : MonoBehaviour
         DrawButton(restartBtn, "Restart (다시 시작)", gm);
 
         DrawButton(menuBtn, "Main Menu", gm);
+
+        DrawButton(quitBtn, "Quit (게임 종료)", gm);
 
         // 치트: 평소엔 안 보임 — 메뉴 맨 아래 빈 자리에 마우스를 올려야만 나타나는 숨은 버튼
         if (cheatBtn.Contains(gm))
