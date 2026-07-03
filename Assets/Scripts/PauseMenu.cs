@@ -79,8 +79,8 @@ public class PauseMenu : MonoBehaviour
         controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         lettersBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        cheatBtn    = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        menuBtn     = new Rect(ix, cy, iw, 46f);
+        menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
+        cheatBtn    = new Rect(ix, cy, iw, 46f);   // 맨 아래 '숨은' 버튼 — 호버해야만 보임
     }
 
     void ComputeControlsLayout()
@@ -255,9 +255,11 @@ public class PauseMenu : MonoBehaviour
 
         DrawButton(restartBtn, "Restart (다시 시작)", gm);
 
-        DrawButton(cheatBtn, "Cheat (치트): " + (CheatMode.Active ? "ON" : "OFF"), gm);
-
         DrawButton(menuBtn, "Main Menu", gm);
+
+        // 치트: 평소엔 안 보임 — 메뉴 맨 아래 빈 자리에 마우스를 올려야만 나타나는 숨은 버튼
+        if (cheatBtn.Contains(gm))
+            DrawButton(cheatBtn, "Cheat (치트): " + (CheatMode.Active ? "ON" : "OFF"), gm);
     }
 
     void DrawControlsScreen(Vector2 gm)
