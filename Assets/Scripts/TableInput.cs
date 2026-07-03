@@ -49,6 +49,17 @@ public class TableInput : MonoBehaviour
         return ti;
     }
 
+    void Start()
+    {
+        // ★ NGO NetworkRigidbody는 네트워크 스폰 전(Awake)에 바디를 kinematic으로 만든다 —
+        //   세션 없는 싱글/로컬 플레이에서 테이블이 공중에 얼어붙는 원인. 오프라인이면 동적으로 복원.
+        //   (온라인은 스폰 시 NetworkRigidbody가 권한 기준으로 다시 설정: 호스트=동적, 게스트=kinematic)
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm == null || !nm.IsListening)
+            foreach (var rb in transform.root.GetComponentsInChildren<Rigidbody>(true))
+                rb.isKinematic = false;
+    }
+
     /// <summary>이 키셋 다리의 현재 프레임 입력.</summary>
     public LegInput Get(LegControlSet set) => current[(int)set];
 

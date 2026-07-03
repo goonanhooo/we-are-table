@@ -38387,6 +38387,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 1344099387
+      objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: SceneMigrationSynchronization
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: InScenePlacedSourceGlobalObjectIdHash
+      value: 270732669
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -38415,6 +38427,7 @@ MonoBehaviour:
   unlocked: 0
   active: 0
   iceMaterial: {fileID: 2100000, guid: c1604fdaf27e4425e91c364441424f77, type: 2}
+  netVisualOnly: 0
 --- !u!1 &1849648646
 GameObject:
   m_ObjectHideFlags: 0
