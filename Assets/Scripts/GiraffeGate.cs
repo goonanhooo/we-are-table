@@ -57,13 +57,22 @@ public class GiraffeGate : MonoBehaviour
 
     public bool Opened => opened;
 
-    /// <summary>구멍 트리거(GateFallTrigger)가 테이블 진입 시 호출 — 문 열린 뒤에만 전환.</summary>
+    /// <summary>구멍 트리거(GateFallTrigger)가 테이블 진입 시 호출 — 문 열린 뒤에만 전환.
+    /// 트리거는 샤프트 깊숙이(y≈-8) 있어 테이블이 어둠 속을 한참 떨어진 뒤 빙산씬으로 넘어간다.</summary>
     public void TryFall()
     {
         if (!opened || transitioned) return;
         transitioned = true;
         Time.timeScale = 1f;
         NetScene.Load(nextScene);   // 멀티: 호스트가 전원 씬 전환(게스트 트리거는 무시)
+    }
+
+    /// <summary>[테스트용] 버튼 4개 없이 문 열림 컷씬 발동(에디터 검증 편의).</summary>
+    public void ForceOpen()
+    {
+        if (opened) return;
+        opened = true;
+        StartCoroutine(OpenCutscene());
     }
 
     IEnumerator OpenCutscene()
@@ -82,21 +91,25 @@ public class GiraffeGate : MonoBehaviour
         }
         yield return new WaitForSeconds(0.5f);
 
-        // 2) 문(뚜껑) 경첩 회전으로 열림
+        // 2) ★문(뚜껑)이 옆으로 '스르륵' 미끄러져 열림 → 실제 구멍(수직 샤프트)이 드러난다.
+        //    방향 = 건물 중심에서 바깥쪽(버튼들과 안 겹치게), 거리 = 뚜껑 지름보다 살짝 크게(완전 개방).
         if (lid != null)
         {
-            Vector3 axis = w != null ? w.transform.right : Vector3.right;
-            Vector3 fwd = w != null ? w.transform.forward : Vector3.forward;
-            float lidR = lid.lossyScale.x * 0.5f;
-            Vector3 pivot = lid.position + fwd * lidR;       // +forward 모서리에 경첩 → 반대편이 구멍 속으로 떨어지며 열림
-            float done = 0f;
-            while (done < doorOpenAngle)
+            Vector3 dir = Vector3.right;
+            if (w != null)
             {
-                float step = Mathf.Min(doorOpenAngle - done, doorOpenAngle * Time.deltaTime / Mathf.Max(0.05f, doorSeconds));
-                lid.RotateAround(pivot, axis, -step);        // ★아래(구멍 속)로 열림
-                done += step;
+                dir = lid.position - w.transform.position; dir.y = 0f;
+                dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : w.transform.right;
+            }
+            Vector3 from = lid.position;
+            Vector3 to = from + dir * (lid.lossyScale.x * 1.15f);
+            for (float t = 0; t < doorSeconds; t += Time.deltaTime)
+            {
+                float u = Mathf.SmoothStep(0f, 1f, t / doorSeconds);
+                lid.position = Vector3.Lerp(from, to, u);
                 yield return null;
             }
+            lid.position = to;
         }
 
         // 3) 잠깐 멈춰서 보여준 뒤 카메라 복귀

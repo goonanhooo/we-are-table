@@ -51,6 +51,14 @@ public class IslandTerrain : MonoBehaviour
     public float spawnDishRadius = 26f;                      // design (~13 월드)
     public float spawnDishDepth = 3f;                        // design (~1.5 월드) — 아주 약간
 
+    [Header("창고 구멍 수직 샤프트 (빙산씬 통로 — 뚜껑 아래 지형을 실제로 뚫음) — world 좌표")]
+    public bool holeShaft = false;
+    public float holeShaftXWorld = -46.3f;    // HoleLid 월드 XZ
+    public float holeShaftZWorld = 45.7f;
+    public float holeShaftRadiusWorld = 1.9f; // 완전 카브 반경(DarkTube 원통이 내벽을 감쌈)
+    public float holeShaftEdgeWorld = 1.8f;   // 바깥 blend
+    public float holeShaftFloorWorld = -28f;  // 샤프트 바닥(world y)
+
     [Header("화산")]
     public Vector2 volcanoCenter = new Vector2(36f, 188f);
     public float volcanoRadius = 70f;
@@ -297,6 +305,21 @@ public class IslandTerrain : MonoBehaviour
         float localCanyonDepth = Mathf.Lerp(canyonDepth, volcanoChannelDepth, cone);
         float floorTarget = Mathf.Max(h - localCanyonDepth, waterLevel + 1.0f); // 물 위 유지
         h = Mathf.Lerp(h, floorTarget, carve);
+
+        // ★창고 구멍 수직 샤프트: 뚜껑(HoleLid) 아래 지형을 좁고 깊게 뚫음 — 테이블이 실제로 떨어져
+        //   어두운 원통(DarkTube) 속을 낙하하다 빙산씬으로 전환. (params는 world 좌표 — trench 패턴)
+        if (holeShaft)
+        {
+            float swx = x * worldScale - holeShaftXWorld;
+            float swz = z * worldScale - holeShaftZWorld;
+            float sd = Mathf.Sqrt(swx * swx + swz * swz);
+            if (sd < holeShaftRadiusWorld + holeShaftEdgeWorld)
+            {
+                float floorDesign = holeShaftFloorWorld / worldScale;
+                float t = SStep(holeShaftRadiusWorld, holeShaftRadiusWorld + holeShaftEdgeWorld, sd); // 0=중심 1=밖
+                h = Mathf.Lerp(Mathf.Min(h, floorDesign), h, t);
+            }
+        }
 
         return h;
     }
