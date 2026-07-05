@@ -156,10 +156,10 @@ public class SnowmanCutscene : MonoBehaviour
         Vector3 side = line.sqrMagnitude > 1e-4f ? Vector3.Cross(line.normalized, Vector3.up) : body.forward;
         if (Vector3.Dot(side, body.forward) < 0f) side = -side;   // ★눈사람 '얼굴 쪽'에서 촬영(뒤통수 앵글 방지)
         Vector3 camPow = mid + side * (sep * 1.15f + 5.5f) + Vector3.up * 2.6f;
-        // 동굴 방 안으로 클램프(확장된 내부 x±16 z[-22,24] y26~36 — 여유 두고)
+        // 동굴 방 안으로 클램프(확장된 내부 x±16 z[-22,24], 천장 아래 — 여유 두고)
         camPow.x = Mathf.Clamp(camPow.x, -14f, 14f);
         camPow.z = Mathf.Clamp(camPow.z, -20f, 22f);
-        camPow.y = Mathf.Min(camPow.y, 34f);
+        camPow.y = Mathf.Min(camPow.y, body.position.y + 8.8f);   // 방 높이가 바뀌어도 유효(절대 34 하드코딩 X)
         Vector3 camPowLook = mid + Vector3.up * 0.2f;
         yield return CamLerp(camTalkEnd, camLook, camPow, camPowLook, panSeconds * 0.7f);
 
