@@ -7,9 +7,8 @@ using UnityEngine;
 ///
 /// 관절 구성: SphericalJoint —
 ///   · twist(X)  = 앞뒤 스윙: ±swingLimit 리밋 + 속도 드라이브(damping 기반, forceLimit=motorForce)
-///   · swingY(Y) = 스핀(yaw): ±yawLimit 리밋 + 위치 드라이브(targetYaw)
-///     ⚠️ PhysX 분해 순서(swing∘twist) 덕에 yaw가 트위스트(스윙) 축을 자연히 회전 —
-///        원게임 'hinge.axis 재설정'과 동일 거동을 축 재설정 없이 얻는다(무제한 회전만 ±yawLimit로 제한).
+///   · swingY(Y) = ★잠금(2026-07-05): 다리별 yaw 스핀 폐지 — 구면 관절 분해가 원뿔 느낌·±175 특이점을
+///        만들어 좌우 회전은 몸통 토크(`TableSpin`, 테이블 수직축 서보)로 이관. 좌우 키는 TableSpin이 소비.
 ///   · swingZ    = 잠금
 /// 입력은 TableInput 경유(본게임과 동일 — 퍼저/멀티 재사용 가능).
 /// 체감 매칭: swingVelocity/motorForce/idleHoldForce/stopMargin/motorAccel(램프)/lenScale(지라프) 전부 미러링.
@@ -30,15 +29,6 @@ public class ArtLegController : MonoBehaviour
     [Tooltip("목표속도 램프(도/초²) — 계단 입력 반작용 저크 분산")]
     public float motorAccel = 4000f;
 
-    [Header("Spin (yaw)")]
-    public float spinSpeed = 180f;
-    [Tooltip("yaw 회전 한계(±도). 스피리컬 스윙 분해 특성상 무제한 회전 불가 — 방향 조정 용도로 충분")]
-    public float yawLimit = 175f;
-    [Tooltip("yaw 위치 드라이브 강성/감쇠/힘상한")]
-    public float yawStiffness = 600f;
-    public float yawDamping = 30f;
-    public float yawForce = 120f;
-
     [Header("보조 키(선택) — 이 다리를 추가 키로도 조작 (본게임 Arrows 다리: [=위 '=아래 ;=왼쪽 오른쪽Enter=오른쪽)")]
     public UnityEngine.InputSystem.Key altUp = UnityEngine.InputSystem.Key.None;
     public UnityEngine.InputSystem.Key altDown = UnityEngine.InputSystem.Key.None;
@@ -55,7 +45,6 @@ public class ArtLegController : MonoBehaviour
     TableInput tableInput;
     float baseLegScaleY = 1f;
     float rampedV;       // 램프된 목표 각속도(도/초)
-    float targetYaw;
     bool frozen;
     float holdTimer;
 
@@ -79,7 +68,7 @@ public class ArtLegController : MonoBehaviour
         ab.anchorPosition = Vector3.zero;                  // 피벗(다리 상단) 기준
         ab.anchorRotation = Quaternion.identity;           // twist=X(앞뒤 스윙), swingY=Y(yaw)
         ab.twistLock = ArticulationDofLock.LimitedMotion;  // ⚠️리밋 적용엔 LimitedMotion 필수(CLAUDE.md)
-        ab.swingYLock = ArticulationDofLock.LimitedMotion;
+        ab.swingYLock = ArticulationDofLock.LockedMotion;  // ★yaw 잠금 — 좌우 회전은 TableSpin(몸통 토크)
         ab.swingZLock = ArticulationDofLock.LockedMotion;
         ab.linearLockX = ArticulationDofLock.LockedMotion;
         ab.linearLockY = ArticulationDofLock.LockedMotion;
@@ -90,12 +79,6 @@ public class ArtLegController : MonoBehaviour
         xd.stiffness = 0f; xd.damping = 120f; xd.forceLimit = motorForce;
         xd.target = 0f; xd.targetVelocity = 0f;
         ab.xDrive = xd;
-
-        var yd = ab.yDrive;
-        yd.lowerLimit = -yawLimit; yd.upperLimit = yawLimit;
-        yd.stiffness = yawStiffness; yd.damping = yawDamping; yd.forceLimit = yawForce;
-        yd.target = 0f; yd.targetVelocity = 0f;
-        ab.yDrive = yd;
 
         ab.maxAngularVelocity = 15f;
         ab.maxLinearVelocity = 30f;
@@ -119,7 +102,7 @@ public class ArtLegController : MonoBehaviour
 
         if (tableInput == null) tableInput = TableInput.Of(this);
         LegInput inp = tableInput != null ? tableInput.Get(controlSet) : default;
-        bool hasInput = inp.up || inp.down || inp.left || inp.right;
+        bool hasInput = inp.up || inp.down;   // 좌우는 TableSpin(몸통 회전) 몫 — 다리는 동결 유지
 
         float angle = SwingAngle;
 
@@ -165,16 +148,7 @@ public class ArtLegController : MonoBehaviour
         xd.targetVelocity = rampedV;   // ⚠️ArticulationDrive target/targetVelocity는 '도' 단위(jointPosition만 라디안)
         ab.xDrive = xd;
 
-        // 스핀(yaw): 위치 드라이브 target을 spinSpeed로 증감 — 축 재설정 없음(분해 순서가 처리)
-        float spin = (inp.left ? 1f : 0f) - (inp.right ? 1f : 0f);
-        if (spin != 0f)
-        {
-            targetYaw = Mathf.Clamp(targetYaw + spin * spinSpeed * lenScale * Time.deltaTime, -yawLimit, yawLimit);
-            var yd = ab.yDrive;
-            yd.target = targetYaw;                     // 도 단위
-            ab.yDrive = yd;
-            // 메시는 시각적으로 yaw를 따라 돌 필요 없음 — 관절이 실제로 돌리므로(원게임과 다른 점: 진짜 회전)
-        }
+        // 좌우(스핀) 입력은 TableSpin(루트 몸통 토크)이 소비 — 여기선 처리 안 함.
     }
 
     void DriveHold(float angleDeg)
@@ -193,7 +167,7 @@ public class ArtLegController : MonoBehaviour
     /// <summary>관절 각도/속도/드라이브를 0으로(리셋).</summary>
     public void ResetState()
     {
-        targetYaw = 0f; rampedV = 0f; frozen = false;
+        rampedV = 0f; frozen = false;
         if (ab == null) return;
         if (ab.jointPosition.dofCount > 0)
         {
@@ -201,6 +175,5 @@ public class ArtLegController : MonoBehaviour
             var jv = ab.jointVelocity; for (int i = 0; i < jv.dofCount; i++) jv[i] = 0f; ab.jointVelocity = jv;
         }
         var xd = ab.xDrive; xd.target = 0f; xd.targetVelocity = 0f; ab.xDrive = xd;
-        var yd = ab.yDrive; yd.target = 0f; ab.yDrive = yd;
     }
 }

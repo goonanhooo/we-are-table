@@ -908,11 +908,6 @@ MonoBehaviour:
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
-  spinSpeed: 180
-  yawLimit: 175
-  yawStiffness: 600
-  yawDamping: 30
-  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0
@@ -1099,11 +1094,6 @@ MonoBehaviour:
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
-  spinSpeed: 180
-  yawLimit: 175
-  yawStiffness: 600
-  yawDamping: 30
-  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0
@@ -1290,11 +1280,6 @@ MonoBehaviour:
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
-  spinSpeed: 180
-  yawLimit: 175
-  yawStiffness: 600
-  yawDamping: 30
-  yawForce: 120
   altUp: 11
   altDown: 5
   altLeft: 6
@@ -1481,11 +1466,6 @@ MonoBehaviour:
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
-  spinSpeed: 180
-  yawLimit: 175
-  yawStiffness: 600
-  yawDamping: 30
-  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0
@@ -1513,6 +1493,7 @@ GameObject:
   - component: {fileID: 1678603598061326513}
   - component: {fileID: 27931991182146071}
   - component: {fileID: 3997437327740031991}
+  - component: {fileID: 871857976120003043}
   m_Layer: 0
   m_Name: Table
   m_TagString: Player
@@ -1736,3 +1717,19 @@ MonoBehaviour:
   flipDot: 0.2
   flipPromptDelay: 2
   flipCalmSpeed: 1.2
+--- !u!114 &871857976120003043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: adaaa9c841b074966b9d928dc3f3fe27, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TableSpin
+  spinRate: 70
+  gain: 280
+  maxTorque: 170
+  minUpright: 0.55
