@@ -13,7 +13,10 @@ public class WallSeeThrough : MonoBehaviour
     [Tooltip("안쪽 판정 여유(m) — 카메라가 안쪽면에서 이만큼 들어와 있어야 벽이 보임")]
     public float margin = 0.15f;
 
-    class W { public Renderer r; public int axis; public float innerCoord; public float sign; }
+    [Tooltip("두께 축 이외 축에서 벽 범위 밖으로 이만큼 이상 벗어나면 숨김 대상 아님(멀리서 벽이 사라져 보이는 것 방지)")]
+    public float lateralMargin = 1.0f;
+
+    class W { public Renderer r; public int axis; public float innerCoord; public float sign; public Bounds b; }
     readonly List<W> walls = new List<W>();
 
     void Start()
@@ -38,10 +41,12 @@ public class WallSeeThrough : MonoBehaviour
             float centerA = ax == 0 ? all.center.x : ax == 1 ? all.center.y : all.center.z;
             float wallA = ax == 0 ? b.center.x : ax == 1 ? b.center.y : b.center.z;
             float half = ax == 0 ? b.extents.x : ax == 1 ? b.extents.y : b.extents.z;
-            float sign = Mathf.Sign(centerA - wallA);               // 벽 → 복도 안쪽 방향(+/-)
-            walls.Add(new W { r = r, axis = ax, innerCoord = wallA + sign * half, sign = sign });
+            float sign = Mathf.Sign(centerA - wallA);               // 벽 → 실내 안쪽 방향(+/-)
+            walls.Add(new W { r = r, axis = ax, innerCoord = wallA + sign * half, sign = sign, b = b });
         }
     }
+
+    static float Axis(Vector3 v, int ax) => ax == 0 ? v.x : ax == 1 ? v.y : v.z;
 
     void LateUpdate()
     {
@@ -51,9 +56,19 @@ public class WallSeeThrough : MonoBehaviour
         foreach (var w in walls)
         {
             if (w.r == null) continue;
-            float ca = w.axis == 0 ? p.x : w.axis == 1 ? p.y : p.z;
-            bool inside = (ca - w.innerCoord) * w.sign > margin;    // 안쪽면보다 margin 이상 안으로 들어와 있나
-            if (w.r.enabled != inside) w.r.enabled = inside;
+            float ca = Axis(p, w.axis);
+            bool beyond = (ca - w.innerCoord) * w.sign <= margin;   // 안쪽면 기준 벽 두께 속/바깥에 있나
+            // 나머지 두 축에선 벽 범위 안에 있어야 숨김(플라토 등 멀리서 벽이 사라지는 것 방지)
+            bool lateralOk = true;
+            for (int ax = 0; ax < 3; ax++)
+            {
+                if (ax == w.axis) continue;
+                float c = Axis(p, ax);
+                if (c < Axis(w.b.min, ax) - lateralMargin || c > Axis(w.b.max, ax) + lateralMargin)
+                { lateralOk = false; break; }
+            }
+            bool hide = beyond && lateralOk;
+            if (w.r.enabled != !hide) w.r.enabled = !hide;
         }
     }
 }
