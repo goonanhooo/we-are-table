@@ -279,14 +279,15 @@ public class IceMountain : MonoBehaviour
             h = Mathf.Lerp(h, plateauHeight, k);
         }
 
-        // 동굴: 직사각 풋프린트 안의 지형을 caveFloor 로 '파내기만'(이미 낮으면 유지). 옆/뒤는 산이 남아 벽이 됨.
+        // 동굴: 직사각 풋프린트 안의 지형을 caveFloor 로 '고정'(높으면 파내고 ★낮으면 올림 — 방을 산 위쪽으로
+        // 올린 뒤 자연 지형이 floor 아래로 꺼지는 앞모서리에 구멍이 뚫리는 것 방지). 옆/뒤는 산이 남아 벽이 됨.
         if (cave)
         {
             float ax = Mathf.Abs(x - caveCenter.x), az = Mathf.Abs(z - caveCenter.y);
             float kx = 1f - SStep(caveHalfX - caveEdge, caveHalfX, ax);
             float kz = 1f - SStep(caveHalfZ - caveEdge, caveHalfZ, az);
             float kc = kx * kz;
-            if (caveFloor < h) h = Mathf.Lerp(h, caveFloor, kc);
+            h = Mathf.Lerp(h, caveFloor, kc);
         }
 
         // 슬라이드 트렌치: 슬라이드 복도 아래 지형을 하강선(target) 아래로 파내기만(낮추기 전용).
