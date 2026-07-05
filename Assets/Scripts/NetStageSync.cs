@@ -17,11 +17,17 @@ public class NetStageSync : NetworkBehaviour
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<bool> snowmanPlayed = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // 이번 세션에서 주운 편지(비트마스크 — letterId 정렬 인덱스). 과거 수집분은 발행 안 함(입장 즉시 팝업 방지).
+    readonly NetworkVariable<int> letterBits = new(0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     CageButton cage;
     GiraffeGate gate;
     SnowmanCutscene snowman;
     Rigidbody headRb;
+    LetterPickup[] letters;
+    bool[] letterWasActive;
+    int guestLetterSeen;
     bool guestCage, guestGate, guestSnowman;
 
     public override void OnNetworkSpawn()
@@ -31,6 +37,12 @@ public class NetStageSync : NetworkBehaviour
         snowman = FindAnyObjectByType<SnowmanCutscene>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
+
+        // 편지: letterId 정렬로 호스트/게스트 인덱스 일치
+        letters = FindObjectsByType<LetterPickup>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        System.Array.Sort(letters, (a, b) => string.CompareOrdinal(a.letterId, b.letterId));
+        letterWasActive = new bool[letters.Length];
+        for (int i = 0; i < letters.Length; i++) letterWasActive[i] = letters[i].gameObject.activeSelf;
 
         if (!IsServer)
         {
@@ -48,12 +60,30 @@ public class NetStageSync : NetworkBehaviour
             if (cage != null && cage.PressedState && !cagePressed.Value) cagePressed.Value = true;
             if (gate != null && gate.Opened && !gateOpened.Value) gateOpened.Value = true;
             if (snowman != null && snowman.Started && !snowmanPlayed.Value) snowmanPlayed.Value = true;
+            // 편지: 세션 시작 시 활성이던 봉투가 비활성되면(=이번 세션에 주움) 발행
+            for (int i = 0; i < letters.Length && i < 32; i++)
+                if (letterWasActive[i] && letters[i] != null && !letters[i].gameObject.activeSelf
+                    && (letterBits.Value & (1 << i)) == 0)
+                    letterBits.Value |= 1 << i;
         }
         else
         {
             if (cagePressed.Value && !guestCage) { guestCage = true; if (cage != null) cage.PlayRemote(); }
             if (gateOpened.Value && !guestGate) { guestGate = true; if (gate != null && !gate.Opened) gate.ForceOpen(); }
             if (snowmanPlayed.Value && !guestSnowman) { guestSnowman = true; if (snowman != null) snowman.PlayRemote(); }
+            // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
+            int fresh = letterBits.Value & ~guestLetterSeen;
+            if (fresh != 0)
+            {
+                for (int i = 0; i < letters.Length && i < 32; i++)
+                    if ((fresh & (1 << i)) != 0 && letters[i] != null)
+                    {
+                        LetterSystem.Collect(letters[i].letterId);
+                        LetterOverlay.Show(letters[i].letterId);
+                        letters[i].gameObject.SetActive(false);
+                    }
+                guestLetterSeen = letterBits.Value;
+            }
         }
     }
 }
