@@ -21,6 +21,9 @@ public class NetStageSync : NetworkBehaviour
     readonly NetworkVariable<int> letterBits = new(0,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
+    public int LetterBitsDebug => letterBits.Value;
+
     CageButton cage;
     GiraffeGate gate;
     SnowmanCutscene snowman;
