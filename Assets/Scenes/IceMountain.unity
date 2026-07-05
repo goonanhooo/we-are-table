@@ -37448,8 +37448,8 @@ Transform:
   m_GameObject: {fileID: 1634497531}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 5, z: 142}
-  m_LocalScale: {x: 1, y: 1, z: 1.8661999}
+  m_LocalPosition: {x: 0, y: 5, z: 134.3}
+  m_LocalScale: {x: 1, y: 1, z: 2.294}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 825959644}
@@ -42488,8 +42488,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FallRespawn
   killY: 1
-  respawnXZ: {x: 0, y: -16.3}
-  scanFromY: 34
+  respawnXZ: {x: 0, y: 31}
+  scanFromY: 40
   cooldown: 4
 --- !u!4 &1864160034
 Transform:
