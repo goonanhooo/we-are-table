@@ -909,10 +909,10 @@ MonoBehaviour:
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawLimit: 150
-  yawStiffness: 1400
-  yawDamping: 70
-  yawForce: 260
+  yawLimit: 175
+  yawStiffness: 600
+  yawDamping: 30
+  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0
@@ -1100,10 +1100,10 @@ MonoBehaviour:
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawLimit: 150
-  yawStiffness: 1400
-  yawDamping: 70
-  yawForce: 260
+  yawLimit: 175
+  yawStiffness: 600
+  yawDamping: 30
+  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0
@@ -1291,10 +1291,10 @@ MonoBehaviour:
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawLimit: 150
-  yawStiffness: 1400
-  yawDamping: 70
-  yawForce: 260
+  yawLimit: 175
+  yawStiffness: 600
+  yawDamping: 30
+  yawForce: 120
   altUp: 11
   altDown: 5
   altLeft: 6
@@ -1482,10 +1482,10 @@ MonoBehaviour:
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawLimit: 150
-  yawStiffness: 1400
-  yawDamping: 70
-  yawForce: 260
+  yawLimit: 175
+  yawStiffness: 600
+  yawDamping: 30
+  yawForce: 120
   altUp: 0
   altDown: 0
   altLeft: 0

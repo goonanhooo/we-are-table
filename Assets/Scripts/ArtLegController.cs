@@ -32,12 +32,12 @@ public class ArtLegController : MonoBehaviour
 
     [Header("Spin (yaw)")]
     public float spinSpeed = 180f;
-    [Tooltip("yaw 회전 한계(±도). ⚠️175는 금지 — 구면 관절 분해가 180° 부근에서 특이점이라 yaw가 한계에 닿는 순간 트위스트(스윙각)가 40°+ 붕괴함(평지 실측). 150 이하 안전")]
-    public float yawLimit = 150f;
-    [Tooltip("yaw 위치 드라이브 강성/감쇠/힘상한 (2026-07-05 600/30/120→1400/70/260: 하중 하 회전력 강화)")]
-    public float yawStiffness = 1400f;
-    public float yawDamping = 70f;
-    public float yawForce = 260f;
+    [Tooltip("yaw 회전 한계(±도). 스피리컬 스윙 분해 특성상 무제한 회전 불가 — 방향 조정 용도로 충분")]
+    public float yawLimit = 175f;
+    [Tooltip("yaw 위치 드라이브 강성/감쇠/힘상한")]
+    public float yawStiffness = 600f;
+    public float yawDamping = 30f;
+    public float yawForce = 120f;
 
     [Header("보조 키(선택) — 이 다리를 추가 키로도 조작 (본게임 Arrows 다리: [=위 '=아래 ;=왼쪽 오른쪽Enter=오른쪽)")]
     public UnityEngine.InputSystem.Key altUp = UnityEngine.InputSystem.Key.None;
@@ -119,58 +119,51 @@ public class ArtLegController : MonoBehaviour
 
         if (tableInput == null) tableInput = TableInput.Of(this);
         LegInput inp = tableInput != null ? tableInput.Get(controlSet) : default;
-        bool swingInput = inp.up || inp.down;
-        bool spinInput = inp.left || inp.right;
+        bool hasInput = inp.up || inp.down || inp.left || inp.right;
 
         float angle = SwingAngle;
 
-        if (!swingInput)
+        if (!hasInput)
         {
-            // ★스윙 입력이 없으면 — 좌우(스핀)만 누르는 중이어도 — 스윙 축은 위치 드라이브로 현재 각 유지.
-            //   (이전: 좌우 입력도 '속도 0 브레이크'로 갔는데, 브레이크는 하중에 서서히 밀려
-            //    90°로 든 다리가 도는 동안 슬금슬금 처졌음 — "90° 이전 각도에서 돈다"의 원인)
+            // 동결 = 위치 드라이브로 현재 각 유지. 축소좌표라 '밴드 위반→스냅'이 존재하지 않음 —
+            // 다른 다리가 몸을 밀면 드라이브가 연속적인 토크로 저항(C1), 오차 누적도 없음.
             if (!frozen)
             {
                 DriveHold(angle);
                 rampedV = 0f;
                 frozen = true;
             }
-            if (!spinInput) return;   // 완전 무입력 — 스핀 처리도 불필요
+            return;
         }
-        else
+
+        if (frozen)
         {
-            if (frozen)
-            {
-                // 해제: 속도 드라이브 복귀
-                var xr = ab.xDrive;
-                xr.stiffness = 0f; xr.damping = 120f;
-                xr.forceLimit = motorForce * forceMultiplier;
-                ab.xDrive = xr;
-                rampedV = 0f;
-                frozen = false;
-            }
-
-            // 지라프: 다리 길이에 반비례한 각속도(발끝 선속도 일정) — 본게임과 동일 공식
-            float lenScaleSwing = (legMesh != null && legMesh.localScale.y > 1e-4f)
-                ? Mathf.Clamp(baseLegScaleY / legMesh.localScale.y, 0.12f, 1f) : 1f;
-
-            // 스윙: 한계각 근처 감속(stopMargin) + 램프(motorAccel)
-            float dir = (inp.down ? 1f : 0f) - (inp.up ? 1f : 0f);
-            float v = dir * swingVelocity * lenScaleSwing;
-            if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
-            if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
-            rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.deltaTime);
-
-            var xd = ab.xDrive;
-            xd.stiffness = 0f;
-            xd.damping = 120f;
-            xd.forceLimit = motorForce * forceMultiplier;
-            xd.targetVelocity = rampedV;   // ⚠️ArticulationDrive target/targetVelocity는 '도' 단위(jointPosition만 라디안)
-            ab.xDrive = xd;
+            // 해제: 속도 드라이브 복귀
+            var xr = ab.xDrive;
+            xr.stiffness = 0f; xr.damping = 120f;
+            xr.forceLimit = motorForce * forceMultiplier;
+            ab.xDrive = xr;
+            rampedV = 0f;
+            frozen = false;
         }
 
+        // 지라프: 다리 길이에 반비례한 각속도(발끝 선속도 일정) — 본게임과 동일 공식
         float lenScale = (legMesh != null && legMesh.localScale.y > 1e-4f)
             ? Mathf.Clamp(baseLegScaleY / legMesh.localScale.y, 0.12f, 1f) : 1f;
+
+        // 스윙: 한계각 근처 감속(stopMargin) + 램프(motorAccel)
+        float dir = (inp.down ? 1f : 0f) - (inp.up ? 1f : 0f);
+        float v = dir * swingVelocity * lenScale;
+        if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
+        if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
+        rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.deltaTime);
+
+        var xd = ab.xDrive;
+        xd.stiffness = 0f;
+        xd.damping = 120f;
+        xd.forceLimit = motorForce * forceMultiplier;
+        xd.targetVelocity = rampedV;   // ⚠️ArticulationDrive target/targetVelocity는 '도' 단위(jointPosition만 라디안)
+        ab.xDrive = xd;
 
         // 스핀(yaw): 위치 드라이브 target을 spinSpeed로 증감 — 축 재설정 없음(분해 순서가 처리)
         float spin = (inp.left ? 1f : 0f) - (inp.right ? 1f : 0f);
