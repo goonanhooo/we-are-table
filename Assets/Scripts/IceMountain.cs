@@ -75,6 +75,9 @@ public class IceMountain : MonoBehaviour
     public float trenchSlope = 0.53f;      // world z당 하강량(슬라이드 하강에 맞춤)
     [Tooltip("하강선 최저 높이(world) — 계곡/킥커 구간을 평평하게 파려면 계곡보다 살짝 낮게. -999=클램프 없음")]
     public float trenchFloorWorld = -999f; // 하강선이 이 값 밑으로는 안 내려감(계곡 바닥 평탄화)
+    [Tooltip("2단 경사(0=단일 경사): 무릎(zKnee)까지 slope, 그 뒤 slope2 — 완만한 롤인+가파른 다이브를 모두 따라가게")]
+    public float trenchSlope2 = 0f;
+    public float trenchZKneeWorld = 0f;
 
     [Header("눈사람 방 정사각 홈 (머리가 굴러 나가지 않게 — world 좌표)")]
     public bool snowPit = false;
@@ -107,7 +110,7 @@ public class IceMountain : MonoBehaviour
             h = h * 31 + terraceStep.GetHashCode() + terraceAmount.GetHashCode();
             h = h * 31 + (spawnPlateau ? 1 : 0) + plateauCenter.GetHashCode() + plateauRadius.GetHashCode() + plateauHeight.GetHashCode() + plateauEdge.GetHashCode();
             h = h * 31 + (cave ? 1 : 0) + caveCenter.GetHashCode() + caveHalfX.GetHashCode() + caveHalfZ.GetHashCode() + caveFloor.GetHashCode() + caveEdge.GetHashCode();
-            h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode() + trenchFloorWorld.GetHashCode();
+            h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode() + trenchFloorWorld.GetHashCode() + trenchSlope2.GetHashCode() + trenchZKneeWorld.GetHashCode();
             h = h * 31 + (snowPit ? 1 : 0) + snowPitXWorld.GetHashCode() + snowPitZWorld.GetHashCode() + snowPitHalfWorld.GetHashCode() + snowPitEdgeWorld.GetHashCode() + snowPitDepthWorld.GetHashCode();
             h = h * 31 + faceColorJitter.GetHashCode();
             return h;
@@ -297,7 +300,14 @@ public class IceMountain : MonoBehaviour
                 float kzA = SStep(trenchZStartWorld - trenchZBlend, trenchZStartWorld, wz);      // 시작 blend
                 float kzB = 1f - SStep(trenchZEndWorld, trenchZEndWorld + trenchZBlend, wz);     // 끝 blend
                 float k = kx * kzA * kzB;
-                float targetWorld = trenchTopWorld - trenchSlope * (wz - trenchZStartWorld);     // 슬라이드 따라 하강
+                float targetWorld;                                                               // 슬라이드 따라 하강
+                if (trenchSlope2 > 0f && trenchZKneeWorld > trenchZStartWorld)
+                {
+                    float dz1 = Mathf.Min(wz - trenchZStartWorld, trenchZKneeWorld - trenchZStartWorld);
+                    float dz2 = Mathf.Max(0f, wz - trenchZKneeWorld);
+                    targetWorld = trenchTopWorld - trenchSlope * Mathf.Max(0f, dz1) - trenchSlope2 * dz2;
+                }
+                else targetWorld = trenchTopWorld - trenchSlope * (wz - trenchZStartWorld);
                 if (targetWorld < trenchFloorWorld) targetWorld = trenchFloorWorld;              // 계곡 바닥 평탄화
                 float targetDesign = targetWorld / worldScale;
                 float carved = Mathf.Lerp(h, targetDesign, k);
