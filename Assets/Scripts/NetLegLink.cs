@@ -159,7 +159,6 @@ public class NetLegLink : NetworkBehaviour
         var abs2 = root.GetComponentsInChildren<ArticulationBody>(true);
         for (int i = abs2.Length - 1; i >= 0; i--) abs2[i].enabled = false;
         Toggle<SceneReset>(root, false);
-        Toggle<TableSpin>(root, false);       // ＊ 게스트: 몸통 스핀 토크도 호스트 전용(물리는 호스트만)
         Toggle<ArtSceneReset>(root, false);   // ★ 게스트: '1' 리셋/워치독도 호스트 전용(TeleportRoot 충돌 방지)
         Toggle<NaNBlackBox>(root, false);
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
