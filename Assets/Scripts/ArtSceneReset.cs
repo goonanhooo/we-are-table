@@ -140,6 +140,13 @@ public class ArtSceneReset : MonoBehaviour
         ResetPoseInternal(new Vector2(x, z), 500f);
     }
 
+    /// <summary>지정 XZ + 지정 스캔 높이에서 복원 — 리스폰 지점이 천장/지붕 아래(실내)일 때 천장 위에 안 얹히게.</summary>
+    public void ResetPoseAtXZ(float x, float z, float scanFromY)
+    {
+        if (root == null) return;
+        ResetPoseInternal(new Vector2(x, z), scanFromY);
+    }
+
     void ResetPoseInternal(Vector2 xz, float scanFromY)
     {
         // ★ yaw = 카메라가 보는 방향(원본과 동일) — 리셋 후 조작-화면 매핑 일관. 폴백=현재 yaw, NaN→0.

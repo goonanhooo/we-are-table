@@ -89,8 +89,8 @@ public class SnowmanCutscene : MonoBehaviour
         if (cameraFollow != null) cameraFollow.enabled = false;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
 
-        // 눈사람 정면(+Z 얼굴 쪽)에서 조금 멀리 — 눈사람과 근처 테이블이 함께 프레임에 들어오게.
-        Vector3 camFront = body.position + new Vector3(1.6f, 3.2f, 9.5f);  // 정면(+Z) 멀리, 살짝 위·옆
+        // 눈사람 '얼굴 방향' 기준 정면에서 조금 멀리 — 몸통을 어느 방향으로 돌려놔도 항상 얼굴 쪽에서 찍힘.
+        Vector3 camFront = body.position + body.right * 1.6f + Vector3.up * 3.2f + body.forward * 9.5f;
         Vector3 camLook = body.position + Vector3.up * 1.1f;
 
         // 0→1) 머리가 몸통 위로 올라가 조립 — 카메라는 플레이어 시점에서 정면 샷으로 '부드럽게' 넘어감(스냅 X)
@@ -106,13 +106,13 @@ public class SnowmanCutscene : MonoBehaviour
             {
                 Vector3 p = Vector3.Lerp(hp0, assembledPos, u); p.y += Mathf.Sin(u * Mathf.PI) * 1.2f;
                 head.position = p;
-                head.rotation = Quaternion.Slerp(hr0, Quaternion.identity, u);
+                head.rotation = Quaternion.Slerp(hr0, body.rotation, u);   // 얼굴을 몸통이 보는 방향으로(회전된 몸통 대응)
             }
             float cu = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / Mathf.Min(0.9f, assembleSeconds)));
             if (cam != null) { cam.position = Vector3.Lerp(cp0, camFront, cu); cam.rotation = Quaternion.Slerp(cr0, crF, cu); }
             yield return null;
         }
-        if (!netGuestVisual) { head.position = assembledPos; head.rotation = Quaternion.identity; }
+        if (!netGuestVisual) { head.position = assembledPos; head.rotation = body.rotation; }
 
         // 1.5) 안착 후 살짝 '통통' 정착 바운스(귀엽게)
         for (float t = 0; t < 0.42f; t += Time.deltaTime)

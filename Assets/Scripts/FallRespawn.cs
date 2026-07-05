@@ -11,6 +11,8 @@ public class FallRespawn : MonoBehaviour
     public float killY = 1.0f;
     [Tooltip("리스폰 XZ(처음 스폰 바닥 지점)")]
     public Vector2 respawnXZ = new Vector2(0f, 33f);
+    [Tooltip("지면 스캔 시작 높이 — 리스폰 지점이 실내(천장 아래)면 천장보다 낮게(예: 34)")]
+    public float scanFromY = 500f;
     public float cooldown = 4f;
 
     Transform board;
@@ -28,6 +30,6 @@ public class FallRespawn : MonoBehaviour
         if (board.position.y >= killY) return;
         ignoreUntil = Time.time + cooldown;
         var art = Object.FindAnyObjectByType<ArtSceneReset>();
-        if (art != null) art.ResetPoseAtXZ(respawnXZ.x, respawnXZ.y);
+        if (art != null) art.ResetPoseAtXZ(respawnXZ.x, respawnXZ.y, scanFromY);
     }
 }
