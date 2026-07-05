@@ -74,6 +74,14 @@ public class IceMountain : MonoBehaviour
     public float trenchTopWorld = 26f;     // 시작 지점 카브 높이(= 플라토 y26)
     public float trenchSlope = 0.53f;      // world z당 하강량(슬라이드 하강에 맞춤)
 
+    [Header("눈사람 방 정사각 홈 (머리가 굴러 나가지 않게 — world 좌표)")]
+    public bool snowPit = false;
+    public float snowPitXWorld = 0f;        // 홈 중심(world)
+    public float snowPitZWorld = 8.5f;
+    public float snowPitHalfWorld = 6.5f;   // 정사각 반변
+    public float snowPitEdgeWorld = 1.6f;   // 가장자리 경사 blend
+    public float snowPitDepthWorld = 1.1f;  // 깊이
+
     Mesh mesh;       // 렌더용 flat-shaded(정점 분리)
     Mesh colMesh;    // 콜라이더용 welded 그리드(분리 메시를 콜라이더로 쓰면 degenerate→물리 NaN/크래시)
     int builtHash = -1;
@@ -95,6 +103,7 @@ public class IceMountain : MonoBehaviour
             h = h * 31 + (spawnPlateau ? 1 : 0) + plateauCenter.GetHashCode() + plateauRadius.GetHashCode() + plateauHeight.GetHashCode() + plateauEdge.GetHashCode();
             h = h * 31 + (cave ? 1 : 0) + caveCenter.GetHashCode() + caveHalfX.GetHashCode() + caveHalfZ.GetHashCode() + caveFloor.GetHashCode() + caveEdge.GetHashCode();
             h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode();
+            h = h * 31 + (snowPit ? 1 : 0) + snowPitXWorld.GetHashCode() + snowPitZWorld.GetHashCode() + snowPitHalfWorld.GetHashCode() + snowPitEdgeWorld.GetHashCode() + snowPitDepthWorld.GetHashCode();
             return h;
         }
     }
@@ -277,6 +286,18 @@ public class IceMountain : MonoBehaviour
                 float targetDesign = targetWorld / worldScale;
                 float carved = Mathf.Lerp(h, targetDesign, k);
                 if (carved < h) h = carved;   // 낮추기만(솟은 빙산 제거)
+            }
+        }
+
+        // 눈사람 방 정사각 홈: 방 가운데를 움푹하게 — 머리(공)가 굴러 나가지 않는 우리(정사각=체비셰프 거리).
+        if (snowPit)
+        {
+            float pwx = x * worldScale, pwz = z * worldScale;
+            float cheb = Mathf.Max(Mathf.Abs(pwx - snowPitXWorld), Mathf.Abs(pwz - snowPitZWorld));
+            if (cheb < snowPitHalfWorld + snowPitEdgeWorld)
+            {
+                float k = 1f - SStep(snowPitHalfWorld - snowPitEdgeWorld, snowPitHalfWorld + snowPitEdgeWorld, cheb);
+                h -= (snowPitDepthWorld / worldScale) * k;
             }
         }
 
