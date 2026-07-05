@@ -40940,7 +40940,7 @@ MonoBehaviour:
   caveHalfX: 38
   caveHalfZ: 32
   caveFloor: 52
-  caveEdge: 5
+  caveEdge: 2
   slideTrench: 1
   trenchHalfXWorld: 5
   trenchEdgeWorld: 3.5
