@@ -1611,14 +1611,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 61295685}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.5, y: 25.920002, z: 10}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalPosition: {x: 4.2, y: 25.920002, z: 5.55}
   m_LocalScale: {x: 3.5, y: 3.5, z: 3.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1717363942}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!114 &61295691
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9606,7 +9606,7 @@ Transform:
   m_GameObject: {fileID: 379047898}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.99776554, z: 0, w: 0.066813335}
-  m_LocalPosition: {x: -3, y: 25.200003, z: 6}
+  m_LocalPosition: {x: -0.6, y: 25.200003, z: 10.69}
   m_LocalScale: {x: 3.5, y: 3.5, z: 3.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -16601,7 +16601,7 @@ Transform:
   m_GameObject: {fileID: 696006869}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.18438022, z: -0, w: 0.982855}
-  m_LocalPosition: {x: -4.530475, y: 26.175447, z: 43.650097}
+  m_LocalPosition: {x: -4.530475, y: 23.443447, z: 43.650097}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -17408,7 +17408,7 @@ Transform:
   m_GameObject: {fileID: 740663533}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -16.3}
+  m_LocalPosition: {x: 0, y: 7.49, z: -16.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -18379,7 +18379,7 @@ Transform:
   m_GameObject: {fileID: 810708081}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 2.2, z: 2.1}
+  m_LocalPosition: {x: 0, y: 2.2, z: -3.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -21964,7 +21964,7 @@ Transform:
   m_GameObject: {fileID: 961291729}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.25671113, z: -0, w: 0.9664882}
-  m_LocalPosition: {x: -6.202706, y: 27.453566, z: 42.852486}
+  m_LocalPosition: {x: -6.202706, y: 25.467653, z: 42.852486}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -23795,7 +23795,7 @@ Transform:
   m_GameObject: {fileID: 1071137302}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.18438022, z: -0, w: 0.982855}
-  m_LocalPosition: {x: 4.530475, y: 26.175447, z: 43.650097}
+  m_LocalPosition: {x: 4.530475, y: 23.443447, z: 43.650097}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -24669,7 +24669,7 @@ Transform:
   m_GameObject: {fileID: 1100974527}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.3276302, z: -0, w: 0.94480604}
-  m_LocalPosition: {x: 7.7386746, y: 35.214256, z: 41.81646}
+  m_LocalPosition: {x: 7.7386746, y: 34.870712, z: 41.81646}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -25051,7 +25051,7 @@ Transform:
   m_GameObject: {fileID: 1113508651}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.25671113, z: -0, w: 0.9664882}
-  m_LocalPosition: {x: 6.202706, y: 29.254631, z: 42.852486}
+  m_LocalPosition: {x: 6.202706, y: 27.268719, z: 42.852486}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -27834,7 +27834,7 @@ Transform:
   m_GameObject: {fileID: 1227292596}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.3276302, z: -0, w: 0.94480604}
-  m_LocalPosition: {x: -7.7386746, y: 31.931236, z: 41.81646}
+  m_LocalPosition: {x: -7.7386746, y: 31.592567, z: 41.81646}
   m_LocalScale: {x: 2.2, y: 3.6, z: 0.75}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -29278,6 +29278,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1299453387}
   - component: {fileID: 1299453388}
+  - component: {fileID: 1299453389}
   m_Layer: 0
   m_Name: L8
   m_TagString: Untagged
@@ -29365,6 +29366,35 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1299453389
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299453386}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1302099539
 GameObject:
   m_ObjectHideFlags: 0
@@ -33513,7 +33543,7 @@ Transform:
   m_GameObject: {fileID: 1441907078}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0.25881907, z: 0, w: 0.9659259}
-  m_LocalPosition: {x: 12.5, y: 2.52, z: 145}
+  m_LocalPosition: {x: 12.5, y: 2.52, z: 139}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -37443,7 +37473,7 @@ Transform:
   m_GameObject: {fileID: 1634497531}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 5, z: 130.6}
+  m_LocalPosition: {x: 0, y: 5, z: 124.600006}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -40677,6 +40707,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1790384879}
   - component: {fileID: 1790384880}
+  - component: {fileID: 1790384881}
   m_Layer: 0
   m_Name: L9
   m_TagString: Untagged
@@ -40764,6 +40795,35 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1790384881
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1790384878}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1791558880
 GameObject:
   m_ObjectHideFlags: 0
@@ -41731,10 +41791,10 @@ MonoBehaviour:
   slideTrench: 1
   trenchHalfXWorld: 5
   trenchEdgeWorld: 3.5
-  trenchZStartWorld: 42
-  trenchZEndWorld: 74
+  trenchZStartWorld: 37.6
+  trenchZEndWorld: 68
   trenchZBlend: 3
-  trenchTopWorld: 26
+  trenchTopWorld: 25.6
   trenchSlope: 0.53
   snowPit: 1
   snowPitXWorld: 0
@@ -41742,6 +41802,7 @@ MonoBehaviour:
   snowPitHalfWorld: 10
   snowPitEdgeWorld: 2.8
   snowPitDepthWorld: 0.8
+  faceColorJitter: 0.1
 --- !u!64 &1836217188
 MeshCollider:
   m_ObjectHideFlags: 0

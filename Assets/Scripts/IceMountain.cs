@@ -82,6 +82,9 @@ public class IceMountain : MonoBehaviour
     public float snowPitEdgeWorld = 1.6f;   // 가장자리 경사 blend
     public float snowPitDepthWorld = 1.1f;  // 깊이
 
+    [Header("로우폴리 패치워크(면별 미세 색 변화 — 평평한 방바닥/플라토도 폴리곤 결)")]
+    [Range(0f, 0.3f)] public float faceColorJitter = 0.10f;
+
     Mesh mesh;       // 렌더용 flat-shaded(정점 분리)
     Mesh colMesh;    // 콜라이더용 welded 그리드(분리 메시를 콜라이더로 쓰면 degenerate→물리 NaN/크래시)
     int builtHash = -1;
@@ -104,6 +107,7 @@ public class IceMountain : MonoBehaviour
             h = h * 31 + (cave ? 1 : 0) + caveCenter.GetHashCode() + caveHalfX.GetHashCode() + caveHalfZ.GetHashCode() + caveFloor.GetHashCode() + caveEdge.GetHashCode();
             h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode();
             h = h * 31 + (snowPit ? 1 : 0) + snowPitXWorld.GetHashCode() + snowPitZWorld.GetHashCode() + snowPitHalfWorld.GetHashCode() + snowPitEdgeWorld.GetHashCode() + snowPitDepthWorld.GetHashCode();
+            h = h * 31 + faceColorJitter.GetHashCode();
             return h;
         }
     }
@@ -187,6 +191,15 @@ public class IceMountain : MonoBehaviour
         float slope = 1f - Mathf.Clamp01(n.normalized.y);   // 0=평평, 1=수직
         Vector3 ctr = (a + b + d) / 3f;
         Color col = VertexColor(ctr.x, ctr.z, ctr.y, slope);
+        // ★면별 미세 색 변화(결정적 해시) — 조명이 같은 평평한 바닥도 폴리곤별로 톤이 달라 로우폴리 결이 살아남
+        if (faceColorJitter > 0f)
+        {
+            float fh = Mathf.Sin(ctr.x * 12.9898f + ctr.z * 78.233f) * 43758.5453f;
+            fh -= Mathf.Floor(fh);
+            float tint = 1f - faceColorJitter * 0.5f + fh * faceColorJitter;
+            col = new Color(Mathf.Clamp01(col.r * tint), Mathf.Clamp01(col.g * tint),
+                            Mathf.Clamp01(col.b * (1f - faceColorJitter * 0.25f + fh * faceColorJitter * 0.5f)), 1f);
+        }
         v[vi] = a; c[vi] = col; t[vi] = vi; vi++;
         v[vi] = b; c[vi] = col; t[vi] = vi; vi++;
         v[vi] = d; c[vi] = col; t[vi] = vi; vi++;
