@@ -20,13 +20,13 @@ public class ArtLegController : MonoBehaviour
     [Tooltip("이 다리를 제어할 키 세트")]
     public LegControlSet controlSet = LegControlSet.WASD;
 
-    [Header("Motor (본게임 LegController와 동일 수치)")]
+    [Header("Motor")]
     public float swingVelocity = 300f;   // 도/초
-    public float motorForce = 80f;       // 토크 상한
-    public float idleHoldForce = 220f;   // 정지 유지 토크 상한
+    public float motorForce = 150f;      // 토크 상한 (2026-07-05 80→150: 하중 하 90° 확실 도달 — 슬램/기린 스트레스 폭발0 검증)
+    public float idleHoldForce = 320f;   // 정지 유지 토크 상한 (220→320: 서있을 때 다리 버팀 강화)
     [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드
     public float swingLimit = 95f;   // 95: 감속(stopMargin)+하중을 이기고 실질 90° 도달 보장
-    public float stopMargin = 12f;
+    public float stopMargin = 8f;    // 12→8: 한계각 앞 감속 구간 축소(90° 도달 빨라짐)
     [Tooltip("목표속도 램프(도/초²) — 계단 입력 반작용 저크 분산")]
     public float motorAccel = 4000f;
 

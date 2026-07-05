@@ -902,11 +902,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 1
   swingVelocity: 300
-  motorForce: 80
-  idleHoldForce: 220
+  motorForce: 150
+  idleHoldForce: 320
   forceMultiplier: 1
   swingLimit: 95
-  stopMargin: 12
+  stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
   yawLimit: 175
@@ -1093,11 +1093,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 0
   swingVelocity: 300
-  motorForce: 80
-  idleHoldForce: 220
+  motorForce: 150
+  idleHoldForce: 320
   forceMultiplier: 1
   swingLimit: 95
-  stopMargin: 12
+  stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
   yawLimit: 175
@@ -1284,11 +1284,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 3
   swingVelocity: 300
-  motorForce: 80
-  idleHoldForce: 220
+  motorForce: 150
+  idleHoldForce: 320
   forceMultiplier: 1
   swingLimit: 95
-  stopMargin: 12
+  stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
   yawLimit: 175
@@ -1475,11 +1475,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 2
   swingVelocity: 300
-  motorForce: 80
-  idleHoldForce: 220
+  motorForce: 150
+  idleHoldForce: 320
   forceMultiplier: 1
   swingLimit: 95
-  stopMargin: 12
+  stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
   yawLimit: 175
