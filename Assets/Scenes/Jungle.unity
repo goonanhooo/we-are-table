@@ -32650,6 +32650,77 @@ MonoBehaviour:
   canyonFloorHalf: 1.6
   canyonRimHalf: 1.8
   canyonRimNoise: 0
+--- !u!1 &1500847870
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1500847872}
+  - component: {fileID: 1500847871}
+  - component: {fileID: 1500847873}
+  m_Layer: 0
+  m_Name: NetStageSync
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1500847871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500847870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2441938041
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!4 &1500847872
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500847870}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1500847873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500847870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b1dff81597d84c149c82c223dc85c81, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetStageSync
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1001 &1505564503
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -35287,6 +35358,18 @@ PrefabInstance:
     - target: {fileID: 9100000001, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: m_ConstrainProportionsScale
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 3221259139
+      objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: SceneMigrationSynchronization
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
+      propertyPath: InScenePlacedSourceGlobalObjectIdHash
+      value: 270732669
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -45808,3 +45891,4 @@ SceneRoots:
   - {fileID: 1209364069}
   - {fileID: 1661235631}
   - {fileID: 1829838381}
+  - {fileID: 1500847872}

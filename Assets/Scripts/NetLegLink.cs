@@ -159,9 +159,13 @@ public class NetLegLink : NetworkBehaviour
         var abs2 = root.GetComponentsInChildren<ArticulationBody>(true);
         for (int i = abs2.Length - 1; i >= 0; i--) abs2[i].enabled = false;
         Toggle<SceneReset>(root, false);
+        Toggle<ArtSceneReset>(root, false);   // ★ 게스트: '1' 리셋/워치독도 호스트 전용(TeleportRoot 충돌 방지)
         Toggle<NaNBlackBox>(root, false);
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
         foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;
+        // 씬 레벨 스크립트: 추락 리스폰도 호스트 물리 기준(게스트에서 이중 리셋 방지)
+        var fr = Object.FindAnyObjectByType<FallRespawn>();
+        if (fr != null) fr.enabled = false;
     }
 
     static void Toggle<T>(Transform root, bool on) where T : MonoBehaviour

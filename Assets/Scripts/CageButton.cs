@@ -28,6 +28,17 @@ public class CageButton : MonoBehaviour
     bool pressed;
     Material mat;   // 누르면 초록으로 바꿀 버튼 머티리얼
 
+    /// <summary>눌림 여부(멀티 동기화용 읽기).</summary>
+    public bool PressedState => pressed;
+
+    /// <summary>[멀티 게스트] 호스트에서 눌렸을 때 같은 연출(철창 상승+컷씬)을 로컬 재생.</summary>
+    public void PlayRemote()
+    {
+        if (pressed) return;
+        pressed = true;
+        StartCoroutine(Sequence());
+    }
+
     void Start()
     {
         if (cage == null) { var c = GameObject.Find("GiraffeCage"); if (c) cage = c.transform; }

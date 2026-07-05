@@ -40,6 +40,18 @@ public class SnowmanCutscene : MonoBehaviour
     Rigidbody headRb;
     IcePower icePower;
     bool started, finished;
+    bool netGuestVisual;          // ★멀티 게스트: 머리 포즈는 호스트가 NetworkTransform으로 보냄 — 로컬에선 안 움직임
+    public bool netRemoteDriven;  // ★멀티 게스트: 근접 자동발동 끄고 NetStageSync가 PlayRemote()로만 발동
+
+    /// <summary>컷씬 시작 여부(멀티 동기화용 읽기).</summary>
+    public bool Started => started;
+
+    /// <summary>[멀티 게스트] 호스트에서 컷씬이 시작됐을 때 로컬 재생(카메라/말풍선/빛 — 머리 이동 제외).</summary>
+    public void PlayRemote()
+    {
+        netGuestVisual = true;
+        Play();
+    }
 
     void Start()
     {
@@ -57,7 +69,7 @@ public class SnowmanCutscene : MonoBehaviour
 
     void Update()
     {
-        if (started || finished || head == null || body == null) return;
+        if (started || finished || netRemoteDriven || head == null || body == null) return;
         var a = new Vector2(head.position.x, head.position.z);
         var b = new Vector2(body.position.x, body.position.z);
         if (Vector2.Distance(a, b) < triggerRange) Play();
@@ -89,24 +101,28 @@ public class SnowmanCutscene : MonoBehaviour
         for (float t = 0; t < assembleSeconds; t += Time.deltaTime)
         {
             float u = Mathf.SmoothStep(0, 1, t / assembleSeconds);
-            // 살짝 호를 그리며(위로 떴다 안착)
-            Vector3 p = Vector3.Lerp(hp0, assembledPos, u); p.y += Mathf.Sin(u * Mathf.PI) * 1.2f;
-            head.position = p;
-            head.rotation = Quaternion.Slerp(hr0, Quaternion.identity, u);
+            // 살짝 호를 그리며(위로 떴다 안착) — 게스트는 호스트 동기화가 머리를 움직임
+            if (!netGuestVisual)
+            {
+                Vector3 p = Vector3.Lerp(hp0, assembledPos, u); p.y += Mathf.Sin(u * Mathf.PI) * 1.2f;
+                head.position = p;
+                head.rotation = Quaternion.Slerp(hr0, Quaternion.identity, u);
+            }
             float cu = Mathf.SmoothStep(0, 1, Mathf.Clamp01(t / Mathf.Min(0.9f, assembleSeconds)));
             if (cam != null) { cam.position = Vector3.Lerp(cp0, camFront, cu); cam.rotation = Quaternion.Slerp(cr0, crF, cu); }
             yield return null;
         }
-        head.position = assembledPos; head.rotation = Quaternion.identity;
+        if (!netGuestVisual) { head.position = assembledPos; head.rotation = Quaternion.identity; }
 
         // 1.5) 안착 후 살짝 '통통' 정착 바운스(귀엽게)
         for (float t = 0; t < 0.42f; t += Time.deltaTime)
         {
             float u = t / 0.42f;
-            head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(u * Mathf.PI * 2f)) * 0.14f * (1f - u));
+            if (!netGuestVisual)
+                head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(u * Mathf.PI * 2f)) * 0.14f * (1f - u));
             SetCam(camFront, camLook); yield return null;
         }
-        head.position = assembledPos;
+        if (!netGuestVisual) head.position = assembledPos;
 
         // 2~3) 대사 = 눈사람 머리 옆 말풍선 + 음성. 카메라는 아주 천천히 다가감(정적인 롱테이크 방지)
         Vector3 camNear = Vector3.Lerp(camFront, camLook, 0.14f);
@@ -119,9 +135,12 @@ public class SnowmanCutscene : MonoBehaviour
             float u = Mathf.SmoothStep(0, 1, t / talkTotal);
             SetCam(Vector3.Lerp(camFront, camNear, u), camLook);
             // 첫 마디에 맞춰 머리가 아주 살짝 두 번 까딱(생동감)
-            if (t < 0.9f)
-                head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(t / 0.9f * Mathf.PI * 2f)) * 0.05f);
-            else head.position = assembledPos;
+            if (!netGuestVisual)
+            {
+                if (t < 0.9f)
+                    head.position = assembledPos + Vector3.up * (Mathf.Abs(Mathf.Sin(t / 0.9f * Mathf.PI * 2f)) * 0.05f);
+                else head.position = assembledPos;
+            }
             yield return null;
         }
         currentBubble = null;
