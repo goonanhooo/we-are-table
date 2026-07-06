@@ -833,23 +833,23 @@ ArticulationBody:
   serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
-  m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_AnchorRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
-  m_Twist: 2
+  m_Twist: 1
   m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
+    lowerLimit: -95
+    upperLimit: 95
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 150
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -902,14 +902,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 1
   swingVelocity: 300
-  motorForce: 150
-  idleHoldForce: 320
+  motorForce: 600
+  idleHoldForce: 1300
   forceMultiplier: 1
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawForce: 350
+  yawForce: 600
   yawHoldStiffness: 2000
   yawHoldDamping: 60
   altUp: 0
@@ -1023,23 +1023,23 @@ ArticulationBody:
   serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
-  m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_AnchorRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
-  m_Twist: 2
+  m_Twist: 1
   m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
+    lowerLimit: -95
+    upperLimit: 95
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 150
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -1092,14 +1092,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 0
   swingVelocity: 300
-  motorForce: 150
-  idleHoldForce: 320
+  motorForce: 600
+  idleHoldForce: 1300
   forceMultiplier: 1
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawForce: 350
+  yawForce: 600
   yawHoldStiffness: 2000
   yawHoldDamping: 60
   altUp: 0
@@ -1213,23 +1213,23 @@ ArticulationBody:
   serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
-  m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_AnchorRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
-  m_Twist: 2
+  m_Twist: 1
   m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
+    lowerLimit: -95
+    upperLimit: 95
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 150
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -1282,14 +1282,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 3
   swingVelocity: 300
-  motorForce: 150
-  idleHoldForce: 320
+  motorForce: 600
+  idleHoldForce: 1300
   forceMultiplier: 1
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawForce: 350
+  yawForce: 600
   yawHoldStiffness: 2000
   yawHoldDamping: 60
   altUp: 11
@@ -1403,23 +1403,23 @@ ArticulationBody:
   serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
-  m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
+  m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_AnchorRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
-  m_Twist: 2
+  m_Twist: 1
   m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
+    lowerLimit: -95
+    upperLimit: 95
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 150
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -1472,14 +1472,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 2
   swingVelocity: 300
-  motorForce: 150
-  idleHoldForce: 320
+  motorForce: 600
+  idleHoldForce: 1300
   forceMultiplier: 1
   swingLimit: 95
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
-  yawForce: 350
+  yawForce: 600
   yawHoldStiffness: 2000
   yawHoldDamping: 60
   altUp: 0
@@ -1775,15 +1775,15 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 0.15
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: 0.7, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
   m_Twist: 2
@@ -1791,8 +1791,8 @@ ArticulationBody:
     lowerLimit: 0
     upperLimit: 0
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 350
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -1874,15 +1874,15 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 0.15
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: -0.58, y: 0.7, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
   m_Twist: 2
@@ -1890,8 +1890,8 @@ ArticulationBody:
     lowerLimit: 0
     upperLimit: 0
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 350
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -1973,15 +1973,15 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 0.15
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: 0.7, z: 0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
   m_Twist: 2
@@ -1989,8 +1989,8 @@ ArticulationBody:
     lowerLimit: 0
     upperLimit: 0
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 350
     target: 0
     targetVelocity: 0
     driveType: 0
@@ -2072,15 +2072,15 @@ ArticulationBody:
   m_Enabled: 1
   serializedVersion: 6
   m_Mass: 0.15
-  m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
+  m_ParentAnchorPosition: {x: 0.58, y: 0.7, z: -0.58}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
   m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
+  m_MatchAnchors: 0
+  m_ArticulationJointType: 2
+  m_LinearX: 0
+  m_LinearY: 0
+  m_LinearZ: 0
   m_SwingY: 2
   m_SwingZ: 2
   m_Twist: 2
@@ -2088,8 +2088,8 @@ ArticulationBody:
     lowerLimit: 0
     upperLimit: 0
     stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
+    damping: 120
+    forceLimit: 350
     target: 0
     targetVelocity: 0
     driveType: 0

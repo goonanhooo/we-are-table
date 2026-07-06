@@ -23,8 +23,8 @@ public class ArtLegController : MonoBehaviour
 
     [Header("Motor")]
     public float swingVelocity = 300f;   // 도/초
-    public float motorForce = 150f;      // 토크 상한 (2026-07-05 80→150: 하중 하 90° 확실 도달 — 슬램/기린 스트레스 폭발0 검증)
-    public float idleHoldForce = 320f;   // 정지 유지 토크 상한 (220→320: 서있을 때 다리 버팀 강화)
+    public float motorForce = 600f;      // ⚠️체인 관절 힘 임계: fl~300 이하 무력 — 구 150의 4배가 동일 감각(2026-07-07 실측)
+    public float idleHoldForce = 1300f;  // 구 320의 4배(체인 힘 임계 보정)
     [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드
     public float swingLimit = 95f;   // 95: 감속(stopMargin)+하중을 이기고 실질 90° 도달 보장
     public float stopMargin = 8f;    // 12→8: 한계각 앞 감속 구간 축소(90° 도달 빨라짐)
@@ -34,7 +34,7 @@ public class ArtLegController : MonoBehaviour
     [Header("Spin (yaw — 부모 LegYaw 바디, 수직축 무제한 회전)")]
     public float spinSpeed = 180f;       // 도/초
     [Tooltip("yaw 속도 드라이브 토크 상한")]
-    public float yawForce = 350f;   // 실측: 120으론 19°/s(힘 부족), 350이면 목표 180°/s 도달
+    public float yawForce = 600f;   // 실측: 600이면 목표 180°/s 정확 도달(체인 힘 임계 보정)
     [Tooltip("yaw 정지 유지(위치 드라이브) 강성/감쇠")]
     public float yawHoldStiffness = 2000f;
     public float yawHoldDamping = 60f;
@@ -70,6 +70,31 @@ public class ArtLegController : MonoBehaviour
         if (tableInput != null) tableInput.RegisterAltKeys(controlSet, altUp, altDown, altLeft, altRight);
         if (transform.childCount > 0) { legMesh = transform.GetChild(0); baseLegScaleY = legMesh.localScale.y; }
         SetupJoint();
+
+        // ★다리↔상판 충돌 무시(2026-07-05): PhysX는 '직접 연결' 링크만 자동 무시 —
+        //   yaw 바디가 사이에 끼면서 다리가 상판과 충돌하게 돼 다리 윗부분이 상판에 끼어
+        //   스윙이 ±1°로 잠겼음(실측). 구 구조(직결)의 자동 무시를 명시적으로 복원.
+        var walk = transform.parent;
+        ArticulationBody rootAb = null;
+        while (walk != null)
+        {
+            var w = walk.GetComponent<ArticulationBody>();
+            if (w != null && w.isRoot) { rootAb = w; break; }
+            walk = walk.parent;
+        }
+        if (rootAb != null)
+        {
+            // ⚠️상판 콜라이더는 루트 GO가 아니라 자식 비주얼(TableTop)에 붙어 있다 —
+            //   GetComponents(루트 GO만)로 걸면 무시 쌍이 0개 등록돼 90° 든 다리가
+            //   yaw 스핀 ~81°에서 슬래브에 걸려 잼(2026-07-07 실측). '루트 바디에 속한'
+            //   콜라이더 전부(=가장 가까운 부모 AB가 루트인 것)를 대상으로 무시.
+            foreach (var boardCol in rootAb.GetComponentsInChildren<Collider>(true))
+            {
+                if (boardCol.GetComponentInParent<ArticulationBody>() != rootAb) continue;   // 다른 링크(다리) 소속 제외
+                foreach (var myCol in GetComponentsInChildren<Collider>(true))
+                    Physics.IgnoreCollision(myCol, boardCol, true);
+            }
+        }
     }
 
     /// <summary>관절/드라이브 초기화(빌더 재호출 가능). 부모 LegYaw 바디도 함께 구성.</summary>
@@ -79,8 +104,11 @@ public class ArtLegController : MonoBehaviour
 
         // ── 다리 스윙(이 바디): Revolute X ±swingLimit
         ab.jointType = ArticulationJointType.RevoluteJoint;
+        ab.matchAnchors = false;                           // ⚠️명시 앵커 — 재부모화 후 낡은 부모앵커가 남으면 관절이 강체로 잠김(실측)
         ab.anchorPosition = Vector3.zero;                  // 피벗(다리 상단) 기준
         ab.anchorRotation = Quaternion.identity;           // twist=X(앞뒤 스윙)
+        ab.parentAnchorPosition = Vector3.zero;            // 부모(LegYaw) 원점 = 피벗 위치(로컬 identity)
+        ab.parentAnchorRotation = Quaternion.identity;
         ab.twistLock = ArticulationDofLock.LimitedMotion;  // ⚠️리밋 적용엔 LimitedMotion 필수(CLAUDE.md)
         ab.linearLockX = ArticulationDofLock.LockedMotion;
         ab.linearLockY = ArticulationDofLock.LockedMotion;
@@ -102,8 +130,11 @@ public class ArtLegController : MonoBehaviour
         if (yawAb != null)
         {
             yawAb.jointType = ArticulationJointType.RevoluteJoint;
+            yawAb.matchAnchors = false;                              // 명시 앵커(위와 동일 이유)
             yawAb.anchorPosition = Vector3.zero;
             yawAb.anchorRotation = Quaternion.Euler(0f, 0f, 90f);   // 회전축 X → 부모(상판) Y(수직)
+            yawAb.parentAnchorPosition = yawAb.transform.localPosition;   // 상판 프레임에서의 피벗 위치
+            yawAb.parentAnchorRotation = yawAb.transform.localRotation * Quaternion.Euler(0f, 0f, 90f);
             yawAb.twistLock = ArticulationDofLock.FreeMotion;        // ★360° 무제한(관절각 무한 누적)
             yawAb.linearLockX = ArticulationDofLock.LockedMotion;
             yawAb.linearLockY = ArticulationDofLock.LockedMotion;
@@ -148,7 +179,9 @@ public class ArtLegController : MonoBehaviour
         float lenScale = (legMesh != null && legMesh.localScale.y > 1e-4f)
             ? Mathf.Clamp(baseLegScaleY / legMesh.localScale.y, 0.12f, 1f) : 1f;
 
-        // ── 스윙 축
+        // ── 스윙 축: 원본 속도 드라이브(감각 보존). ⚠️★체인 관절 힘 임계(2026-07-07 실측):
+        //   이 2단 체인에선 forceLimit ~300 이하 드라이브가 사실상 무력(150=완전 정지, 600=정상).
+        //   그래서 motorForce/idleHoldForce/yawForce 전부 구값의 4배로 상향(600/1300/600) — 감각은 동일.
         if (!swingInput)
         {
             // 동결 = 위치 드라이브로 현재 각 유지(스핀만 눌러도 스윙각 유지 — 90° 든 채 평평하게 돎)
