@@ -905,7 +905,7 @@ MonoBehaviour:
   motorForce: 600
   idleHoldForce: 1300
   forceMultiplier: 1
-  swingLimit: 95
+  swingLimit: 90
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
@@ -1095,7 +1095,7 @@ MonoBehaviour:
   motorForce: 600
   idleHoldForce: 1300
   forceMultiplier: 1
-  swingLimit: 95
+  swingLimit: 90
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
@@ -1285,7 +1285,7 @@ MonoBehaviour:
   motorForce: 600
   idleHoldForce: 1300
   forceMultiplier: 1
-  swingLimit: 95
+  swingLimit: 90
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180
@@ -1475,7 +1475,7 @@ MonoBehaviour:
   motorForce: 600
   idleHoldForce: 1300
   forceMultiplier: 1
-  swingLimit: 95
+  swingLimit: 90
   stopMargin: 8
   motorAccel: 4000
   spinSpeed: 180

@@ -26,7 +26,7 @@ public class ArtLegController : MonoBehaviour
     public float motorForce = 600f;      // ⚠️체인 관절 힘 임계: fl~300 이하 무력 — 구 150의 4배가 동일 감각(2026-07-07 실측)
     public float idleHoldForce = 1300f;  // 구 320의 4배(체인 힘 임계 보정)
     [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드
-    public float swingLimit = 95f;   // 95: 감속(stopMargin)+하중을 이기고 실질 90° 도달 보장
+    public float swingLimit = 90f;   // 90: 사용자 요청(2026-07-07) — 95는 ±94까지 넘어갔음. 힘 600이라 감속(stopMargin)에도 실질 ~90 도달
     public float stopMargin = 8f;    // 12→8: 한계각 앞 감속 구간 축소(90° 도달 빨라짐)
     [Tooltip("목표속도 램프(도/초²) — 계단 입력 반작용 저크 분산")]
     public float motorAccel = 4000f;
@@ -179,6 +179,14 @@ public class ArtLegController : MonoBehaviour
         float lenScale = (legMesh != null && legMesh.localScale.y > 1e-4f)
             ? Mathf.Clamp(baseLegScaleY / legMesh.localScale.y, 0.12f, 1f) : 1f;
 
+        // ★스톨 토크 보정(2026-07-07): 속도 드라이브의 실토크 = damping × 속도오차(rad/s)이고
+        //   forceLimit은 상한일 뿐이다. 일반 모드는 300°/s(5.2rad/s)×120 ≈ 628로 상한 600에 닿지만,
+        //   기린 최대신장은 lenScale이 목표속도를 43°/s로 줄여 스톨 토크가 ~90까지 추락(1560 상한 무의미)
+        //   → 사다리꼴로 벌린 큰 걸음을 '오므릴' 수 없었음(다리가 하중에 밀림). damping을
+        //   forceMultiplier/lenScale로 키워 어느 길이·배수에서도 스톨 토크가 forceLimit에 도달하게 한다.
+        //   일반 모드(mult 1, lenScale 1)=120 그대로 → 기존 감각 불변. 옛 힌지 모터(스톨 풀토크)와 파리티.
+        float driveDamping = Mathf.Clamp(120f * forceMultiplier / lenScale, 120f, 3000f);
+
         // ── 스윙 축: 원본 속도 드라이브(감각 보존). ⚠️★체인 관절 힘 임계(2026-07-07 실측):
         //   이 2단 체인에선 forceLimit ~300 이하 드라이브가 사실상 무력(150=완전 정지, 600=정상).
         //   그래서 motorForce/idleHoldForce/yawForce 전부 구값의 4배로 상향(600/1300/600) — 감각은 동일.
@@ -197,7 +205,7 @@ public class ArtLegController : MonoBehaviour
             if (frozen)
             {
                 var xr = ab.xDrive;
-                xr.stiffness = 0f; xr.damping = 120f;
+                xr.stiffness = 0f; xr.damping = driveDamping;
                 xr.forceLimit = motorForce * forceMultiplier;
                 ab.xDrive = xr;
                 rampedV = 0f;
@@ -213,7 +221,7 @@ public class ArtLegController : MonoBehaviour
 
             var xd = ab.xDrive;
             xd.stiffness = 0f;
-            xd.damping = 120f;
+            xd.damping = driveDamping;
             xd.forceLimit = motorForce * forceMultiplier;
             xd.targetVelocity = rampedV;   // ⚠️ArticulationDrive target/targetVelocity는 '도' 단위(jointPosition만 라디안)
             ab.xDrive = xd;
@@ -225,7 +233,7 @@ public class ArtLegController : MonoBehaviour
         {
             float spin = (inp.left ? 1f : 0f) - (inp.right ? 1f : 0f);
             var yd = yawAb.xDrive;
-            yd.stiffness = 0f; yd.damping = 120f;
+            yd.stiffness = 0f; yd.damping = driveDamping;   // 스톨 토크 보정(위 주석) — 기린 접지 스핀도 동일
             yd.forceLimit = yawForce * forceMultiplier;
             yd.targetVelocity = spin * spinSpeed * lenScale;
             yawAb.xDrive = yd;
