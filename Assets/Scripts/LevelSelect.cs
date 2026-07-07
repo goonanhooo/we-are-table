@@ -3,12 +3,16 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// 시작 화면에서 Play 표지판을 누르면 열리는 '레벨 선택' 오버레이.
-/// 흐름: ① 스테이지 썸네일 선택 → ② 모드 선택(1인 플레이 / 로컬 멀티 / 온라인 멀티)
-///       → ③ 온라인이면 방 만들기(방코드 발급, 선택 맵으로 이동) 또는 방코드 입력 참가(호스트 맵으로 자동 이동).
-/// 1인 플레이와 로컬 멀티(한 키보드 4인)는 완전히 동일 — 버튼만 구분.
+/// 시작 화면에서 Play 표지판을 누르면 열리는 오버레이.
+/// ★흐름(2026-07-07 개편): ① 모드 선택(1인 / 로컬 멀티 / 방 만들기 / 코드로 참가)이 먼저
+///   - 1인·로컬 → ② 스테이지 썸네일 선택 → 즉시 로드(기존과 동일)
+///   - 방 만들기 → 방코드 발급 후 '게임에 안 들어가고' 시작 화면에 로비(NetDebugPanel)가 뜸
+///     — 로비에서 사람 모으고 다리(여러 개 가능)/맵 고른 뒤 호스트가 [게임 시작]
+///   - 코드로 참가 → ② 코드 입력(자동 타이핑) → 참가 성공 시 로비 합류
 /// EventSystem 없이 OnGUI로 그리고 클릭 처리(표지판 클릭 방식과 일관).
-/// 방코드 타이핑은 New Input System(Keyboard.current)으로 직접 캡처.
+/// 방코드 타이핑은 New Input System(Keyboard.current)으로 직접 캡처 —
+/// ⚠️입력칸은 '클릭해서 포커스' 없이 화면이 열리면 바로 타이핑 활성(클릭 안 먹어 글자가 안 쳐지던 문제 제거),
+///   호버 색 전환 없음 + 크고 진한 글자(가독성).
 /// </summary>
 public class LevelSelect : MonoBehaviour
 {
@@ -24,14 +28,12 @@ public class LevelSelect : MonoBehaviour
 
     public bool Showing { get; private set; }
 
-    int step;            // 0=스테이지 선택, 1=모드 선택, 2=온라인 메뉴
-    int selIndex = -1;   // 선택된 스테이지
+    int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가)
     string codeInput = "";
-    bool typing;         // 방코드 입력 중
     bool busy;           // 방 생성/참가 진행 중
 
     Texture2D[] thumbs;
-    GUIStyle labelStyle, titleStyle, backStyle, btnStyle, smallStyle;
+    GUIStyle labelStyle, titleStyle, backStyle, btnStyle, smallStyle, codeStyle;
     Texture2D white;
 
     void Start()
@@ -42,13 +44,19 @@ public class LevelSelect : MonoBehaviour
         white = Texture2D.whiteTexture;
     }
 
-    public void Open() { Showing = true; step = 0; selIndex = -1; typing = false; }
-    public void Close() { Showing = false; typing = false; }
+    public void Open()
+    {
+        // 세션 중(로비/인게임)엔 다시 안 연다 — 로비 창(NetDebugPanel)과 겹침 방지
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
+        Showing = true; step = 0; codeInput = "";
+    }
+    public void Close() { Showing = false; }
 
     void Update()
     {
-        // 방코드 타이핑(온라인 메뉴에서만) — IMGUI TextField 대신 직접 캡처
-        if (!Showing || step != 2 || !typing) return;
+        // 방코드 타이핑 — ★참가 화면이 열려 있으면 항상 활성(클릭 포커스 불필요)
+        if (!Showing || step != 2 || busy) return;
         var kb = Keyboard.current;
         if (kb == null) return;
         for (Key k = Key.A; k <= Key.Z; k++)
@@ -59,27 +67,26 @@ public class LevelSelect : MonoBehaviour
         if (kb.enterKey.wasPressedThisFrame && codeInput.Length >= 4) JoinRoom();
     }
 
-    // 온라인: 방 만들기 → 성공 시 선택한 맵으로(세션 상태라 게스트도 자동 동행)
-    async void HostAndLoad()
+    // 온라인: 방 만들기 → ★게임에 안 들어가고 시작 화면에 로비가 뜸(사람 모은 뒤 로비에서 맵+시작)
+    async void HostRoom()
     {
-        if (busy || selIndex < 0) return;
+        if (busy) return;
         busy = true;
+        NetLegLink.ResetSessionCache();   // 새 세션 — 이전 세션의 배정/시작 캐시 제거
         bool ok = await NetSession.HostAsync();
         busy = false;
         if (ok)
         {
             Time.timeScale = 1f;
-            Close();
-            NetScene.Load(levels[selIndex].scene);
+            Close();   // 오버레이 닫힘 → NetDebugPanel 로비(중앙 창)가 이어받음
         }
     }
 
-    // 온라인: 방코드 참가 → 성공 시 NGO가 호스트의 씬으로 자동 전환
+    // 온라인: 방코드 참가 → 성공 시 로비 합류(호스트가 시작하면 NGO가 씬 자동 전환)
     async void JoinRoom()
     {
         if (busy || codeInput.Length < 4) return;
         busy = true;
-        typing = false;
         bool ok = await NetSession.JoinAsync(codeInput);
         busy = false;
         if (ok) Close();
@@ -99,6 +106,9 @@ public class LevelSelect : MonoBehaviour
         btnStyle.normal.textColor = ink;
         smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
         smallStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        // 방코드 입력칸 전용: 크고 진한 검은 글자(흰 배경 고정 — 호버/포커스 색 변화 없음)
+        codeStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        codeStyle.normal.textColor = Color.black;
     }
 
     void Rect2(Rect r, Color c) { var p = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = p; }
@@ -132,18 +142,17 @@ public class LevelSelect : MonoBehaviour
         // ESC = 한 단계 뒤로
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
         {
-            if (typing) typing = false;
-            else if (step > 0) step--;
+            if (step > 0) step = 0;
             else Close();
             return;
         }
 
-        if (step == 0) DrawStageSelect();
-        else if (step == 1) DrawModeSelect();
-        else DrawOnlineMenu();
+        if (step == 0) DrawModeSelect();
+        else if (step == 1) DrawStageSelect();
+        else DrawJoin();
     }
 
-    // ── ① 스테이지 선택(기존 UI) ──
+    // ── ② 스테이지 선택(1인/로컬 — 클릭 즉시 로드) ──
     void DrawStageSelect()
     {
         ChipLabel(Screen.height * 0.5f - 175f, 340f, 50f, "스테이지 선택", titleStyle);
@@ -172,64 +181,68 @@ public class LevelSelect : MonoBehaviour
             var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
             GUI.Label(nameChip, levels[i].label, labelStyle);
 
-            if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none))
-            {
-                selIndex = i;
-                step = 1;   // → 모드 선택
-            }
+            if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none)) LoadLocal(i);
         }
 
-        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle)) Close();
+        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle)) step = 0;
     }
 
-    // ── ② 모드 선택: 1인 / 로컬 멀티(동일) / 온라인 멀티 ──
+    // ── ① 모드 선택(첫 화면): 1인 / 로컬 멀티 / 방 만들기 / 코드 참가 ──
     void DrawModeSelect()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        ChipLabel(cy - 170f, 560f, 44f, levels[selIndex].label + " — 어떻게 플레이할까요?", titleStyle);
+        ChipLabel(cy - 208f, 560f, 44f, "어떻게 플레이할까요?", titleStyle);
 
-        float bw = 320f, bh = 56f, gap = 18f;
-        float y = cy - 96f;
+        float bw = 360f, bh = 56f, gap = 18f;
+        float y = cy - 134f;
 
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "1인 플레이", btnStyle)) LoadLocal();
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "1인 플레이", btnStyle)) step = 1;
         y += bh + gap;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "로컬 멀티 (한 키보드 최대 4인)", btnStyle)) LoadLocal();
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "로컬 멀티 (한 키보드 최대 4인)", btnStyle)) step = 1;
         y += bh + gap;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "온라인 멀티 (방 코드)", btnStyle)) { step = 2; codeInput = ""; typing = false; }
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "방 만드는 중…" : "온라인 — 방 만들기 (호스트)", btnStyle, !busy)) HostRoom();
+        var hint = UiKit.Chip(cx, y + bh + 4f, 460f, 24f);
+        GUI.Label(hint, "방을 만들면 여기서 코드가 발급되고, 사람을 모은 뒤 게임을 시작해요", smallStyle);
+        y += bh + gap + 26f;
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "온라인 — 코드로 참가", btnStyle, !busy)) { step = 2; codeInput = ""; }
         y += bh + gap + 8f;
-        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) step = 0;
+        if (!string.IsNullOrEmpty(NetSession.Status))
+        {
+            var st = UiKit.Chip(cx, y, 420f, 26f);
+            GUI.Label(st, NetSession.Status, smallStyle);
+            y += 34f;
+        }
+        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) Close();
     }
 
-    void LoadLocal()
+    void LoadLocal(int i)
     {
         Time.timeScale = 1f;
         Close();
-        NetScene.Load(levels[selIndex].scene);
+        NetScene.Load(levels[i].scene);
     }
 
-    // ── ③ 온라인 메뉴: 방 만들기 / 코드 참가 ──
-    void DrawOnlineMenu()
+    // ── ③ 코드로 참가: 화면이 열리면 바로 타이핑 활성 ──
+    void DrawJoin()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        ChipLabel(cy - 190f, 480f, 44f, "온라인 멀티 — " + levels[selIndex].label, titleStyle);
+        ChipLabel(cy - 172f, 480f, 44f, "방 코드로 참가", titleStyle);
 
         float bw = 340f, bh = 56f;
-        float y = cy - 120f;
+        float y = cy - 104f;
 
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "방 만들기 (호스트)", btnStyle, !busy)) HostAndLoad();
-        var hint1 = UiKit.Chip(cx, y + bh + 6f, 420f, 24f);
-        GUI.Label(hint1, "방을 만들면 코드가 발급돼요 — 친구에게 알려주세요", smallStyle);
+        // ★방코드 입력칸: 흰 배경 고정(호버/포커스 색 전환 없음) + 크고 진한 검은 글자 + 깜빡이 커서.
+        //   클릭 포커스 없이 이 화면에선 항상 타이핑 활성(Update가 캡처).
+        Rect codeR = new Rect(cx - bw * 0.5f, y, bw, 56f);
+        Rect2(new Rect(codeR.x - 2f, codeR.y - 2f, codeR.width + 4f, codeR.height + 4f), Color.black);
+        Rect2(codeR, Color.white);
+        bool blink = Time.unscaledTime % 1f < 0.55f;
+        GUI.Label(codeR, codeInput + (busy ? "" : (blink ? "|" : " ")), codeStyle);
+        var hint1 = UiKit.Chip(cx, y + 62f, 420f, 24f);
+        GUI.Label(hint1, "친구의 방 코드를 입력하세요 (엔터 = 참가)", smallStyle);
 
-        y += bh + 52f;
-        // 방코드 입력칸(클릭 → 타이핑 모드) — 흰 배경, 입력 중엔 옅은 회색
-        Rect codeR = new Rect(cx - bw * 0.5f, y, bw, 46f);
-        UiKit.Panel(codeR);
-        if (typing) UiKit.Fill(codeR, new Color(0f, 0f, 0f, 0.08f));
-        GUI.Label(codeR, codeInput.Length > 0 ? codeInput : (typing ? "코드 입력 중… (엔터=참가)" : "여기 클릭 후 친구의 방 코드 입력"), labelStyle);
-        if (GUI.Button(codeR, GUIContent.none, GUIStyle.none)) typing = true;
-
-        y += 54f;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "처리 중…" : "참가", btnStyle, !busy && codeInput.Length >= 4)) JoinRoom();
+        y += 104f;
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "참가 중…" : "참가", btnStyle, !busy && codeInput.Length >= 4)) JoinRoom();
 
         y += bh + 14f;
         if (!string.IsNullOrEmpty(NetSession.Status))
@@ -239,6 +252,6 @@ public class LevelSelect : MonoBehaviour
         }
 
         y += 36f;
-        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) { step = 1; typing = false; }
+        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) step = 0;
     }
 }

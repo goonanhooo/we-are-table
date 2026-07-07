@@ -34,13 +34,29 @@ public class NetLegLink : NetworkBehaviour
     readonly NetworkVariable<bool> started = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    TableInput tableInput;
-    int myLeg = -1;              // 게스트: 내가 배정받은 다리(키셋 인덱스). -1=없음
-    byte lastSent = 255;         // 마지막으로 보낸 입력(변화 있을 때만 전송)
-    float lastHeartbeat;
+    // 로비에서 호스트가 고른 맵(NetDebugPanel.Maps 인덱스, 255=미선택) — 게스트 로비에도 표시
+    readonly NetworkVariable<byte> mapIndex = new(255,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    public LegControlSet? MyLeg => myLeg >= 0 ? (LegControlSet)myLeg : (LegControlSet?)null;
+    // ★세션 상태 캐시(서버 static): NetworkVariable은 NetLegLink '인스턴스'에 살아서
+    //   씬 전환(StartGame→NetScene.Load, 정글→빙산 등)마다 새 인스턴스에서 리셋된다 —
+    //   로비가 시작 화면으로 오면서(2026-07-07) 시작 직후 배정이 날아가는 치명타가 됨.
+    //   서버가 바뀔 때마다 여기 적어두고 새 인스턴스 OnNetworkSpawn에서 복원한다.
+    //   새 세션 시작 때 ResetSessionCache()로 비움(LevelSelect 방 만들기/NetDebugPanel 나가기).
+    static bool sHasCache;
+    static LegOwners sOwners;
+    static bool sStarted;
+    static byte sMap = 255;
+    public static void ResetSessionCache() { sHasCache = false; sStarted = false; sMap = 255; }
+
+    TableInput tableInput;
+    int myMask;                       // 내가 소유한 다리 비트마스크(게스트 입력 전송 + 표시)
+    readonly byte[] lastSent = { 255, 255, 255, 255 };   // 다리별 마지막 전송(변화 시만 전송)
+    readonly float[] lastHeartbeat = new float[4];
+
     public bool Started => started.Value;
+    /// <summary>로비에서 호스트가 고른 맵 인덱스(-1=미선택).</summary>
+    public int MapIndex => mapIndex.Value == 255 ? -1 : mapIndex.Value;
     /// <summary>다리 주인 표시용: -2=빈 자리, -1=호스트, 그 외=clientId.</summary>
     public long OwnerOf(int leg)
     {
@@ -58,25 +74,42 @@ public class NetLegLink : NetworkBehaviour
         return sb.ToString();
     }
 
-    /// <summary>로비에서 다리 선택(모든 클라 호출 가능 — 서버가 검증). 이미 주인 있으면 무시, 내 기존 다리는 해제.</summary>
+    /// <summary>로비에서 다리 선택 — ★토글(모든 클라 호출 가능, 서버 검증):
+    /// 빈 자리 클릭=획득(기존 자리 유지 → 한 명이 여러 다리 가능), 내 자리 클릭=해제, 남의 자리=무시.</summary>
     [Rpc(SendTo.Server)]
     public void ClaimLegRpc(byte leg, RpcParams rpc = default)
     {
         if (leg > 3 || started.Value) return;                       // 시작 후 변경 금지
         ulong who = rpc.Receive.SenderClientId;
         var o = owners.Value;
-        if (o.Get(leg) != NONE && o.Get(leg) != who) return;        // 남의 자리
-        for (int i = 0; i < 4; i++) if (o.Get(i) == who) o.Set(i, NONE);   // 내 기존 자리 해제
-        o.Set(leg, who);
-        owners.Value = o;
+        ulong cur = o.Get(leg);
+        if (cur == who) o.Set(leg, NONE);                           // 내 자리 → 해제(토글)
+        else if (cur == NONE) o.Set(leg, who);                      // 빈 자리 → 획득(여러 개 OK)
+        else return;                                                // 남의 자리 → 무시
+        SetOwners(o);
     }
 
-    /// <summary>호스트: 게임 시작 — 다리 고정 + 세션 잠금(중간 난입 차단).</summary>
+    /// <summary>호스트: 로비에서 맵 선택(NetDebugPanel.Maps 인덱스) — 게스트 로비에도 표시.</summary>
+    public void SetMap(int i)
+    {
+        if (!IsServer || started.Value || i < 0 || i > 254) return;
+        mapIndex.Value = (byte)i;
+        sMap = (byte)i; sHasCache = true;
+    }
+
+    /// <summary>호스트: 게임 시작 — 다리 고정 + 세션 잠금(중간 난입 차단). 씬 로드는 호출 쪽(NetDebugPanel).</summary>
     public void StartGame()
     {
         if (!IsServer || started.Value) return;
         started.Value = true;
+        sStarted = true; sHasCache = true;
         _ = NetSession.LockAsync();
+    }
+
+    void SetOwners(LegOwners o)
+    {
+        owners.Value = o;
+        sOwners = o; sHasCache = true;
     }
 
     public override void OnNetworkSpawn()
@@ -85,7 +118,16 @@ public class NetLegLink : NetworkBehaviour
         owners.OnValueChanged += OnOwnersChanged;
 
         if (IsServer)
+        {
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
+            // ★씬 전환으로 새로 스폰된 인스턴스: 이전 씬의 배정/시작/맵 상태 복원
+            if (sHasCache)
+            {
+                owners.Value = sOwners;
+                started.Value = sStarted;
+                mapIndex.Value = sMap;
+            }
+        }
         if (IsClient && !IsServer) ApplyGuestMode();
         OnOwnersChanged(default, owners.Value);
     }
@@ -100,16 +142,16 @@ public class NetLegLink : NetworkBehaviour
             for (int i = 0; i < 4; i++) tableInput.SetSource((LegControlSet)i, TableInput.LegSource.Local);
     }
 
-    // ── 서버: 퇴장 시 그 사람 다리 해제(호스트 로컬 복귀) ──
+    // ── 서버: 퇴장 시 그 사람 다리 전부 해제(호스트 로컬 복귀) ──
     void OnClientDisconnected(ulong clientId)
     {
         var o = owners.Value; bool ch = false;
         for (int i = 0; i < 4; i++)
             if (o.Get(i) == clientId) { o.Set(i, NONE); ch = true; }
-        if (ch) owners.Value = o;
+        if (ch) SetOwners(o);
     }
 
-    // ── 배정 변경 반영: 호스트=입력 소스 전환, 게스트=내 다리 파악 ──
+    // ── 배정 변경 반영: 호스트=입력 소스 전환, 각자=내 다리 마스크 갱신 ──
     void OnOwnersChanged(LegOwners _, LegOwners o)
     {
         if (IsServer && tableInput != null)
@@ -117,21 +159,25 @@ public class NetLegLink : NetworkBehaviour
                 tableInput.SetSource((LegControlSet)i,
                     o.Get(i) == NONE ? TableInput.LegSource.Local : TableInput.LegSource.External);
 
-        // 내 다리 파악(호스트 포함 — 표시용. 게스트는 입력 전송에도 사용)
-        myLeg = -1;
+        // 내 다리 마스크(호스트 포함 — 표시용. 게스트는 입력 전송에도 사용)
+        myMask = 0;
         for (int i = 0; i < 4; i++)
-            if (o.Get(i) == NetworkManager.LocalClientId) myLeg = i;
+            if (o.Get(i) == NetworkManager.LocalClientId) myMask |= 1 << i;
     }
 
-    // ── 게스트: 자기 다리 입력을 서버로 (변화 시 즉시 + 0.2s 하트비트) ──
+    // ── 게스트: 내가 소유한 '모든' 다리의 입력을 서버로 (다리별 변화 시 즉시 + 0.2s 하트비트) ──
     void Update()
     {
-        if (!IsSpawned || IsServer || myLeg < 0) return;
-        byte packed = Pack(TableInput.PollKeyset((LegControlSet)myLeg));
-        if (packed != lastSent || Time.unscaledTime - lastHeartbeat > 0.2f)
+        if (!IsSpawned || IsServer || myMask == 0) return;
+        for (int i = 0; i < 4; i++)
         {
-            lastSent = packed; lastHeartbeat = Time.unscaledTime;
-            SendInputRpc((byte)myLeg, packed);
+            if ((myMask & (1 << i)) == 0) continue;
+            byte packed = Pack(TableInput.PollKeyset((LegControlSet)i));
+            if (packed != lastSent[i] || Time.unscaledTime - lastHeartbeat[i] > 0.2f)
+            {
+                lastSent[i] = packed; lastHeartbeat[i] = Time.unscaledTime;
+                SendInputRpc((byte)i, packed);
+            }
         }
     }
 
