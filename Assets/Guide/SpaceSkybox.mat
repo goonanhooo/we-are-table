@@ -25,14 +25,14 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _BandIntensity: 0.4
-    - _BandWidth: 0.11
-    - _StarBright: 1.6
+    - _BandIntensity: 0.42
+    - _BandWidth: 0.15
+    - _StarBright: 1.5
     - _StarDensity: 0.991
     m_Colors:
     - _BandColor: {r: 0.6, g: 0.62, b: 0.68, a: 1}
     - _BandDir: {r: 0.88, g: 0.42, b: 0.08, a: 0}
-    - _BaseColor: {r: 0.004, g: 0.005, b: 0.01, a: 1}
+    - _BaseColor: {r: 0.024, g: 0.036, b: 0.1, a: 1}
     - _CoreDir: {r: -0.05, g: 0.3, b: 0.95, a: 0}
     - _NebulaA: {r: 0.13999996, g: 0.03, b: 0.19999996, a: 1}
     - _NebulaB: {r: 0.02, g: 0.09999997, b: 0.17999998, a: 1}

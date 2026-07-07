@@ -64,15 +64,16 @@ Shader "Custom/SpaceSkybox"
                             lerp(lerp(n001, n101, f.x), lerp(n011, n111, f.x), f.y), f.z);
             }
 
-            // 셀마다 확률적으로 별 하나 — 색온도(파랑↔흰↔노랑) 포함
-            float3 starLayer(float3 d, float scale, float dens)
+            // 셀마다 확률적으로 별 하나 — 색온도(파랑↔흰↔노랑) 포함.
+            // ⚠️rad: 셀 단위 별 반경 — 고밀도(고스케일) 레이어는 셀이 픽셀급이라 반경을 키워야 화면에 걸린다(서브픽셀 소실 방지).
+            float3 starLayer(float3 d, float scale, float dens, float rad)
             {
                 float3 p = d * scale;
                 float3 cell = floor(p);
                 float h = hash13(cell);
                 float3 off = float3(hash13(cell + 7.1), hash13(cell + 3.7), hash13(cell + 5.3)) - 0.5;
                 float dist = length(frac(p) - 0.5 - off * 0.55);
-                float star = smoothstep(0.11, 0.0, dist) * step(dens, h) * (0.3 + 0.7 * hash13(cell + 11.0));
+                float star = smoothstep(rad, 0.0, dist) * step(dens, h) * (0.3 + 0.7 * hash13(cell + 11.0));
                 float t = hash13(cell + 23.0);                       // 0=파랑 1=노랑, 중간=흰색
                 float3 tint = lerp(float3(0.68, 0.80, 1.0), float3(1.0, 0.88, 0.64), t);
                 tint = lerp(float3(1, 1, 1), tint, abs(t - 0.5) * 2.0);   // 대부분 흰색, 양끝만 물듦
@@ -82,50 +83,62 @@ Shader "Custom/SpaceSkybox"
             fixed4 frag(v2f i) : SV_Target
             {
                 float3 d = normalize(i.dir);
-                float3 col = _BaseColor.rgb;
+                // ── v4(2026-07-08, 실사 은하수 사진 레퍼런스): 짙은 남색 하늘 + 하늘 전체 잔별 +
+                //    크림-핑크 먼지 구름 은하수(암흑성운 실루엣) + 보라 성운 패치 + 코어 쪽 웜 글로우 ──
+                float3 col = _BaseColor.rgb;                          // 짙은 남색(검정 아님)
 
-                // ── 웅장한 은하수 아치(2026-07-08 v3): 황금 중심부 + 암흑 성운 골 + 파란 외곽 + 잔별의 강 ──
                 float w = _BandWidth;
                 float3 bn = normalize(_BandDir.xyz);
-                float bd = dot(d, bn);                               // 은하면까지 부호 거리
+                float bd = dot(d, bn);
                 float band = exp(-(bd * bd) / (w * w));
-                float bandWide = exp(-(bd * bd) / (w * w * 9.0));    // 넓은 헤일로
-
-                // 은하 중심(궁수자리) 방향 — 은하면에 투영해 사용
+                float bandWide = exp(-(bd * bd) / (w * w * 7.0));
                 float3 cd = _CoreDir.xyz - bn * dot(_CoreDir.xyz, bn);
                 cd = normalize(cd + 1e-4);
-                float ca = saturate(dot(d, cd));                     // 중심 방향 근접도
-                float bulge = pow(ca, 6.0) * band;                   // 중심부 광대역 벌지
-                float bulge2 = pow(ca, 20.0) * exp(-(bd * bd) / (w * w * 2.6));   // 밝은 심
+                float ca = saturate(dot(d, cd));
 
-                // 구름결(다옥타브) + 암흑 성운 골(밴드 심을 따라 노이즈로 굽이치는 어두운 틈)
-                float cl1 = noise3(d * 5.0);
-                float cl2 = noise3(d * 11.0 + 31.0);
-                float cl3 = noise3(d * 23.0 + 77.0);
-                float cloud = 0.45 * cl1 + 0.35 * cl2 + 0.20 * cl3;
-                float riftBd = bd + (noise3(d * 7.0 + 13.0) - 0.5) * 0.10;
-                float rift = exp(-(riftBd * riftBd) / (w * w * 0.14)) * saturate(cl2 * 1.7 - 0.25);
-                rift *= saturate(0.35 + ca);                         // 중심부일수록 골 선명
+                // 밴드 좌표계(along=cd, side=e, across=bn) — 구름/먼지를 '밴드 방향으로 길게' 늘이기 위함
+                float3 e = normalize(cross(bn, cd) + 1e-4);
+                float3 dc = float3(dot(d, e), dot(d, cd), dot(d, bn));
 
-                float milk = (band * (0.35 + 0.60 * cloud) + bandWide * (0.05 + 0.09 * cl1)) * (1.0 - rift * 0.72);
-                // 색 구역: 은청색 바탕에 파랑(젊은 별 구름)/황금(늙은 별 구름) 패치가 노이즈로 자연스럽게 섞임
-                float hue = noise3(d * 3.0 + 51.0);
-                float3 silverC = float3(0.80, 0.85, 1.0);
-                float3 blueC = float3(0.52, 0.70, 1.0);
-                float3 goldC = float3(1.0, 0.86, 0.58);
-                float3 bandCol = silverC;
-                bandCol = lerp(bandCol, blueC, saturate((hue - 0.55) * 2.4));
-                bandCol = lerp(bandCol, goldC, saturate((0.42 - hue) * 2.4) * 0.85);
-                bandCol = lerp(bandCol, goldC, pow(ca, 12.0));                   // 중심 매듭은 항상 황금
+                // 다옥타브 구름결(이방성: 밴드 가로 방향 주파수↑ = 결이 밴드를 따라 흐름)
+                float cl1 = noise3(float3(dc.x * 3.2, dc.y * 3.2, dc.z * 7.0));
+                float cl2 = noise3(float3(dc.x * 7.0, dc.y * 7.0, dc.z * 15.0) + 31.0);
+                float cl3 = noise3(float3(dc.x * 14.0, dc.y * 14.0, dc.z * 28.0) + 77.0);
+                float cl4 = noise3(d * 37.0 + 7.0);
+                float cloud = 0.35 * cl1 + 0.30 * cl2 + 0.22 * cl3 + 0.13 * cl4;
+
+                // 암흑 성운 실루엣 — ⚠️등방 노이즈 임계는 '둥근 치즈 구멍'이 됨(실측) →
+                //   밴드 좌표계에서 across 주파수를 훨씬 높여 길게 찢어진 균열로
+                float dn1 = noise3(float3(dc.x * 2.6, dc.y * 2.6, dc.z * 17.0) + 13.0);
+                float dn2 = noise3(float3(dc.x * 5.5, dc.y * 5.5, dc.z * 32.0) + 41.0);
+                float dust = saturate((dn1 - 0.46) * 3.4) * band;
+                dust = max(dust, saturate((dn2 - 0.53) * 3.2) * band * 0.85);
+
+                float milk = (band * saturate(cloud * 1.35 - 0.18) + bandWide * 0.035 * (0.4 + 0.6 * cl1)) * (1.0 - dust * 0.92);
+
+                // 색: 외곽 청백 → 중심으로 갈수록 크림/핑크(웜코어 — 과하면 커피우유가 되니 절제)
+                float3 blueW = float3(0.72, 0.80, 1.0);
+                float3 cream = float3(1.0, 0.88, 0.78);
+                float3 pink = float3(1.0, 0.74, 0.70);
+                float warmth = saturate(pow(ca, 3.0)) * 0.85;
+                float3 bandCol = lerp(blueW, lerp(cream, pink, cl2 * 0.7), warmth);
                 col += bandCol * milk * _BandIntensity;
-                col += goldC * (bulge * 0.10 + bulge2 * 0.85) * _BandIntensity;  // 중심부 광휘(콤팩트)
 
-                // ── 별 4겹(색온도) — 밴드/중심부일수록 잔별 밀도 급증 = 별의 강 ──
-                float bandStar = saturate(band + bulge * 0.6);
-                float3 s = starLayer(d, 48.0, 0.995) * 1.6;
-                s += starLayer(d, 105.0, lerp(0.990, 0.975, bandStar));
-                s += starLayer(d, 230.0, lerp(0.988, 0.915, bandStar)) * 0.5;
-                s += starLayer(d, 380.0, lerp(0.995, 0.945, bandStar)) * 0.34;
+                // 코어 방향 웜 글로우(사진 하단의 주황-핑크 노을) — ⚠️밴드 폭 안에만(넓히면 안개벽)
+                float glow = pow(ca, 6.0) * band * (1.0 - dust * 0.6);
+                col += float3(1.0, 0.62, 0.46) * glow * _BandIntensity * 0.28;
+
+                // 보라 성운 패치(레퍼런스 2) — 큰 스케일 노이즈, 은은하게
+                float pur = saturate((noise3(d * 2.3 + 91.0) - 0.60) * 2.6);
+                col += float3(0.42, 0.22, 0.75) * pur * 0.16;
+
+                // ── 별: 하늘 '전체'가 잔별로 빽빽(사진 핵심) + 밴드/코어 근처 가중 ──
+                float bandStar = saturate(band * 0.8 + pow(ca, 3.0) * 0.3);
+                float3 s = starLayer(d, 48.0, 0.994, 0.12) * 1.5;
+                s += starLayer(d, 100.0, 0.982, 0.14);
+                s += starLayer(d, 190.0, lerp(0.945, 0.885, bandStar), 0.22) * 0.9;
+                s += starLayer(d, 330.0, lerp(0.930, 0.890, bandStar), 0.28) * 0.6;
+                s += starLayer(d, 520.0, 0.930, 0.33) * 0.35;
                 col += s * _StarBright;
 
                 return fixed4(col, 1);
