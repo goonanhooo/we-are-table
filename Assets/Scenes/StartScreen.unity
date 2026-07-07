@@ -1419,6 +1419,12 @@ MonoBehaviour:
   - label: "\uC6B0\uC8FC"
     scene: Space
     thumb: Thumbs/space
+  - label: "\uD2B8\uB799"
+    scene: Track
+    thumb: Thumbs/track
+  - label: "\uB2EC"
+    scene: Moon
+    thumb: Thumbs/moon
 --- !u!4 &1453674153
 Transform:
   m_ObjectHideFlags: 0
