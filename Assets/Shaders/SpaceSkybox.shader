@@ -9,6 +9,7 @@ Shader "Custom/SpaceSkybox"
         _BaseColor("Deep Space", Color) = (0.004, 0.005, 0.010, 1)
         _StarBright("Star Brightness", Float) = 1.6
         _BandDir("Milky Way Plane Normal", Vector) = (0.25, 0.82, 0.4, 0)
+        _CoreDir("Galactic Core Direction", Vector) = (0.6, 0.0, 0.8, 0)
         _BandColor("Milky Way Tint", Color) = (0.62, 0.60, 0.56, 1)
         _BandIntensity("Milky Way Intensity", Float) = 0.30
         _BandWidth("Milky Way Width", Range(0.05, 0.6)) = 0.22
@@ -26,7 +27,7 @@ Shader "Custom/SpaceSkybox"
             #include "UnityCG.cginc"
 
             fixed4 _BaseColor, _BandColor;
-            float4 _BandDir;
+            float4 _BandDir, _CoreDir;
             float _StarBright, _BandIntensity, _BandWidth;
 
             struct appdata { float4 vertex : POSITION; };
@@ -83,20 +84,42 @@ Shader "Custom/SpaceSkybox"
                 float3 d = normalize(i.dir);
                 float3 col = _BaseColor.rgb;
 
-                // ── 은하수 밴드: 연기 같은 안개가 아니라 '잔별의 강' — 젖빛은 아주 은은하게만 ──
+                // ── 웅장한 은하수 아치(2026-07-08 v3): 황금 중심부 + 암흑 성운 골 + 파란 외곽 + 잔별의 강 ──
+                float w = _BandWidth;
                 float3 bn = normalize(_BandDir.xyz);
-                float bd = abs(dot(d, bn));
-                float band = exp(-(bd * bd) / (_BandWidth * _BandWidth));
-                float cloud = noise3(d * 5.0) * 0.55 + noise3(d * 11.0 + 31.0) * 0.45;
-                float milk = band * (0.35 + 0.40 * cloud);          // 얼룩 없는 매끈한 젖빛(아주 은은)
-                col += _BandColor.rgb * milk * _BandIntensity;
+                float bd = dot(d, bn);                               // 은하면까지 부호 거리
+                float band = exp(-(bd * bd) / (w * w));
+                float bandWide = exp(-(bd * bd) / (w * w * 9.0));    // 넓은 헤일로
 
-                // ── 별 4겹(성긴 큰 별 / 중간 / 잔별 / 초미세 — 밴드 근처에서 잔별 밀도 급증) ──
+                // 은하 중심(궁수자리) 방향 — 은하면에 투영해 사용
+                float3 cd = _CoreDir.xyz - bn * dot(_CoreDir.xyz, bn);
+                cd = normalize(cd + 1e-4);
+                float ca = saturate(dot(d, cd));                     // 중심 방향 근접도
+                float bulge = pow(ca, 6.0) * band;                   // 중심부 광대역 벌지
+                float bulge2 = pow(ca, 20.0) * exp(-(bd * bd) / (w * w * 2.6));   // 밝은 심
+
+                // 구름결(다옥타브) + 암흑 성운 골(밴드 심을 따라 노이즈로 굽이치는 어두운 틈)
+                float cl1 = noise3(d * 5.0);
+                float cl2 = noise3(d * 11.0 + 31.0);
+                float cl3 = noise3(d * 23.0 + 77.0);
+                float cloud = 0.45 * cl1 + 0.35 * cl2 + 0.20 * cl3;
+                float riftBd = bd + (noise3(d * 7.0 + 13.0) - 0.5) * 0.10;
+                float rift = exp(-(riftBd * riftBd) / (w * w * 0.14)) * saturate(cl2 * 1.7 - 0.25);
+                rift *= saturate(0.35 + ca);                         // 중심부일수록 골 선명
+
+                float milk = (band * (0.35 + 0.60 * cloud) + bandWide * (0.05 + 0.09 * cl1)) * (1.0 - rift * 0.72);
+                float3 warmC = float3(1.0, 0.88, 0.70);
+                float3 coolC = float3(0.76, 0.83, 1.0);                          // 은청색 별의 강
+                float3 bandCol = lerp(coolC, warmC, pow(ca, 12.0));              // 황금빛은 중심 매듭에만 압축
+                col += bandCol * milk * _BandIntensity;
+                col += warmC * (bulge * 0.10 + bulge2 * 0.85) * _BandIntensity;  // 중심부 광휘(콤팩트)
+
+                // ── 별 4겹(색온도) — 밴드/중심부일수록 잔별 밀도 급증 = 별의 강 ──
+                float bandStar = saturate(band + bulge * 0.6);
                 float3 s = starLayer(d, 48.0, 0.995) * 1.6;
-                s += starLayer(d, 105.0, 0.990);
-                float fineDens = lerp(0.988, 0.935, band);          // 은하수 = 잔별의 강
-                s += starLayer(d, 230.0, fineDens) * 0.5;
-                s += starLayer(d, 380.0, lerp(0.995, 0.958, band)) * 0.34;
+                s += starLayer(d, 105.0, lerp(0.990, 0.975, bandStar));
+                s += starLayer(d, 230.0, lerp(0.988, 0.915, bandStar)) * 0.5;
+                s += starLayer(d, 380.0, lerp(0.995, 0.945, bandStar)) * 0.34;
                 col += s * _StarBright;
 
                 return fixed4(col, 1);
