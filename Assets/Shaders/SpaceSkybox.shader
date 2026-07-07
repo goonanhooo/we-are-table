@@ -108,11 +108,17 @@ Shader "Custom/SpaceSkybox"
                 rift *= saturate(0.35 + ca);                         // 중심부일수록 골 선명
 
                 float milk = (band * (0.35 + 0.60 * cloud) + bandWide * (0.05 + 0.09 * cl1)) * (1.0 - rift * 0.72);
-                float3 warmC = float3(1.0, 0.88, 0.70);
-                float3 coolC = float3(0.76, 0.83, 1.0);                          // 은청색 별의 강
-                float3 bandCol = lerp(coolC, warmC, pow(ca, 12.0));              // 황금빛은 중심 매듭에만 압축
+                // 색 구역: 은청색 바탕에 파랑(젊은 별 구름)/황금(늙은 별 구름) 패치가 노이즈로 자연스럽게 섞임
+                float hue = noise3(d * 3.0 + 51.0);
+                float3 silverC = float3(0.80, 0.85, 1.0);
+                float3 blueC = float3(0.52, 0.70, 1.0);
+                float3 goldC = float3(1.0, 0.86, 0.58);
+                float3 bandCol = silverC;
+                bandCol = lerp(bandCol, blueC, saturate((hue - 0.55) * 2.4));
+                bandCol = lerp(bandCol, goldC, saturate((0.42 - hue) * 2.4) * 0.85);
+                bandCol = lerp(bandCol, goldC, pow(ca, 12.0));                   // 중심 매듭은 항상 황금
                 col += bandCol * milk * _BandIntensity;
-                col += warmC * (bulge * 0.10 + bulge2 * 0.85) * _BandIntensity;  // 중심부 광휘(콤팩트)
+                col += goldC * (bulge * 0.10 + bulge2 * 0.85) * _BandIntensity;  // 중심부 광휘(콤팩트)
 
                 // ── 별 4겹(색온도) — 밴드/중심부일수록 잔별 밀도 급증 = 별의 강 ──
                 float bandStar = saturate(band + bulge * 0.6);
