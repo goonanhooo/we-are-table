@@ -1428,6 +1428,9 @@ MonoBehaviour:
   - label: "\uBAA8\uD5D8"
     scene: Adventure
     thumb: Thumbs/adventure
+  - label: "\uB4F1\uBC18"
+    scene: Climb
+    thumb: Thumbs/climb
 --- !u!4 &1453674153
 Transform:
   m_ObjectHideFlags: 0

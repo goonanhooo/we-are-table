@@ -23,8 +23,8 @@ public class NetDebugPanel : MonoBehaviour
     NetLegLink Link => FindAnyObjectByType<NetLegLink>();
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
-    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주", "트랙", "달", "모험" };
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain", "Space", "Track", "Moon", "Adventure" };
+    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주", "트랙", "달", "모험", "등반" };
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain", "Space", "Track", "Moon", "Adventure", "Climb" };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
     void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }

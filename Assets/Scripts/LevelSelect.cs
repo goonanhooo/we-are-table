@@ -28,6 +28,7 @@ public class LevelSelect : MonoBehaviour
         new Level { label = "트랙",      scene = "Track",       thumb = "Thumbs/track"   },
         new Level { label = "달",        scene = "Moon",        thumb = "Thumbs/moon"    },
         new Level { label = "모험",      scene = "Adventure",   thumb = "Thumbs/adventure" },
+        new Level { label = "등반",      scene = "Climb",       thumb = "Thumbs/climb"   },
     };
 
     public bool Showing { get; private set; }
