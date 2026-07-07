@@ -128,17 +128,15 @@ Shader "Custom/SpaceSkybox"
                 float glow = pow(ca, 6.0) * band * (1.0 - dust * 0.6);
                 col += float3(1.0, 0.62, 0.46) * glow * _BandIntensity * 0.28;
 
-                // 보라 성운 패치(레퍼런스 2) — 큰 스케일 노이즈, 은은하게
-                float pur = saturate((noise3(d * 2.3 + 91.0) - 0.60) * 2.6);
-                col += float3(0.42, 0.22, 0.75) * pur * 0.16;
+                // (보라 성운 패치는 어색해서 제거 — 2026-07-08 사용자 피드백)
 
-                // ── 별: 하늘 '전체'가 잔별로 빽빽(사진 핵심) + 밴드/코어 근처 가중 ──
+                // ── 별: 잔별 가득하되 과밀하지 않게 + 밴드/코어 근처 가중 ──
                 float bandStar = saturate(band * 0.8 + pow(ca, 3.0) * 0.3);
                 float3 s = starLayer(d, 48.0, 0.994, 0.12) * 1.5;
-                s += starLayer(d, 100.0, 0.982, 0.14);
-                s += starLayer(d, 190.0, lerp(0.945, 0.885, bandStar), 0.22) * 0.9;
-                s += starLayer(d, 330.0, lerp(0.930, 0.890, bandStar), 0.28) * 0.6;
-                s += starLayer(d, 520.0, 0.930, 0.33) * 0.35;
+                s += starLayer(d, 100.0, 0.985, 0.14);
+                s += starLayer(d, 190.0, lerp(0.958, 0.905, bandStar), 0.22) * 0.85;
+                s += starLayer(d, 330.0, lerp(0.947, 0.910, bandStar), 0.28) * 0.5;
+                s += starLayer(d, 520.0, 0.945, 0.33) * 0.28;
                 col += s * _StarBright;
 
                 return fixed4(col, 1);
