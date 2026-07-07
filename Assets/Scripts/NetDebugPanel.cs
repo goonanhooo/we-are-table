@@ -23,8 +23,8 @@ public class NetDebugPanel : MonoBehaviour
     NetLegLink Link => FindAnyObjectByType<NetLegLink>();
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
-    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주", "트랙", "달" };
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain", "Space", "Track", "Moon" };
+    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주", "트랙", "달", "모험" };
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain", "Space", "Track", "Moon", "Adventure" };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
     void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }
@@ -44,11 +44,14 @@ public class NetDebugPanel : MonoBehaviour
     bool InSession => NM != null && (NM.IsHost || NM.IsConnectedClient);
     bool InLobby => InSession && Link != null && !Link.Started;
 
+    // 맵 개수에 따라 로비 높이 가변(3열 그리드 줄 수 기준)
+    static float ActionY => 372f + ((MapNames.Length + 2) / 3) * 46f + 10f;   // 시작/나가기 줄 y
+    static float PanelH => ActionY + 44f + 30f;                               // + status 줄
     Rect Panel() => InLobby
-        ? new Rect((Screen.width - 460f) * 0.5f, (Screen.height - 566f) * 0.5f, 460f, 566f)   // 로비=중앙 큰 창
-        : new Rect(Screen.width - 260f, 8f, 252f, 96f);                                        // 인게임=우상단 미니
+        ? new Rect((Screen.width - 460f) * 0.5f, (Screen.height - PanelH) * 0.5f, 460f, PanelH)   // 로비=중앙 큰 창
+        : new Rect(Screen.width - 260f, 8f, 252f, 96f);                                            // 인게임=우상단 미니
     Rect R(float x, float y, float w, float h) { var p = Panel(); return new Rect(p.x + x, p.y + y, w, h); }
-    Rect MapBtn(int i) => R(20f + (i % 3) * 144f, 372f + (i / 3) * 46f, 132f, 40f);   // 2줄 × 3
+    Rect MapBtn(int i) => R(20f + (i % 3) * 144f, 372f + (i / 3) * 46f, 132f, 40f);   // 3열 그리드
 
     void Update()
     {
@@ -71,14 +74,14 @@ public class NetDebugPanel : MonoBehaviour
             if (NM.IsHost)
                 for (int i = 0; i < MapNames.Length; i++)
                     if (MapBtn(i).Contains(gm)) { link.SetMap(i); return; }
-            if (NM.IsHost && R(20f, 494f, 200f, 44f).Contains(gm))
+            if (NM.IsHost && R(20f, ActionY, 200f, 44f).Contains(gm))
             {
                 // 게임 시작 = 다리/세션 잠금 + 전원 선택 맵으로 이동(로비는 시작 화면에 있으므로 여기서 로드)
                 if (link.MapIndex < 0) { status = "맵을 먼저 선택하세요"; return; }
                 link.StartGame();
                 NetScene.Load(MapScenes[link.MapIndex]);
             }
-            if (R(240f, 494f, 200f, 44f).Contains(gm)) LeaveAll();
+            if (R(240f, ActionY, 200f, 44f).Contains(gm)) LeaveAll();
         }
         else
         {
@@ -156,10 +159,10 @@ public class NetDebugPanel : MonoBehaviour
                 GUI.Label(r, MapNames[i], btn);
             }
 
-            if (NM.IsHost) Button(R(20f, 494f, 200f, 44f), sel >= 0 ? "게임 시작" : "게임 시작 (맵 선택!)", gm);
-            else GUI.Label(R(20f, 494f, 200f, 44f), "호스트 대기 중…", btn);
-            Button(R(240f, 494f, 200f, 44f), "나가기", gm);
-            if (!string.IsNullOrEmpty(status)) GUI.Label(R(0f, 540f, panel.width, 22f), status, small);
+            if (NM.IsHost) Button(R(20f, ActionY, 200f, 44f), sel >= 0 ? "게임 시작" : "게임 시작 (맵 선택!)", gm);
+            else GUI.Label(R(20f, ActionY, 200f, 44f), "호스트 대기 중…", btn);
+            Button(R(240f, ActionY, 200f, 44f), "나가기", gm);
+            if (!string.IsNullOrEmpty(status)) GUI.Label(R(0f, ActionY + 48f, panel.width, 22f), status, small);
             return;
         }
 

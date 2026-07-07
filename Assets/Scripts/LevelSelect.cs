@@ -27,6 +27,7 @@ public class LevelSelect : MonoBehaviour
         new Level { label = "우주",      scene = "Space",       thumb = "Thumbs/space"   },   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
         new Level { label = "트랙",      scene = "Track",       thumb = "Thumbs/track"   },
         new Level { label = "달",        scene = "Moon",        thumb = "Thumbs/moon"    },
+        new Level { label = "모험",      scene = "Adventure",   thumb = "Thumbs/adventure" },
     };
 
     public bool Showing { get; private set; }

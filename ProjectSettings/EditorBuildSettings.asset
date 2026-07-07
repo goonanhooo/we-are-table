@@ -26,6 +26,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Moon.unity
     guid: 5f0ed13170f6d4336b8e915d99173473
+  - enabled: 1
+    path: Assets/Scenes/Adventure.unity
+    guid: 753f1aef8b31f4cc3af68c20d86b95a7
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
