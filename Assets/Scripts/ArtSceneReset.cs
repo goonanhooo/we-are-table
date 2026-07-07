@@ -21,6 +21,12 @@ public class ArtSceneReset : MonoBehaviour
     public float flipPromptDelay = 2f;
     [Tooltip("뒤집힘 타이머 조건: 이 속도 미만으로 정착했을 때만(구르는 중 제외)")]
     public float flipCalmSpeed = 1.2f;
+    [Tooltip("워치독: 원점에서 이 거리 초과 = 폭발로 간주해 복구. 우주 등 넓은 씬은 인스턴스에서 키울 것.")]
+    public float watchdogMaxDist = 600f;
+    [Tooltip("워치독: 이 y 아래 = 추락/폭발로 간주해 복구. 무중력 씬은 크게 음수로.")]
+    public float watchdogMinY = -150f;
+    [Tooltip("리셋 시 아래에 지면이 없으면 현재 높이 유지(무중력 씬용). false=기존 동작(스캔 높이/폴백).")]
+    public bool keepYIfNoGround = false;
 
     ArticulationBody root;
     ArticulationBody[] bodies;
@@ -51,7 +57,7 @@ public class ArtSceneReset : MonoBehaviour
             if (b == null) continue;
             var p = b.transform.position;
             if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z)
-                || p.sqrMagnitude > 600f * 600f || p.y < -150f) { anyBad = true; break; }
+                || p.sqrMagnitude > watchdogMaxDist * watchdogMaxDist || p.y < watchdogMinY) { anyBad = true; break; }
         }
         if (!anyBad)
         {
@@ -80,10 +86,10 @@ public class ArtSceneReset : MonoBehaviour
     }
 
     /// <summary>XZ 지점의 지면 높이 — fromY에서 아래로 RaycastAll, 테이블 자신 제외, 가장 높은 지점. 못 찾으면 fromY.</summary>
-    float GroundYAt(Vector2 xz, float fromY)
+    float GroundYAt(Vector2 xz, float fromY, out bool found)
     {
         var hits = Physics.RaycastAll(new Vector3(xz.x, fromY, xz.y), Vector3.down, 2000f, ~0, QueryTriggerInteraction.Ignore);
-        float gy = float.NegativeInfinity; bool found = false;
+        float gy = float.NegativeInfinity; found = false;
         foreach (var h in hits)
         {
             if (h.collider.transform.root == transform.root) continue;   // 테이블 자신 제외
@@ -161,9 +167,10 @@ public class ArtSceneReset : MonoBehaviour
         Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
 
         if (!float.IsFinite(scanFromY)) scanFromY = 500f;
-        float gy = GroundYAt(xz, scanFromY);
-        if (!float.IsFinite(gy)) gy = 30f;
+        float gy = GroundYAt(xz, scanFromY, out bool grounded);
         float lift = boardClearance + tableHeight * groundLiftFactor;
+        if (!grounded && keepYIfNoGround) gy = root.transform.position.y - lift;   // 무중력: 지금 높이에서 자세만 복원
+        if (!float.IsFinite(gy)) gy = 30f;
 
         root.TeleportRoot(new Vector3(xz.x, gy + lift, xz.y), rot);
         root.linearVelocity = Vector3.zero;

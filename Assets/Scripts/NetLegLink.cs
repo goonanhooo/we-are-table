@@ -207,6 +207,7 @@ public class NetLegLink : NetworkBehaviour
         Toggle<SceneReset>(root, false);
         Toggle<ArtSceneReset>(root, false);   // ★ 게스트: '1' 리셋/워치독도 호스트 전용(TeleportRoot 충돌 방지)
         Toggle<NaNBlackBox>(root, false);
+        Toggle<SquidMode>(root, false);       // 우주오징어 추진도 호스트 물리 전용(분사 이펙트 동기화는 TODO)
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
         foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;
         // 씬 레벨 스크립트: 추락 리스폰도 호스트 물리 기준(게스트에서 이중 리셋 방지)

@@ -24,6 +24,7 @@ public class LevelSelect : MonoBehaviour
         new Level { label = "시작",      scene = "Hallway",     thumb = "Thumbs/hallway" },
         new Level { label = "정글",      scene = "Jungle",      thumb = "Thumbs/jungle"  },
         new Level { label = "눈 덮인 산", scene = "IceMountain", thumb = "Thumbs/ice"     },
+        new Level { label = "우주",      scene = "Space",       thumb = "Thumbs/space"   },   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
     };
 
     public bool Showing { get; private set; }

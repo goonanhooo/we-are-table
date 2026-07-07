@@ -1509,6 +1509,7 @@ GameObject:
   - component: {fileID: 1678603598061326513}
   - component: {fileID: 27931991182146071}
   - component: {fileID: 3997437327740031991}
+  - component: {fileID: 1279348888178759868}
   m_Layer: 0
   m_Name: Table
   m_TagString: Player
@@ -1732,6 +1733,26 @@ MonoBehaviour:
   flipDot: 0.2
   flipPromptDelay: 2
   flipCalmSpeed: 1.2
+  watchdogMaxDist: 600
+  watchdogMinY: -150
+  keepYIfNoGround: 0
+--- !u!114 &1279348888178759868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9100000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e166e32d5d2b48f1ae8db924177c219, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SquidMode
+  active: 0
+  unlocked: 0
+  thrustForce: 12
+  driftDamping: 0.1
+  jetMat: {fileID: 2100000, guid: 9170909224cd542a6adf40e4b93eb603, type: 2}
 --- !u!1 &495957611870653878
 GameObject:
   m_ObjectHideFlags: 0

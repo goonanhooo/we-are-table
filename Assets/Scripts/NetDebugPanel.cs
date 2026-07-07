@@ -23,8 +23,8 @@ public class NetDebugPanel : MonoBehaviour
     NetLegLink Link => FindAnyObjectByType<NetLegLink>();
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
-    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산" };
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain" };
+    static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주" };
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceMountain", "Space" };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
     void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }
@@ -48,7 +48,7 @@ public class NetDebugPanel : MonoBehaviour
         ? new Rect((Screen.width - 460f) * 0.5f, (Screen.height - 520f) * 0.5f, 460f, 520f)   // 로비=중앙 큰 창
         : new Rect(Screen.width - 260f, 8f, 252f, 96f);                                        // 인게임=우상단 미니
     Rect R(float x, float y, float w, float h) { var p = Panel(); return new Rect(p.x + x, p.y + y, w, h); }
-    Rect MapBtn(int i) => R(20f + i * 144f, 372f, 132f, 40f);
+    Rect MapBtn(int i) => R(20f + i * 107f, 372f, 100f, 40f);
 
     void Update()
     {

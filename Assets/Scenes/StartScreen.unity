@@ -1416,6 +1416,9 @@ MonoBehaviour:
   - label: "\uB208 \uB36E\uC778 \uC0B0"
     scene: IceMountain
     thumb: Thumbs/ice
+  - label: "\uC6B0\uC8FC"
+    scene: Space
+    thumb: Thumbs/space
 --- !u!4 &1453674153
 Transform:
   m_ObjectHideFlags: 0
