@@ -32,6 +32,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Climb.unity
     guid: d7bf51d08cd0644849b376c0f3975545
+  - enabled: 1
+    path: Assets/Scenes/Race.unity
+    guid: 628bca43fd4d842568717b33f1035fef
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

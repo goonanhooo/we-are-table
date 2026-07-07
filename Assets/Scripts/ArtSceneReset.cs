@@ -27,6 +27,8 @@ public class ArtSceneReset : MonoBehaviour
     public float watchdogMinY = -150f;
     [Tooltip("리셋 시 아래에 지면이 없으면 현재 높이 유지(무중력 씬용). false=기존 동작(스캔 높이/폴백).")]
     public bool keepYIfNoGround = false;
+    [Tooltip("★'1' 수동 리셋 차단(축구 등 규칙 씬 — 골이 나야만 재배치). 워치독/뒤집힘 복구는 유지.")]
+    public bool disableManualReset = false;
 
     ArticulationBody root;
     ArticulationBody[] bodies;
@@ -102,7 +104,7 @@ public class ArtSceneReset : MonoBehaviour
     {
         var kb = Keyboard.current;
         if (kb == null || root == null) return;
-        if (kb.digit1Key.wasPressedThisFrame) ResetPoseInPlace();
+        if (!disableManualReset && kb.digit1Key.wasPressedThisFrame) ResetPoseInPlace();
 
         // 뒤집힘 감지(원본: 많이 누움 + 거의 정지일 때만 카운트 → 구르는 중 오탐 방지)
         bool flipped = Vector3.Dot(root.transform.up, Vector3.up) < flipDot

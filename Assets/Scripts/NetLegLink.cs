@@ -89,6 +89,16 @@ public class NetLegLink : NetworkBehaviour
         SetOwners(o);
     }
 
+    /// <summary>★서버(1인 1테이블 모드): 이 테이블의 네 다리를 전부 한 클라이언트에 배정.
+    /// 호스트 자신 테이블이면 NONE(=로컬 폴링). ⚠️로비 세션 캐시(sOwners)는 건드리지 않음 —
+    /// 협동 맵으로 돌아가면 로비 배정이 복원되도록.</summary>
+    public void AssignAllServer(ulong clientId)
+    {
+        if (!IsServer) return;
+        ulong v = clientId == NetworkManager.LocalClientId ? NONE : clientId;
+        owners.Value = new LegOwners { s0 = v, s1 = v, s2 = v, s3 = v };
+    }
+
     /// <summary>호스트: 로비에서 맵 선택(NetDebugPanel.Maps 인덱스) — 게스트 로비에도 표시.</summary>
     public void SetMap(int i)
     {
