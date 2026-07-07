@@ -9,8 +9,8 @@ using UnityEngine;
 public static class LetterSystem
 {
     /// <summary>알려진 편지 id(=Resources/Letters/ 안의 텍스처 이름)와 메뉴 표시 제목.</summary>
-    public static readonly string[] Ids = { "Letter1", "Letter2" };
-    public static readonly string[] Titles = { "편지 1 — 정글", "편지 2 — 빙산" };
+    public static readonly string[] Ids = { "Letter1", "Letter2", "Letter3", "Letter4", "Letter5" };
+    public static readonly string[] Titles = { "편지 1 — 정글", "편지 2 — 빙산", "편지 3 — 우주", "편지 4 — 트랙", "편지 5 — 달" };
 
     public static bool IsCollected(string id) => PlayerPrefs.GetInt("letter_" + id, 0) == 1;
 

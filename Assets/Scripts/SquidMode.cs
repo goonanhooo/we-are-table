@@ -15,6 +15,8 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("켜짐 여부(평소 꺼짐 — SpaceStage가 씬 입장 시 켬).")]
     public bool active;
     public bool unlocked;
+    /// <summary>한 번이라도 켜졌는가 — PauseMenu 조작법에 '우주오징어' 페이지 노출용(GiraffeMode.Unlocked 패턴).</summary>
+    public static bool Unlocked;
     [Tooltip("다리 하나가 내는 추진력(N). 4다리 동시 분사 = ×4. 테이블 총질량 ~7.6kg.")]
     public float thrustForce = 12f;
     [Tooltip("무중력 표류 감쇠(linearDamping) — 0이면 순수 관성이라 멈추기 힘들다.")]
@@ -91,6 +93,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
             return;
         }
         if (!applied) ApplyZeroG();
+        Unlocked = true;   // 켜진 순간부터 조작법 메뉴에 오징어 페이지 노출
         if (ti == null) ti = TableInput.Of(this);
 
         for (int i = 0; i < legs.Length; i++)

@@ -20,6 +20,8 @@ public class PauseMenu : MonoBehaviour
     public Texture2D controlsMove;
     [Tooltip("기린의 힘 조작 이미지 — GiraffeMode.Unlocked 일 때만 표시")]
     public Texture2D controlsGiraffe;
+    [Tooltip("우주오징어 조작 이미지 — SquidMode.Unlocked 일 때만 표시")]
+    public Texture2D controlsSquid;
 
     LegColorXray xray;
     bool paused;
@@ -51,12 +53,12 @@ public class PauseMenu : MonoBehaviour
     // 현재 해금된 조작법 페이지(이미지 + 이름) 목록
     Texture2D[] CtrlPages(out string[] names)
     {
-        bool g = GiraffeMode.Unlocked && controlsGiraffe != null;
-        bool m = controlsMove != null;
-        if (m && g) { names = new[] { "기본 조작", "기린의 힘" }; return new[] { controlsMove, controlsGiraffe }; }
-        if (m)      { names = new[] { "기본 조작" };             return new[] { controlsMove }; }
-        if (g)      { names = new[] { "기린의 힘" };             return new[] { controlsGiraffe }; }
-        names = new string[0]; return new Texture2D[0];
+        var texs = new System.Collections.Generic.List<Texture2D>();
+        var nms = new System.Collections.Generic.List<string>();
+        if (controlsMove != null) { texs.Add(controlsMove); nms.Add("기본 조작"); }
+        if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add("기린의 힘"); }
+        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add("우주오징어"); }
+        names = nms.ToArray(); return texs.ToArray();
     }
 
     void ComputeLayout()
