@@ -91,8 +91,8 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("맞출 높이(design) — 스폰 접시 주변 평지와 같게(테이블 눈높이 아래)")]
     public float bankFlatHeight = 9.6f;
 
-    [Header("로우폴리 페이셋 룩 — 폴리곤별 단색 + 미세 색 지터(플랫 셰이딩)")]
-    public bool facetShading = true;
+    [Header("로우폴리 페이셋 룩 — 폴리곤별 단색 + 미세 색 지터(플랫 셰이딩). 기본 꺼짐(사용자 원복 요청)")]
+    public bool facetShading = false;
     [Tooltip("면별 밝기 지터(±) — '약간씩' 다르게. 0.05~0.08 권장.")]
     public float facetColorJitter = 0.06f;
 

@@ -33295,7 +33295,7 @@ MonoBehaviour:
   bankFlatB: {x: -26, y: 0}
   bankFlatRadius: 26
   bankFlatHeight: 9.6
-  facetShading: 1
+  facetShading: 0
   facetColorJitter: 0.06
   cageFlatten: 1
   cageFlatCenter: {x: 7.6, y: 26.8}
