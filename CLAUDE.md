@@ -218,6 +218,7 @@
   - ⚠️ MCP revoked 상태에서 **프리팹 파일 직접 편집**으로 부착함(컴포넌트 9100000050 + m_Component 등록). Unity 포커스 시 리임포트되어 전 씬 반영. Samplescene 전용으로 옮기려면 MCP 켜고 인스턴스 added-component로 이동.
 
 ## ★ 세션 인계 가이드 (새 대화에서 먼저 읽기)
+- ⚠️★**MCP "Connection revoked" 반복 시 정답**(2026-07-08 재확인): 설정 승인 토글로는 안 풀림 — **`pkill -f relay_mac_arm64`로 릴레이 재시작**(낡은 릴레이 프로세스가 옛 거부 상태를 캐시). 그래도 안 되면 `Library/AI.MCP/connections-v2.asset` 삭제 → 재승인. 상세는 아래 "MCP 연결 삽질 일지".
 ### 작업 규칙 (중요)
 - 변경은 **에이전트가 파일을 직접 편집** → 사용자가 Unity에서 **저장 말고 reload(Don't Save)** 로 반영. (에디터에서 저장하면 파일 편집이 덮어써질 수 있음)
 - 씬/프리팹은 손으로 YAML 작성하거나 Python으로 생성. 편집 후 파이썬으로 무결성 검증(미해결 fileID 참조 0 확인).
