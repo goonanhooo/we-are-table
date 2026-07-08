@@ -20,10 +20,12 @@ public class JungleChairCutscene : MonoBehaviour
     [Tooltip("입구 바깥쪽 수평 방향(정규화)")]
     public Vector3 doorOutward = new Vector3(0.843f, 0f, -0.538f);
     public float startOutside = 4f;
-    [Tooltip("문 안쪽으로 걸어 들어가는 최종 깊이 — 카메라 복귀 후에도 여기까지 계속 걷다가 사라짐")]
-    public float endInside = 15f;
-    [Tooltip("의자 걷는 속도(m/s) — 걷기 총 시간 = 전체 거리/속도")]
-    public float walkSpeed = 3.2f;
+    [Tooltip("문 통과 후 이 깊이의 경유지를 지나 구멍으로 향함")]
+    public float doorInDepth = 5f;
+    [Tooltip("최종 목적지 — 창고 안 구멍(HoleLid). 도착하면 사라짐(구멍으로 들어간 연출)")]
+    public Vector3 holePos = new Vector3(-46.3f, 6.3f, 45.7f);
+    [Tooltip("의자 걷는 속도(m/s) — 카메라 복귀 후에도 구멍까지 계속 걸음")]
+    public float walkSpeed = 1.2f;
 
     [Header("타이밍(카메라 ≈ 4초 — 의자는 그 뒤로도 계속 걸음)")]
     public float blendIn = 0.5f;
@@ -91,7 +93,6 @@ public class JungleChairCutscene : MonoBehaviour
         SetupLegPivots(chair.transform);
         Vector3 fwdDir = -doorOutward.normalized;                       // 걷는 방향(안쪽)
         Vector3 startP = doorPos + doorOutward.normalized * startOutside;
-        Vector3 endP = doorPos - doorOutward.normalized * endInside;
         chair.transform.rotation = Quaternion.LookRotation(-fwdDir);    // 의자 정면 = -forward
         chair.transform.position = Grounded(startP);
 
@@ -111,8 +112,9 @@ public class JungleChairCutscene : MonoBehaviour
             yield return null;
         }
 
-        // ② 의자 걷기: 독립 코루틴 — 카메라가 복귀한 뒤에도 끝(endInside)까지 계속 걷고 사라짐
-        StartCoroutine(WalkChair(chair, startP, endP, fwdDir));
+        // ② 의자 걷기: 독립 코루틴 — 문을 지나 창고 안 '구멍'까지 계속 걷고, 도착하면 사라짐
+        Vector3 doorIn = doorPos - doorOutward.normalized * doorInDepth;
+        StartCoroutine(WalkChair(chair, new[] { startP, doorIn, holePos }));
 
         // 카메라는 걷는 의자를 walkTime 동안 지켜봄
         for (float t = 0f; t < walkTime; t += Time.deltaTime)
@@ -138,18 +140,39 @@ public class JungleChairCutscene : MonoBehaviour
         FreezeTable(false);
     }
 
-    // 의자 보행(다리 하나하나 피벗 스윙 + 봅/롤) — 끝 지점 도달 시 사라짐. 카메라와 독립적으로 진행.
-    // 창고 문턱 같은 단차는 y를 지수 보간으로 부드럽게('스윽') 넘는다.
-    IEnumerator WalkChair(GameObject chair, Vector3 startP, Vector3 endP, Vector3 fwdDir)
+    // 의자 보행(경유지 폴리라인, 다리 하나하나 피벗 스윙 + 봅/롤) — 마지막 지점(구멍) 도달 시 사라짐.
+    // 카메라와 독립적으로 진행. 창고 문턱 같은 단차는 y 지수 보간으로 부드럽게('스윽') 넘고,
+    // 코너에선 진행 방향으로 서서히 회전.
+    IEnumerator WalkChair(GameObject chair, Vector3[] pts)
     {
         float[] phase = { 0f, 0.5f, 0.25f, 0.75f };   // 대각 보행
-        float total = Vector3.Distance(startP, endP) / Mathf.Max(walkSpeed, 0.1f);
-        float curY = Grounded(startP).y;
-        for (float t = 0f; t < total; t += Time.deltaTime)
+        float totalLen = 0f;
+        for (int i = 0; i < pts.Length - 1; i++)
+            totalLen += Vector3.Distance(new Vector3(pts[i].x, 0, pts[i].z), new Vector3(pts[i + 1].x, 0, pts[i + 1].z));
+        float curY = Grounded(pts[0]).y;
+        Quaternion curRot = chair.transform.rotation;
+        float s = 0f, t = 0f;
+        while (s < totalLen)
         {
             if (chair == null) yield break;
-            float u = t / total;
-            Vector3 p = Vector3.Lerp(startP, endP, u);
+            s += walkSpeed * Time.deltaTime;
+            t += Time.deltaTime;
+            // 폴리라인 위 s 지점 + 현재 구간 방향
+            float rem = s;
+            Vector3 p = pts[pts.Length - 1], dir = Vector3.forward;
+            for (int i = 0; i < pts.Length - 1; i++)
+            {
+                Vector3 a = new Vector3(pts[i].x, 0, pts[i].z), b = new Vector3(pts[i + 1].x, 0, pts[i + 1].z);
+                float seg = Vector3.Distance(a, b);
+                if (rem <= seg || i == pts.Length - 2)
+                {
+                    float u = seg > 1e-4f ? Mathf.Clamp01(rem / seg) : 1f;
+                    p = Vector3.Lerp(a, b, u);
+                    dir = (b - a).normalized;
+                    break;
+                }
+                rem -= seg;
+            }
             float targetY = Grounded(p).y;
             curY = Mathf.Lerp(curY, targetY, Mathf.Clamp01(Time.deltaTime * 4.5f));
             p.y = curY;
@@ -157,16 +180,18 @@ public class JungleChairCutscene : MonoBehaviour
             p.y += Mathf.Abs(Mathf.Sin(cyc * Mathf.PI * 2f)) * bobAmp;
             chair.transform.position = p;
             float roll = Mathf.Sin(cyc * Mathf.PI * 2f) * 2.2f;
-            chair.transform.rotation = Quaternion.LookRotation(-fwdDir) * Quaternion.Euler(0f, 0f, roll);
+            Quaternion want = Quaternion.LookRotation(-dir);            // 의자 정면 = -forward
+            curRot = Quaternion.RotateTowards(curRot, want, 120f * Time.deltaTime);
+            chair.transform.rotation = curRot * Quaternion.Euler(0f, 0f, roll);
             for (int i = 0; i < legPivots.Length; i++)
             {
                 if (legPivots[i] == null) continue;
-                float a = Mathf.Sin((cyc + phase[i]) * Mathf.PI * 2f) * swingAmp;
-                legPivots[i].localRotation = Quaternion.Euler(a, 0f, 0f);
+                float a2 = Mathf.Sin((cyc + phase[i]) * Mathf.PI * 2f) * swingAmp;
+                legPivots[i].localRotation = Quaternion.Euler(a2, 0f, 0f);
             }
             yield return null;
         }
-        if (chair != null) chair.SetActive(false);   // 끝까지 걸어간 뒤 사라짐
+        if (chair != null) chair.SetActive(false);   // 구멍에 도착 → 사라짐(구멍으로 들어감)
     }
 
     static Vector3 ChairFocus(GameObject chair) => chair.transform.position + Vector3.up * 0.55f;
