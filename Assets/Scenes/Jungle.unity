@@ -13401,6 +13401,7 @@ MonoBehaviour:
   stepHz: 2.2
   swingAmp: 26
   bobAmp: 0.03
+  cutsceneFov: 32
 --- !u!4 &543420229
 Transform:
   m_ObjectHideFlags: 0
@@ -33283,6 +33284,10 @@ MonoBehaviour:
   - {x: -120, y: -90}
   riverWidth: 15
   riverDepth: 4.5
+  tailFlatten: 1
+  tailFlatCenter: {x: -44, y: -16}
+  tailFlatRadius: 34
+  tailFlatHeight: 10
   canyonDepth: 27.8
   canyonFloorHalf: 1.6
   canyonRimHalf: 1.8

@@ -38,6 +38,8 @@ public class JungleChairCutscene : MonoBehaviour
     public float stepHz = 2.2f;
     public float swingAmp = 26f;
     public float bobAmp = 0.03f;
+    [Tooltip("컷씬 동안 FOV(줌인 — 기본 카메라보다 좁게). 블렌드로 들어가고 나옴.")]
+    public float cutsceneFov = 32f;
 
     Transform board;
     Transform cam;
@@ -77,6 +79,8 @@ public class JungleChairCutscene : MonoBehaviour
         if (camFollow != null) camFollow.enabled = false;
         Vector3 p0 = cam.position;
         Quaternion r0 = cam.rotation;
+        var camCam = cam.GetComponent<Camera>();
+        float fov0 = camCam != null ? camCam.fieldOfView : 60f;
 
         // 의자 준비(씬에 처음부터 문 앞에 서 있음): 다리 상단 피벗화 + 시작 위치 정렬
         var chair = chairTemplate;
@@ -93,13 +97,14 @@ public class JungleChairCutscene : MonoBehaviour
         Vector3 left = Vector3.Cross(toDoor, Vector3.up).normalized;
         Vector3 camPos = board.position + left * 2.4f - toDoor * 1.2f + Vector3.up * 0.75f;
 
-        // ① 블렌드 인
+        // ① 블렌드 인(+FOV 줌인)
         for (float t = 0f; t < blendIn; t += Time.deltaTime)
         {
             float u = Mathf.SmoothStep(0f, 1f, t / blendIn);
             Vector3 p = Vector3.Lerp(p0, camPos, u);
             Quaternion look = Quaternion.LookRotation(ChairFocus(chair) - p, Vector3.up);
             cam.SetPositionAndRotation(p, Quaternion.Slerp(r0, look, u));
+            if (camCam != null) camCam.fieldOfView = Mathf.Lerp(fov0, cutsceneFov, u);
             yield return null;
         }
 
@@ -136,9 +141,11 @@ public class JungleChairCutscene : MonoBehaviour
         {
             float u = Mathf.SmoothStep(0f, 1f, t / blendOut);
             cam.SetPositionAndRotation(Vector3.Lerp(p1, p0, u), Quaternion.Slerp(r1, r0, u));
+            if (camCam != null) camCam.fieldOfView = Mathf.Lerp(cutsceneFov, fov0, u);
             yield return null;
         }
         cam.SetPositionAndRotation(p0, r0);
+        if (camCam != null) camCam.fieldOfView = fov0;
         chair.SetActive(false);   // 컷씬 종료와 함께 의자 사라짐
         if (camFollow != null) camFollow.enabled = true;
         FreezeTable(false);

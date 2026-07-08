@@ -76,6 +76,13 @@ public class IslandTerrain : MonoBehaviour
     public float riverWidth = 15f;
     public float riverDepth = 4.5f;
 
+    [Header("협곡 하류(바다 쪽 끝) 평탄화 — design 좌표. 끝을 돌아가는 길을 평지 높이로 고름(올림+깎음, 바다 보존)")]
+    public bool tailFlatten = true;
+    public Vector2 tailFlatCenter = new Vector2(-36f, -6f);
+    public float tailFlatRadius = 30f;
+    [Tooltip("맞출 평지 높이(design) — 주변 평지(≈waterLevel+landHeight+α)와 같게")]
+    public float tailFlatHeight = 11f;
+
     [Header("용암 협곡 (canyon)")]
     [Tooltip("강이 흐르는 협곡 — 국소 지형보다 이만큼 아래로 바닥을 판다(깊은 골짜기).")]
     public float canyonDepth = 10f;
@@ -118,6 +125,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + craterRadius.GetHashCode() + craterDepth.GetHashCode() + volcanoChannelDepth.GetHashCode();
             h = h * 31 + riverWidth.GetHashCode() + riverDepth.GetHashCode();
             h = h * 31 + canyonDepth.GetHashCode() + canyonFloorHalf.GetHashCode() + canyonRimHalf.GetHashCode() + canyonRimNoise.GetHashCode();
+            h = h * 31 + (tailFlatten ? 1 : 0) + tailFlatCenter.GetHashCode() + tailFlatRadius.GetHashCode() + tailFlatHeight.GetHashCode();
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -287,6 +295,17 @@ public class IslandTerrain : MonoBehaviour
         float inside = 1f - SStep(craterRadius * 0.65f, craterRadius, vd); // 안쪽 0.65R=1 → 림=0
         volc = Mathf.Lerp(volc, Mathf.Min(volc, floorVolc), inside);
         h += volc * landMask;
+
+        // ★협곡 하류(바다 쪽 끝) 평탄화: 끝을 돌아가는 길(움푹 꺼졌다 창고 평지로 오르막)을 평지 높이로 고름.
+        //   land 가드 — 이미 물 근처/바다인 곳은 유지(해안선 붕괴 방지), 육지만 목표 높이로 수렴.
+        if (tailFlatten && tailFlatRadius > 0.01f)
+        {
+            float tfdx = x - tailFlatCenter.x, tfdz = z - tailFlatCenter.y;
+            float tfd = Mathf.Sqrt(tfdx * tfdx + tfdz * tfdz);
+            float tk = 1f - SStep(tailFlatRadius * 0.5f, tailFlatRadius, tfd);
+            float landGuard = SStep(waterLevel + 1f, waterLevel + 5f, h);
+            h = Mathf.Lerp(h, tailFlatHeight, tk * landGuard);
+        }
 
         // 용암 강 협곡(canyon): 강 중심으로 갈수록 국소 지형보다 canyonDepth 만큼 내려간 바닥 → 깊고 좁은 골짜기.
         // 바닥(floorHalf 안)은 평평(용암 자리), floorHalf~rimHalf 가 '벽'(폭=rimHalf-floorHalf, 작을수록 가파름).
