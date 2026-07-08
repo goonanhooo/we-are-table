@@ -83,6 +83,13 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("맞출 평지 높이(design) — 주변 평지(≈waterLevel+landHeight+α)와 같게")]
     public float tailFlatHeight = 11f;
 
+    [Header("협곡 둑 평탄화(스폰↔창고 시선 구간) — design 좌표. 둑이 언덕처럼 솟아 시야를 가리는 것 방지")]
+    public bool bankFlatten = true;
+    public Vector2 bankFlatCenter = new Vector2(-8f, 42f);
+    public float bankFlatRadius = 26f;
+    [Tooltip("맞출 높이(design) — 스폰 접시 주변 평지와 같게(테이블 눈높이 아래)")]
+    public float bankFlatHeight = 9.6f;
+
     [Header("용암 협곡 (canyon)")]
     [Tooltip("강이 흐르는 협곡 — 국소 지형보다 이만큼 아래로 바닥을 판다(깊은 골짜기).")]
     public float canyonDepth = 10f;
@@ -126,6 +133,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + riverWidth.GetHashCode() + riverDepth.GetHashCode();
             h = h * 31 + canyonDepth.GetHashCode() + canyonFloorHalf.GetHashCode() + canyonRimHalf.GetHashCode() + canyonRimNoise.GetHashCode();
             h = h * 31 + (tailFlatten ? 1 : 0) + tailFlatCenter.GetHashCode() + tailFlatRadius.GetHashCode() + tailFlatHeight.GetHashCode();
+            h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatCenter.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -305,6 +313,17 @@ public class IslandTerrain : MonoBehaviour
             float tk = 1f - SStep(tailFlatRadius * 0.5f, tailFlatRadius, tfd);
             float landGuard = SStep(waterLevel + 1f, waterLevel + 5f, h);
             h = Mathf.Lerp(h, tailFlatHeight, tk * landGuard);
+        }
+
+        // ★협곡 둑 평탄화: 스폰↔창고 시선이 지나는 둑이 언덕처럼 솟아(월드 y~6) 컷씬에서 의자를 가림 →
+        //   그 구간만 평지 높이로 수렴(협곡 자체는 이후 carve로 그대로 파임).
+        if (bankFlatten && bankFlatRadius > 0.01f)
+        {
+            float bfdx = x - bankFlatCenter.x, bfdz = z - bankFlatCenter.y;
+            float bfd = Mathf.Sqrt(bfdx * bfdx + bfdz * bfdz);
+            float bk2 = 1f - SStep(bankFlatRadius * 0.5f, bankFlatRadius, bfd);
+            float landGuard2 = SStep(waterLevel + 1f, waterLevel + 5f, h);
+            h = Mathf.Lerp(h, bankFlatHeight, bk2 * landGuard2);
         }
 
         // 용암 강 협곡(canyon): 강 중심으로 갈수록 국소 지형보다 canyonDepth 만큼 내려간 바닥 → 깊고 좁은 골짜기.

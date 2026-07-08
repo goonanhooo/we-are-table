@@ -13391,7 +13391,8 @@ MonoBehaviour:
   doorPos: {x: -23, y: 6.2, z: 30.7}
   doorOutward: {x: 0.843, y: 0, z: -0.538}
   startOutside: 4
-  endInside: 7.5
+  endInside: 15
+  walkSpeed: 3.2
   blendIn: 0.5
   walkTime: 2.7
   blendOut: 0.8
@@ -33288,6 +33289,10 @@ MonoBehaviour:
   tailFlatCenter: {x: -44, y: -16}
   tailFlatRadius: 34
   tailFlatHeight: 10
+  bankFlatten: 1
+  bankFlatCenter: {x: -8, y: 42}
+  bankFlatRadius: 26
+  bankFlatHeight: 9.6
   canyonDepth: 27.8
   canyonFloorHalf: 1.6
   canyonRimHalf: 1.8

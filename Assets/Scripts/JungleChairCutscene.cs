@@ -20,11 +20,14 @@ public class JungleChairCutscene : MonoBehaviour
     [Tooltip("입구 바깥쪽 수평 방향(정규화)")]
     public Vector3 doorOutward = new Vector3(0.843f, 0f, -0.538f);
     public float startOutside = 4f;
-    [Tooltip("문 안쪽으로 걸어 들어가는 깊이 — 클로즈업 카메라에서 멀어지며 '사라지는' 느낌")]
-    public float endInside = 7.5f;
+    [Tooltip("문 안쪽으로 걸어 들어가는 최종 깊이 — 카메라 복귀 후에도 여기까지 계속 걷다가 사라짐")]
+    public float endInside = 15f;
+    [Tooltip("의자 걷는 속도(m/s) — 걷기 총 시간 = 전체 거리/속도")]
+    public float walkSpeed = 3.2f;
 
-    [Header("타이밍(합계 ≈ 4초)")]
+    [Header("타이밍(카메라 ≈ 4초 — 의자는 그 뒤로도 계속 걸음)")]
     public float blendIn = 0.5f;
+    [Tooltip("카메라가 의자를 지켜보는 시간(이후 걷는 도중에 블렌드 아웃)")]
     public float walkTime = 2.7f;
     public float blendOut = 0.8f;
 
@@ -108,11 +111,42 @@ public class JungleChairCutscene : MonoBehaviour
             yield return null;
         }
 
-        // ② 걷기: 다리 하나하나 피벗 스윙 + 봅/롤
-        float[] phase = { 0f, 0.5f, 0.25f, 0.75f };   // Leg1(앞왼) Leg2(앞오) Leg3(뒤왼) Leg4(뒤오) — 대각 보행
+        // ② 의자 걷기: 독립 코루틴 — 카메라가 복귀한 뒤에도 끝(endInside)까지 계속 걷고 사라짐
+        StartCoroutine(WalkChair(chair, startP, endP, fwdDir));
+
+        // 카메라는 걷는 의자를 walkTime 동안 지켜봄
         for (float t = 0f; t < walkTime; t += Time.deltaTime)
         {
-            float u = t / walkTime;
+            cam.SetPositionAndRotation(camPos, Quaternion.LookRotation(ChairFocus(chair) - camPos, Vector3.up));
+            yield return null;
+        }
+
+        // ③ 블렌드 아웃 — 의자가 아직 걷는 중에 플레이 카메라로 전환(시선은 의자를 따라가다 떨어져 나옴)
+        Vector3 p1 = cam.position;
+        Quaternion r1 = cam.rotation;
+        for (float t = 0f; t < blendOut; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0f, 1f, t / blendOut);
+            Quaternion watch = Quaternion.LookRotation(ChairFocus(chair) - p1, Vector3.up);
+            cam.SetPositionAndRotation(Vector3.Lerp(p1, p0, u), Quaternion.Slerp(watch, r0, u));
+            if (camCam != null) camCam.fieldOfView = Mathf.Lerp(cutsceneFov, fov0, u);
+            yield return null;
+        }
+        cam.SetPositionAndRotation(p0, r0);
+        if (camCam != null) camCam.fieldOfView = fov0;
+        if (camFollow != null) camFollow.enabled = true;
+        FreezeTable(false);
+    }
+
+    // 의자 보행(다리 하나하나 피벗 스윙 + 봅/롤) — 끝 지점 도달 시 사라짐. 카메라와 독립적으로 진행.
+    IEnumerator WalkChair(GameObject chair, Vector3 startP, Vector3 endP, Vector3 fwdDir)
+    {
+        float[] phase = { 0f, 0.5f, 0.25f, 0.75f };   // 대각 보행
+        float total = Vector3.Distance(startP, endP) / Mathf.Max(walkSpeed, 0.1f);
+        for (float t = 0f; t < total; t += Time.deltaTime)
+        {
+            if (chair == null) yield break;
+            float u = t / total;
             Vector3 p = Vector3.Lerp(startP, endP, u);
             p = Grounded(p);
             float cyc = t * stepHz;
@@ -126,29 +160,9 @@ public class JungleChairCutscene : MonoBehaviour
                 float a = Mathf.Sin((cyc + phase[i]) * Mathf.PI * 2f) * swingAmp;
                 legPivots[i].localRotation = Quaternion.Euler(a, 0f, 0f);
             }
-            cam.SetPositionAndRotation(camPos, Quaternion.LookRotation(ChairFocus(chair) - camPos, Vector3.up));
             yield return null;
         }
-        // 도착: 다리 원위치
-        chair.transform.position = Grounded(endP);
-        chair.transform.rotation = Quaternion.LookRotation(-fwdDir);
-        foreach (var pv in legPivots) if (pv != null) pv.localRotation = Quaternion.identity;
-
-        // ③ 블렌드 아웃 → 플레이 카메라 복귀 (카메라가 멀어진 뒤 의자 제거 — 팝 안 보임)
-        Vector3 p1 = cam.position;
-        Quaternion r1 = cam.rotation;
-        for (float t = 0f; t < blendOut; t += Time.deltaTime)
-        {
-            float u = Mathf.SmoothStep(0f, 1f, t / blendOut);
-            cam.SetPositionAndRotation(Vector3.Lerp(p1, p0, u), Quaternion.Slerp(r1, r0, u));
-            if (camCam != null) camCam.fieldOfView = Mathf.Lerp(cutsceneFov, fov0, u);
-            yield return null;
-        }
-        cam.SetPositionAndRotation(p0, r0);
-        if (camCam != null) camCam.fieldOfView = fov0;
-        chair.SetActive(false);   // 컷씬 종료와 함께 의자 사라짐
-        if (camFollow != null) camFollow.enabled = true;
-        FreezeTable(false);
+        if (chair != null) chair.SetActive(false);   // 끝까지 걸어간 뒤 사라짐
     }
 
     static Vector3 ChairFocus(GameObject chair) => chair.transform.position + Vector3.up * 0.55f;
