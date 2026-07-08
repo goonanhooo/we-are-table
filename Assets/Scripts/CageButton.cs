@@ -14,9 +14,13 @@ public class CageButton : MonoBehaviour
     public GiraffeCutscene cutscene;
     public Transform buttonCap;         // 눌릴 때 내려가는 윗부분(비우면 this)
 
-    [Header("감도")]
-    [Tooltip("테이블 강체가 이 거리 안에 들어오면 눌림(아주 민감하게 크게).")]
+    [Header("감도 — ★GButton과 동일한 규칙(2026-07-08): 수평=버튼 칸 풋프린트 그대로, 수직=후하게")]
+    [Tooltip("(구) 반경 판정 — 폐기됨. 수평은 캡 풋프린트 OverlapBox로 판정.")]
     public float pressRadius = 1.3f;
+    [Tooltip("캡 위로 이 높이까지 판정(후하게 — 점프/기린 다리도 인정).")]
+    public float heightWindow = 5f;
+    [Tooltip("캡 아래로 이 깊이까지 판정.")]
+    public float belowWindow = 1.5f;
 
     [Header("연출")]
     public float capDip = 0.12f;        // 버튼 눌림 깊이
@@ -24,9 +28,12 @@ public class CageButton : MonoBehaviour
     public float riseSeconds = 3.2f;    // 올라가는 시간
 
     Transform[] tableBodies;   // 상판+다리 바디(Transform — Rigidbody/ArticulationBody 테이블 공용)
+    Transform tableRoot;
     Vector3 capBasePos;
+    Vector3 capRestWorld;      // 판정 기준(눌림 연출로 내려가기 전 위치)
     bool pressed;
     Material mat;   // 누르면 초록으로 바꿀 버튼 머티리얼
+    readonly Collider[] overlap = new Collider[24];
 
     /// <summary>눌림 여부(멀티 동기화용 읽기).</summary>
     public bool PressedState => pressed;
@@ -49,7 +56,12 @@ public class CageButton : MonoBehaviour
         if (r != null) mat = r.material;
 
         var tgo = GameObject.Find("Table");
-        if (tgo != null) tableBodies = CollectBodies(tgo.transform.root);
+        if (tgo != null)
+        {
+            tableRoot = tgo.transform.root;
+            tableBodies = CollectBodies(tableRoot);
+        }
+        capRestWorld = buttonCap.position;
     }
 
     /// <summary>테이블 바디들의 Transform 수집 — Rigidbody(구 힌지판)와 ArticulationBody(현행) 모두 지원.</summary>
@@ -65,12 +77,22 @@ public class CageButton : MonoBehaviour
 
     void Update()
     {
-        if (pressed || tableBodies == null) return;
-        Vector3 p = transform.position;
-        foreach (var b in tableBodies)
+        if (pressed || tableRoot == null || buttonCap == null) return;
+        // 수평 = 캡의 실제 풋프린트(lossyScale·yaw 반영), 수직 = 캡 아래 belowWindow ~ 위 heightWindow
+        Vector3 half = new Vector3(
+            buttonCap.lossyScale.x * 0.5f,
+            (heightWindow + belowWindow) * 0.5f,
+            buttonCap.lossyScale.z * 0.5f);
+        Vector3 center = capRestWorld + Vector3.up * ((heightWindow - belowWindow) * 0.5f);
+        Quaternion orient = Quaternion.Euler(0f, buttonCap.eulerAngles.y, 0f);
+        int n = Physics.OverlapBoxNonAlloc(center, half, overlap, orient, ~0, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < n; i++)
         {
-            if (b == null) continue;
-            if (Vector3.Distance(b.position, p) < pressRadius) { pressed = true; StartCoroutine(Sequence()); break; }
+            var c = overlap[i];
+            if (c == null || c.transform.root != tableRoot) continue;
+            pressed = true;
+            StartCoroutine(Sequence());
+            break;
         }
     }
 
