@@ -139,16 +139,20 @@ public class JungleChairCutscene : MonoBehaviour
     }
 
     // 의자 보행(다리 하나하나 피벗 스윙 + 봅/롤) — 끝 지점 도달 시 사라짐. 카메라와 독립적으로 진행.
+    // 창고 문턱 같은 단차는 y를 지수 보간으로 부드럽게('스윽') 넘는다.
     IEnumerator WalkChair(GameObject chair, Vector3 startP, Vector3 endP, Vector3 fwdDir)
     {
         float[] phase = { 0f, 0.5f, 0.25f, 0.75f };   // 대각 보행
         float total = Vector3.Distance(startP, endP) / Mathf.Max(walkSpeed, 0.1f);
+        float curY = Grounded(startP).y;
         for (float t = 0f; t < total; t += Time.deltaTime)
         {
             if (chair == null) yield break;
             float u = t / total;
             Vector3 p = Vector3.Lerp(startP, endP, u);
-            p = Grounded(p);
+            float targetY = Grounded(p).y;
+            curY = Mathf.Lerp(curY, targetY, Mathf.Clamp01(Time.deltaTime * 4.5f));
+            p.y = curY;
             float cyc = t * stepHz;
             p.y += Mathf.Abs(Mathf.Sin(cyc * Mathf.PI * 2f)) * bobAmp;
             chair.transform.position = p;

@@ -83,10 +83,11 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("맞출 평지 높이(design) — 주변 평지(≈waterLevel+landHeight+α)와 같게")]
     public float tailFlatHeight = 11f;
 
-    [Header("협곡 둑 평탄화(스폰↔창고 시선 구간) — design 좌표. 둑이 언덕처럼 솟아 시야를 가리는 것 방지")]
+    [Header("협곡 둑 평탄화(스폰 인접 구간 전체) — design 좌표. 협곡을 따라가는 캡슐(선분 A-B ± 반경) 안 양쪽 둑을 평지로")]
     public bool bankFlatten = true;
-    public Vector2 bankFlatCenter = new Vector2(-8f, 42f);
-    public float bankFlatRadius = 26f;
+    public Vector2 bankFlatA = new Vector2(4f, 60f);
+    public Vector2 bankFlatB = new Vector2(-26f, 0f);
+    public float bankFlatRadius = 22f;
     [Tooltip("맞출 높이(design) — 스폰 접시 주변 평지와 같게(테이블 눈높이 아래)")]
     public float bankFlatHeight = 9.6f;
 
@@ -133,7 +134,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + riverWidth.GetHashCode() + riverDepth.GetHashCode();
             h = h * 31 + canyonDepth.GetHashCode() + canyonFloorHalf.GetHashCode() + canyonRimHalf.GetHashCode() + canyonRimNoise.GetHashCode();
             h = h * 31 + (tailFlatten ? 1 : 0) + tailFlatCenter.GetHashCode() + tailFlatRadius.GetHashCode() + tailFlatHeight.GetHashCode();
-            h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatCenter.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
+            h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatA.GetHashCode() + bankFlatB.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -315,12 +316,12 @@ public class IslandTerrain : MonoBehaviour
             h = Mathf.Lerp(h, tailFlatHeight, tk * landGuard);
         }
 
-        // ★협곡 둑 평탄화: 스폰↔창고 시선이 지나는 둑이 언덕처럼 솟아(월드 y~6) 컷씬에서 의자를 가림 →
-        //   그 구간만 평지 높이로 수렴(협곡 자체는 이후 carve로 그대로 파임).
+        // ★협곡 둑 평탄화(캡슐): 스폰 인접 협곡 구간을 따라 양쪽 둑 전체를 평지 높이로 —
+        //   둑이 언덕처럼 솟아 시야를 가리는 것 방지(협곡 자체는 이후 carve로 그대로 파임).
+        //   ⚠️스폰 언덕/접시는 캡슐 밖(거리로 보존 확인됨).
         if (bankFlatten && bankFlatRadius > 0.01f)
         {
-            float bfdx = x - bankFlatCenter.x, bfdz = z - bankFlatCenter.y;
-            float bfd = Mathf.Sqrt(bfdx * bfdx + bfdz * bfdz);
+            float bfd = DistToSegDesign(x, z, bankFlatA, bankFlatB);
             float bk2 = 1f - SStep(bankFlatRadius * 0.5f, bankFlatRadius, bfd);
             float landGuard2 = SStep(waterLevel + 1f, waterLevel + 5f, h);
             h = Mathf.Lerp(h, bankFlatHeight, bk2 * landGuard2);

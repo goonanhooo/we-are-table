@@ -33290,7 +33290,8 @@ MonoBehaviour:
   tailFlatRadius: 34
   tailFlatHeight: 10
   bankFlatten: 1
-  bankFlatCenter: {x: -8, y: 42}
+  bankFlatA: {x: 4, y: 60}
+  bankFlatB: {x: -26, y: 0}
   bankFlatRadius: 26
   bankFlatHeight: 9.6
   canyonDepth: 27.8
