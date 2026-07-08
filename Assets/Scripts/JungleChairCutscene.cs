@@ -25,7 +25,7 @@ public class JungleChairCutscene : MonoBehaviour
     [Tooltip("최종 목적지 — 창고 안 구멍(HoleLid). 도착하면 사라짐(구멍으로 들어간 연출)")]
     public Vector3 holePos = new Vector3(-46.3f, 6.3f, 45.7f);
     [Tooltip("의자 걷는 속도(m/s) — 카메라 복귀 후에도 구멍까지 계속 걸음")]
-    public float walkSpeed = 1.2f;
+    public float walkSpeed = 3f;
 
     [Header("타이밍(카메라 ≈ 4초 — 의자는 그 뒤로도 계속 걸음)")]
     public float blendIn = 0.5f;
@@ -44,7 +44,7 @@ public class JungleChairCutscene : MonoBehaviour
     public float swingAmp = 26f;
     public float bobAmp = 0.03f;
     [Tooltip("컷씬 동안 FOV(줌인 — 기본 카메라보다 좁게). 블렌드로 들어가고 나옴.")]
-    public float cutsceneFov = 32f;
+    public float cutsceneFov = 36f;
 
     Transform board;
     Transform cam;
@@ -96,10 +96,11 @@ public class JungleChairCutscene : MonoBehaviour
         chair.transform.rotation = Quaternion.LookRotation(-fwdDir);    // 의자 정면 = -forward
         chair.transform.position = Grounded(startP);
 
-        // 컷씬 카메라: 테이블 약간 왼쪽, 테이블과 비슷한 높이에서 창고로 걸어가는 의자를 바라봄
+        // 컷씬 카메라: 테이블 '어깨 너머'(뒤-왼쪽-살짝 위) — 테이블이 전경에 걸리고
+        // 그 시선을 따라 창고로 걸어가는 의자를 바라보는 자연스러운 OTS 구도
         Vector3 toDoor = doorPos - board.position; toDoor.y = 0f; toDoor.Normalize();
         Vector3 left = Vector3.Cross(toDoor, Vector3.up).normalized;
-        Vector3 camPos = board.position + left * 2.4f - toDoor * 1.2f + Vector3.up * 0.75f;
+        Vector3 camPos = board.position - toDoor * 3.4f + left * 1.7f + Vector3.up * 2.0f;
 
         // ① 블렌드 인(+FOV 줌인)
         for (float t = 0f; t < blendIn; t += Time.deltaTime)

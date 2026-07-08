@@ -1571,7 +1571,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 7b949f8f469854675ae65725792aea5b, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4.9220967
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 7b949f8f469854675ae65725792aea5b, type: 3}
       propertyPath: m_LocalPosition.z
@@ -13393,7 +13393,7 @@ MonoBehaviour:
   startOutside: 4
   doorInDepth: 5
   holePos: {x: -46.3, y: 6.3, z: 45.7}
-  walkSpeed: 1.2
+  walkSpeed: 3
   blendIn: 0.5
   walkTime: 2.7
   blendOut: 0.8
@@ -13403,7 +13403,7 @@ MonoBehaviour:
   stepHz: 2.2
   swingAmp: 26
   bobAmp: 0.03
-  cutsceneFov: 32
+  cutsceneFov: 36
 --- !u!4 &543420229
 Transform:
   m_ObjectHideFlags: 0
@@ -25873,7 +25873,7 @@ Transform:
   m_GameObject: {fileID: 1066215099}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.29, y: 5.0385904, z: 10.68}
+  m_LocalPosition: {x: 2.29, y: 4.9999995, z: 10.68}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -33295,6 +33295,10 @@ MonoBehaviour:
   bankFlatB: {x: -26, y: 0}
   bankFlatRadius: 26
   bankFlatHeight: 9.6
+  cageFlatten: 1
+  cageFlatCenter: {x: 7.6, y: 26.8}
+  cageFlatRadius: 16
+  cageFlatHeight: 10
   canyonDepth: 27.8
   canyonFloorHalf: 1.6
   canyonRimHalf: 1.8
@@ -34385,7 +34389,7 @@ Transform:
   m_GameObject: {fileID: 1557759490}
   serializedVersion: 2
   m_LocalRotation: {x: -0.0016898483, y: 0.088008806, z: -0.019122845, w: 0.9959348}
-  m_LocalPosition: {x: 3.8, y: 5.138258, z: 13.38}
+  m_LocalPosition: {x: 3.8, y: 5.0671787, z: 13.38}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:

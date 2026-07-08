@@ -91,6 +91,12 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("맞출 높이(design) — 스폰 접시 주변 평지와 같게(테이블 눈높이 아래)")]
     public float bankFlatHeight = 9.6f;
 
+    [Header("기린 케이지 아래 평탄화 — design 좌표")]
+    public bool cageFlatten = true;
+    public Vector2 cageFlatCenter = new Vector2(7.6f, 26.8f);
+    public float cageFlatRadius = 16f;
+    public float cageFlatHeight = 10f;
+
     [Header("용암 협곡 (canyon)")]
     [Tooltip("강이 흐르는 협곡 — 국소 지형보다 이만큼 아래로 바닥을 판다(깊은 골짜기).")]
     public float canyonDepth = 10f;
@@ -135,6 +141,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + canyonDepth.GetHashCode() + canyonFloorHalf.GetHashCode() + canyonRimHalf.GetHashCode() + canyonRimNoise.GetHashCode();
             h = h * 31 + (tailFlatten ? 1 : 0) + tailFlatCenter.GetHashCode() + tailFlatRadius.GetHashCode() + tailFlatHeight.GetHashCode();
             h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatA.GetHashCode() + bankFlatB.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
+            h = h * 31 + (cageFlatten ? 1 : 0) + cageFlatCenter.GetHashCode() + cageFlatRadius.GetHashCode() + cageFlatHeight.GetHashCode();
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -325,6 +332,16 @@ public class IslandTerrain : MonoBehaviour
             float bk2 = 1f - SStep(bankFlatRadius * 0.5f, bankFlatRadius, bfd);
             float landGuard2 = SStep(waterLevel + 1f, waterLevel + 5f, h);
             h = Mathf.Lerp(h, bankFlatHeight, bk2 * landGuard2);
+        }
+
+        // ★기린 케이지 아래 평탄화(완만한 경사 제거)
+        if (cageFlatten && cageFlatRadius > 0.01f)
+        {
+            float cfdx = x - cageFlatCenter.x, cfdz = z - cageFlatCenter.y;
+            float cfd = Mathf.Sqrt(cfdx * cfdx + cfdz * cfdz);
+            float ck = 1f - SStep(cageFlatRadius * 0.5f, cageFlatRadius, cfd);
+            float landGuard3 = SStep(waterLevel + 1f, waterLevel + 5f, h);
+            h = Mathf.Lerp(h, cageFlatHeight, ck * landGuard3);
         }
 
         // 용암 강 협곡(canyon): 강 중심으로 갈수록 국소 지형보다 canyonDepth 만큼 내려간 바닥 → 깊고 좁은 골짜기.
