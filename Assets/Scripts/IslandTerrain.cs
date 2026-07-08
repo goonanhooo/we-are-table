@@ -91,6 +91,11 @@ public class IslandTerrain : MonoBehaviour
     [Tooltip("맞출 높이(design) — 스폰 접시 주변 평지와 같게(테이블 눈높이 아래)")]
     public float bankFlatHeight = 9.6f;
 
+    [Header("로우폴리 페이셋 룩 — 폴리곤별 단색 + 미세 색 지터(플랫 셰이딩)")]
+    public bool facetShading = true;
+    [Tooltip("면별 밝기 지터(±) — '약간씩' 다르게. 0.05~0.08 권장.")]
+    public float facetColorJitter = 0.06f;
+
     [Header("기린 케이지 아래 평탄화 — design 좌표")]
     public bool cageFlatten = true;
     public Vector2 cageFlatCenter = new Vector2(7.6f, 26.8f);
@@ -111,6 +116,7 @@ public class IslandTerrain : MonoBehaviour
     public float CanyonRimHalf => (canyonRimHalf + canyonRimNoise) * worldScale;
 
     Mesh mesh;
+    Mesh physMesh;   // 페이셋 모드일 때 콜라이더용 공유 정점 메시(쿠킹 비용 절감 — 지오메트리는 동일)
     int hash, builtHash = -1;
 
     void OnEnable() { Rebuild(); }
@@ -142,6 +148,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + (tailFlatten ? 1 : 0) + tailFlatCenter.GetHashCode() + tailFlatRadius.GetHashCode() + tailFlatHeight.GetHashCode();
             h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatA.GetHashCode() + bankFlatB.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
             h = h * 31 + (cageFlatten ? 1 : 0) + cageFlatCenter.GetHashCode() + cageFlatRadius.GetHashCode() + cageFlatHeight.GetHashCode();
+            h = h * 31 + (facetShading ? 1 : 0) + facetColorJitter.GetHashCode();
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -201,18 +208,57 @@ public class IslandTerrain : MonoBehaviour
 
         if (mesh == null) { mesh = new Mesh { name = "IslandMesh" }; mesh.hideFlags = HideFlags.DontSave; }
         mesh.Clear();
-        mesh.indexFormat = (verts.Length > 65000)
-            ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
-        mesh.vertices = verts;
-        mesh.colors = cols;
-        mesh.triangles = tris;
+
+        if (facetShading)
+        {
+            // ★로우폴리 페이셋: 삼각형별 정점 분리 + '면 단색'(코너 평균색 × 면별 미세 지터)
+            //   → 폴리곤 하나하나가 살짝 다른 색으로 읽히고, 노멀도 면 단위(플랫 셰이딩)가 된다.
+            int triCount = tris.Length / 3;
+            var fv = new Vector3[tris.Length];
+            var fc = new Color[tris.Length];
+            var ft = new int[tris.Length];
+            for (int f = 0; f < triCount; f++)
+            {
+                int a = tris[f * 3], b = tris[f * 3 + 1], c = tris[f * 3 + 2];
+                Color avg = (cols[a] + cols[b] + cols[c]) / 3f;
+                float j = 1f + (Hash01(f * 3 + seed) - 0.5f) * 2f * facetColorJitter;
+                avg = new Color(Mathf.Clamp01(avg.r * j), Mathf.Clamp01(avg.g * j), Mathf.Clamp01(avg.b * j), 1f);
+                fv[f * 3] = verts[a]; fv[f * 3 + 1] = verts[b]; fv[f * 3 + 2] = verts[c];
+                fc[f * 3] = avg; fc[f * 3 + 1] = avg; fc[f * 3 + 2] = avg;
+                ft[f * 3] = f * 3; ft[f * 3 + 1] = f * 3 + 1; ft[f * 3 + 2] = f * 3 + 2;
+            }
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = fv;
+            mesh.colors = fc;
+            mesh.triangles = ft;
+        }
+        else
+        {
+            mesh.indexFormat = (verts.Length > 65000)
+                ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+            mesh.vertices = verts;
+            mesh.colors = cols;
+            mesh.triangles = tris;
+        }
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
 
         GetComponent<MeshFilter>().sharedMesh = mesh;
         var mc = GetComponent<MeshCollider>();
         mc.sharedMesh = null;
-        mc.sharedMesh = mesh;
+        if (facetShading)
+        {
+            // 물리는 공유 정점 메시(동일 지오메트리, 정점 1/6) — 96만 정점 쿠킹 방지
+            if (physMesh == null) { physMesh = new Mesh { name = "IslandPhys" }; physMesh.hideFlags = HideFlags.DontSave; }
+            physMesh.Clear();
+            physMesh.indexFormat = (verts.Length > 65000)
+                ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+            physMesh.vertices = verts;
+            physMesh.triangles = tris;
+            physMesh.RecalculateBounds();
+            mc.sharedMesh = physMesh;
+        }
+        else mc.sharedMesh = mesh;
         builtHash = hash;
     }
 
@@ -223,6 +269,13 @@ public class IslandTerrain : MonoBehaviour
         float dx = (v[z * vside + xr].y - v[z * vside + xl].y) / ((xr - xl) * step + 1e-4f);
         float dz = (v[zu * vside + x].y - v[zd * vside + x].y) / ((zu - zd) * step + 1e-4f);
         return Mathf.Sqrt(dx * dx + dz * dz); // 0=평평, 클수록 가파름
+    }
+
+    // 결정적 면 지터용 정수 해시 → 0..1 (리빌드마다 동일)
+    static float Hash01(int n)
+    {
+        n = (n << 13) ^ n;
+        return ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 2147483647f;
     }
 
     // GLSL식 smoothstep(edge0, edge1, x) → 0..1. (Unity Mathf.SmoothStep 은 의미가 달라서 직접 구현)

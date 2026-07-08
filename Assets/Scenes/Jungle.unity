@@ -33295,6 +33295,8 @@ MonoBehaviour:
   bankFlatB: {x: -26, y: 0}
   bankFlatRadius: 26
   bankFlatHeight: 9.6
+  facetShading: 1
+  facetColorJitter: 0.06
   cageFlatten: 1
   cageFlatCenter: {x: 7.6, y: 26.8}
   cageFlatRadius: 16
@@ -33907,6 +33909,8 @@ MonoBehaviour:
   cutscene: {fileID: 1154557655}
   buttonCap: {fileID: 1525043321}
   pressRadius: 1.3
+  heightWindow: 5
+  belowWindow: 1.5
   capDip: 0.05
   riseHeight: 60
   riseSeconds: 3.2
