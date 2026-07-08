@@ -13390,8 +13390,8 @@ MonoBehaviour:
   chairTemplate: {fileID: 1062296556}
   doorPos: {x: -23, y: 6.2, z: 30.7}
   doorOutward: {x: 0.843, y: 0, z: -0.538}
-  startOutside: 5.5
-  endInside: 4.5
+  startOutside: 4
+  endInside: 7.5
   blendIn: 0.5
   walkTime: 2.7
   blendOut: 0.8

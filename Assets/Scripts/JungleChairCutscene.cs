@@ -19,8 +19,9 @@ public class JungleChairCutscene : MonoBehaviour
     public Vector3 doorPos = new Vector3(-23f, 6.2f, 30.7f);
     [Tooltip("입구 바깥쪽 수평 방향(정규화)")]
     public Vector3 doorOutward = new Vector3(0.843f, 0f, -0.538f);
-    public float startOutside = 5.5f;
-    public float endInside = 4.5f;
+    public float startOutside = 4f;
+    [Tooltip("문 안쪽으로 걸어 들어가는 깊이 — 클로즈업 카메라에서 멀어지며 '사라지는' 느낌")]
+    public float endInside = 7.5f;
 
     [Header("타이밍(합계 ≈ 4초)")]
     public float blendIn = 0.5f;
@@ -87,9 +88,9 @@ public class JungleChairCutscene : MonoBehaviour
         chair.transform.rotation = Quaternion.LookRotation(-fwdDir);    // 의자 정면 = -forward
         chair.transform.position = Grounded(startP);
 
-        // 컷씬 카메라: 입구 앞 비스듬한 지점에서 의자 추적
+        // 컷씬 카메라: 문 옆 클로즈업 — 의자가 카메라를 지나쳐 안쪽 깊이로 멀어지며 '사라지는' 구도
         Vector3 side = Vector3.Cross(Vector3.up, doorOutward).normalized;
-        Vector3 camPos = doorPos + doorOutward.normalized * 9f + side * 5f + Vector3.up * 3f;
+        Vector3 camPos = doorPos + doorOutward.normalized * 3.2f + side * 2.6f + Vector3.up * 1.4f;
 
         // ① 블렌드 인
         for (float t = 0f; t < blendIn; t += Time.deltaTime)
@@ -122,12 +123,12 @@ public class JungleChairCutscene : MonoBehaviour
             cam.SetPositionAndRotation(camPos, Quaternion.LookRotation(ChairFocus(chair) - camPos, Vector3.up));
             yield return null;
         }
-        // 도착: 다리 원위치, 창고 안에 그대로 서 있음(플레이어가 나중에 발견 가능)
+        // 도착: 다리 원위치
         chair.transform.position = Grounded(endP);
         chair.transform.rotation = Quaternion.LookRotation(-fwdDir);
         foreach (var pv in legPivots) if (pv != null) pv.localRotation = Quaternion.identity;
 
-        // ③ 블렌드 아웃 → 플레이 카메라 복귀
+        // ③ 블렌드 아웃 → 플레이 카메라 복귀 (카메라가 멀어진 뒤 의자 제거 — 팝 안 보임)
         Vector3 p1 = cam.position;
         Quaternion r1 = cam.rotation;
         for (float t = 0f; t < blendOut; t += Time.deltaTime)
@@ -137,6 +138,7 @@ public class JungleChairCutscene : MonoBehaviour
             yield return null;
         }
         cam.SetPositionAndRotation(p0, r0);
+        chair.SetActive(false);   // 컷씬 종료와 함께 의자 사라짐
         if (camFollow != null) camFollow.enabled = true;
         FreezeTable(false);
     }
