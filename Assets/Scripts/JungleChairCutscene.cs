@@ -78,9 +78,9 @@ public class JungleChairCutscene : MonoBehaviour
         Vector3 p0 = cam.position;
         Quaternion r0 = cam.rotation;
 
-        // 의자 준비: 다리 상단 피벗화 + 시작 위치(문 밖) 배치, 정면(-forward)이 진행 방향을 보게
+        // 의자 준비(씬에 처음부터 문 앞에 서 있음): 다리 상단 피벗화 + 시작 위치 정렬
         var chair = chairTemplate;
-        chair.SetActive(true);
+        if (!chair.activeSelf) chair.SetActive(true);
         SetupLegPivots(chair.transform);
         Vector3 fwdDir = -doorOutward.normalized;                       // 걷는 방향(안쪽)
         Vector3 startP = doorPos + doorOutward.normalized * startOutside;
@@ -88,9 +88,10 @@ public class JungleChairCutscene : MonoBehaviour
         chair.transform.rotation = Quaternion.LookRotation(-fwdDir);    // 의자 정면 = -forward
         chair.transform.position = Grounded(startP);
 
-        // 컷씬 카메라: 문 옆 클로즈업 — 의자가 카메라를 지나쳐 안쪽 깊이로 멀어지며 '사라지는' 구도
-        Vector3 side = Vector3.Cross(Vector3.up, doorOutward).normalized;
-        Vector3 camPos = doorPos + doorOutward.normalized * 3.2f + side * 2.6f + Vector3.up * 1.4f;
+        // 컷씬 카메라: 테이블 약간 왼쪽, 테이블과 비슷한 높이에서 창고로 걸어가는 의자를 바라봄
+        Vector3 toDoor = doorPos - board.position; toDoor.y = 0f; toDoor.Normalize();
+        Vector3 left = Vector3.Cross(toDoor, Vector3.up).normalized;
+        Vector3 camPos = board.position + left * 2.4f - toDoor * 1.2f + Vector3.up * 0.75f;
 
         // ① 블렌드 인
         for (float t = 0f; t < blendIn; t += Time.deltaTime)
