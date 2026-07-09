@@ -111,7 +111,7 @@ ArticulationBody:
   m_GameObject: {fileID: 1600000000}
   m_Enabled: 1
   serializedVersion: 6
-  m_Mass: 3
+  m_Mass: 7
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -831,7 +831,7 @@ ArticulationBody:
   m_GameObject: {fileID: 1600000060}
   m_Enabled: 1
   serializedVersion: 6
-  m_Mass: 1
+  m_Mass: 1.2
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -902,8 +902,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 1
   swingVelocity: 300
-  motorForce: 600
-  idleHoldForce: 1300
+  motorForce: 825
+  idleHoldForce: 1775
   forceMultiplier: 1
   swingLimit: 90
   stopMargin: 8
@@ -1021,7 +1021,7 @@ ArticulationBody:
   m_GameObject: {fileID: 1600000070}
   m_Enabled: 1
   serializedVersion: 6
-  m_Mass: 1
+  m_Mass: 1.2
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -1092,8 +1092,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 0
   swingVelocity: 300
-  motorForce: 600
-  idleHoldForce: 1300
+  motorForce: 825
+  idleHoldForce: 1775
   forceMultiplier: 1
   swingLimit: 90
   stopMargin: 8
@@ -1211,7 +1211,7 @@ ArticulationBody:
   m_GameObject: {fileID: 1600000080}
   m_Enabled: 1
   serializedVersion: 6
-  m_Mass: 1
+  m_Mass: 1.2
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -1282,8 +1282,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 3
   swingVelocity: 300
-  motorForce: 600
-  idleHoldForce: 1300
+  motorForce: 825
+  idleHoldForce: 1775
   forceMultiplier: 1
   swingLimit: 90
   stopMargin: 8
@@ -1401,7 +1401,7 @@ ArticulationBody:
   m_GameObject: {fileID: 1600000090}
   m_Enabled: 1
   serializedVersion: 6
-  m_Mass: 1
+  m_Mass: 1.2
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0, w: 1}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -1472,8 +1472,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ArtLegController
   controlSet: 2
   swingVelocity: 300
-  motorForce: 600
-  idleHoldForce: 1300
+  motorForce: 825
+  idleHoldForce: 1775
   forceMultiplier: 1
   swingLimit: 90
   stopMargin: 8
@@ -1738,6 +1738,7 @@ MonoBehaviour:
   watchdogMaxDist: 600
   watchdogMinY: -150
   keepYIfNoGround: 0
+  disableManualReset: 0
 --- !u!114 &1279348888178759868
 MonoBehaviour:
   m_ObjectHideFlags: 0

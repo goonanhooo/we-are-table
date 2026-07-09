@@ -23,8 +23,8 @@ public class ArtLegController : MonoBehaviour
 
     [Header("Motor")]
     public float swingVelocity = 300f;   // 도/초
-    public float motorForce = 600f;      // ⚠️체인 관절 힘 임계: fl~300 이하 무력 — 구 150의 4배가 동일 감각(2026-07-07 실측)
-    public float idleHoldForce = 1300f;  // 구 320의 4배(체인 힘 임계 보정)
+    public float motorForce = 825f;      // ⚠️체인 관절 힘 임계: fl~300 이하 무력 — 구 150의 4배가 동일 감각(2026-07-07 실측). ★2026-07-10 무게감 튜닝: 질량 7.6→12.4kg 보상 600→825(×1.375)
+    public float idleHoldForce = 1775f;  // 구 320의 4배(체인 힘 임계 보정) → 무게감 튜닝 1300→1775
     [HideInInspector] public float forceMultiplier = 1f;   // 지라프 모드
     public float swingLimit = 90f;   // 90: 사용자 요청(2026-07-07) — 95는 ±94까지 넘어갔음. 힘 600이라 감속(stopMargin)에도 실질 ~90 도달
     public float stopMargin = 8f;    // 12→8: 한계각 앞 감속 구간 축소(90° 도달 빨라짐)
