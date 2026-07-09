@@ -114,6 +114,8 @@ public class CaterpillarButton : MonoBehaviour
         var go = new GameObject("Caterpillar_" + k);
         go.transform.position = path[0];
         var cat = go.AddComponent<TennisCaterpillar>();
-        cat.BuildAndGo(path, ballMat, Random.Range(1.0f, 1.5f));
+        // 반반: 짝수 마리=웨이브형, 홀수 마리=자벌레형(굽혔다 쫙 펴며 전진)
+        var gait = (k % 2 == 0) ? TennisCaterpillar.Gait.Wave : TennisCaterpillar.Gait.Inchworm;
+        cat.BuildAndGo(path, ballMat, Random.Range(1.0f, 1.5f), gait);
     }
 }
