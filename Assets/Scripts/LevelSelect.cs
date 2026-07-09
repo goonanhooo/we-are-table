@@ -33,6 +33,9 @@ public class LevelSelect : MonoBehaviour
 
     public bool Showing { get; private set; }
 
+    [Tooltip("★맵 선택 미니어처(갤럭시 스타일 회전 섬) — 있으면 스크린샷 대신 라이브 3D 미니어처 표시")]
+    public MapMiniatures miniatures;
+
     int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가)
     string codeInput = "";
     bool busy;           // 방 생성/참가 진행 중
@@ -181,7 +184,11 @@ public class LevelSelect : MonoBehaviour
             float b = hover ? 4f : 2f;
             Rect2(new Rect(x - 4f - b, y - 4f - b, tw + 8f + b * 2f, th + 8f + b * 2f), Color.black);
             Rect2(new Rect(x - 4f, y - 4f, tw + 8f, th + 8f), Color.white);
-            if (thumbs[i] != null) GUI.DrawTexture(thumbR, thumbs[i], ScaleMode.ScaleAndCrop);
+            // ★미니어처 우선: 살아있는 3D 회전 섬(RT). 없으면 기존 스크린샷 폴백.
+            Texture mini = null;
+            if (miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
+            if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
+            else if (thumbs[i] != null) GUI.DrawTexture(thumbR, thumbs[i], ScaleMode.ScaleAndCrop);
             else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
             var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
             GUI.Label(nameChip, levels[i].label, labelStyle);

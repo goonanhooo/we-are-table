@@ -720,6 +720,53 @@ Transform:
   - {fileID: 1079567604}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &659791114
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 659791116}
+  - component: {fileID: 659791115}
+  m_Layer: 0
+  m_Name: MapMiniatures
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &659791115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659791114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a0a274e973a44e2a85a1599e2d1b3ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MapMiniatures
+  spinSpeed: 28
+  rtWidth: 384
+  rtHeight: 240
+--- !u!4 &659791116
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 659791114}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &714321665
 GameObject:
   m_ObjectHideFlags: 0
@@ -1431,6 +1478,7 @@ MonoBehaviour:
   - label: "\uB4F1\uBC18"
     scene: Climb
     thumb: Thumbs/climb
+  miniatures: {fileID: 659791115}
 --- !u!4 &1453674153
 Transform:
   m_ObjectHideFlags: 0
@@ -2060,3 +2108,4 @@ SceneRoots:
   - {fileID: 544746368}
   - {fileID: 1062209168}
   - {fileID: 1453674153}
+  - {fileID: 659791116}
