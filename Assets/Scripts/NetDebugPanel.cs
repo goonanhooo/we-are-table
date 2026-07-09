@@ -21,6 +21,25 @@ public class NetDebugPanel : MonoBehaviour
 
     NetworkManager NM => NetworkManager.Singleton;
     NetLegLink Link => FindAnyObjectByType<NetLegLink>();
+
+    // ★맵 선택 3D 프리뷰(StartScreen에만 존재 — 인게임 씬에선 null이라 자동 무시)
+    MapSelectPreview preview;
+    float previewFindAt;
+    int lobbyHover = -1;
+    int guestShownSel = -1;
+    bool startPending;
+    MapSelectPreview Preview
+    {
+        get
+        {
+            if (preview == null && Time.unscaledTime > previewFindAt)
+            {
+                preview = FindAnyObjectByType<MapSelectPreview>();
+                previewFindAt = Time.unscaledTime + 2f;
+            }
+            return preview;
+        }
+    }
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
     static readonly string[] MapNames = { "시작", "정글", "눈 덮인 산", "우주", "트랙", "달", "모험", "등반", "경주 (대전)", "축구 (대전)" };
@@ -73,15 +92,33 @@ public class NetDebugPanel : MonoBehaviour
                 if (LegBtn(i).Contains(gm)) { link.ClaimLegRpc((byte)i); return; }   // ★토글(여러 개 선택 가능)
             if (NM.IsHost)
                 for (int i = 0; i < MapNames.Length; i++)
-                    if (MapBtn(i).Contains(gm)) { link.SetMap(i); return; }
+                    if (MapBtn(i).Contains(gm))
+                    {
+                        link.SetMap(i);
+                        if (Preview != null) { Preview.Show(i, 1); Preview.Pulse(); }   // 선택 확정 펄스
+                        return;
+                    }
             if (NM.IsHost && R(20f, ActionY, 200f, 44f).Contains(gm))
             {
                 // 게임 시작 = 다리/세션 잠금 + 전원 선택 맵으로 이동(로비는 시작 화면에 있으므로 여기서 로드)
                 if (link.MapIndex < 0) { status = "맵을 먼저 선택하세요"; return; }
-                link.StartGame();
-                NetScene.Load(MapScenes[link.MapIndex]);
+                if (startPending) return;
+                var pv = Preview;
+                if (pv != null)
+                {
+                    // ★확정 연출(펄스→꺼짐) 후 기존 시작 로직 — 연출 중 재클릭 차단
+                    startPending = true;
+                    var lk = link;
+                    pv.Show(lk.MapIndex, 1);
+                    pv.Confirm(() => { startPending = false; lk.StartGame(); NetScene.Load(MapScenes[lk.MapIndex]); });
+                }
+                else { link.StartGame(); NetScene.Load(MapScenes[link.MapIndex]); }
             }
-            if (R(240f, ActionY, 200f, 44f).Contains(gm)) LeaveAll();
+            if (R(240f, ActionY, 200f, 44f).Contains(gm))
+            {
+                if (Preview != null) Preview.HideAll();
+                LeaveAll();
+            }
         }
         else
         {
@@ -157,6 +194,19 @@ public class NetDebugPanel : MonoBehaviour
                 if (sel == i) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.16f));
                 else if (NM.IsHost && r.Contains(gm)) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.08f));
                 GUI.Label(r, MapNames[i], btn);
+                // ★호스트: 호버 = 3D 프리뷰 전환(방향 = 인덱스 증감)
+                if (NM.IsHost && r.Contains(gm) && Preview != null && !startPending && i != lobbyHover)
+                {
+                    int dir = (lobbyHover >= 0 && i < lobbyHover) ? -1 : 1;
+                    Preview.Show(i, dir);
+                    lobbyHover = i;
+                }
+            }
+            // ★게스트: 호스트가 고른 맵이 바뀌면 프리뷰 전환
+            if (!NM.IsHost && sel >= 0 && sel != guestShownSel && Preview != null)
+            {
+                Preview.Show(sel, sel < guestShownSel ? -1 : 1);
+                guestShownSel = sel;
             }
 
             if (NM.IsHost) Button(R(20f, ActionY, 200f, 44f), sel >= 0 ? "게임 시작" : "게임 시작 (맵 선택!)", gm);

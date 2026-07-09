@@ -22,7 +22,7 @@ public class MapMiniatures : MonoBehaviour
 
     static readonly Vector3 Base = new Vector3(0f, -500f, 0f);
 
-    // 맵별 하늘색(카메라 클리어)
+    // 맵별 하늘색(카메라 클리어) — 8=경주(대전), 9=축구(대전)는 멀티 로비 전용
     static readonly Color[] Sky = {
         new Color(0.93f, 0.90f, 0.84f),   // 시작(홀웨이 크림)
         new Color(0.55f, 0.78f, 0.95f),   // 정글
@@ -32,12 +32,28 @@ public class MapMiniatures : MonoBehaviour
         new Color(0.02f, 0.02f, 0.04f),   // 달
         new Color(0.85f, 0.72f, 0.55f),   // 모험(협곡 노을)
         new Color(0.62f, 0.83f, 0.96f),   // 등반
+        new Color(0.60f, 0.82f, 0.97f),   // 경주(대전)
+        new Color(0.58f, 0.80f, 0.95f),   // 축구(대전)
     };
 
     public int Count => rts != null ? rts.Length : 0;
     public Texture RT(int i) => rts != null && i >= 0 && i < rts.Length ? rts[i] : null;
 
     int lastRenderFrame = -1;
+
+    /// <summary>프리뷰 연출용 — i번 미니어처 섬(Spin 서브트리)을 복제해 parent 아래로.
+    /// 복제본은 spins 배열 밖이라 자동 회전하지 않는다(전시 회전 금지 스펙).</summary>
+    public Transform CloneIsland(int i, Transform parent)
+    {
+        if (!built) Build();
+        if (spins == null || i < 0 || i >= spins.Length || spins[i] == null) return null;
+        var clone = Instantiate(spins[i].gameObject, parent, false).transform;
+        clone.name = "IslandClone_" + i;
+        clone.localPosition = Vector3.zero;
+        clone.localRotation = Quaternion.identity;
+        clone.localScale = Vector3.one;
+        return clone;
+    }
 
     /// <summary>선택 화면이 이 프레임에 보임(LevelSelect.OnGUI에서 호출) —
     /// ⚠️이 컨텍스트에서 즉시 회전+수동 Render()해야 RT에 그려짐(실측:
@@ -62,7 +78,7 @@ public class MapMiniatures : MonoBehaviour
     {
         if (built) return;
         built = true;
-        int n = 8;
+        int n = 10;
         spins = new Transform[n];
         cams = new Camera[n];
         rts = new RenderTexture[n];
@@ -85,6 +101,8 @@ public class MapMiniatures : MonoBehaviour
                 case 5: BuildMoon(spin); break;
                 case 6: BuildAdventure(spin); break;
                 case 7: BuildClimb(spin); break;
+                case 8: BuildRace(spin); break;
+                case 9: BuildSoccer(spin); break;
             }
 
             // 카메라(살짝 내려다보는 갤럭시 앵글) + RT
@@ -260,6 +278,47 @@ public class MapMiniatures : MonoBehaviour
             Prim(PrimitiveType.Cube, p, new Vector3(x, 0.08f, 0.32f), new Vector3(0.035f, 0.16f, 0.035f), post);
             Prim(PrimitiveType.Sphere, p, new Vector3(x, 0.2f, 0.32f), Vector3.one * 0.07f, Mat(orbs[k], 0.5f, orbs[k] * 1.6f));
         }
+    }
+
+    void BuildRace(Transform p)   // 경주(대전): 트랙 + 나란히 선 미니 테이블 2대
+    {
+        IslandBase(p, new Color(0.45f, 0.68f, 0.32f), new Color(0.52f, 0.4f, 0.28f));
+        var lane = Mat(new Color(0.85f, 0.45f, 0.35f));
+        for (int k = 0; k < 14; k++)
+        {
+            float a = k / 14f * Mathf.PI * 2f;
+            var pos = new Vector3(Mathf.Cos(a) * 0.52f, 0.0f, Mathf.Sin(a) * 0.34f);
+            Prim(PrimitiveType.Cube, p, pos, new Vector3(0.16f, 0.025f, 0.1f), lane, new Vector3(0f, -a * Mathf.Rad2Deg, 0f));
+        }
+        // 미니 테이블 2대(파랑/빨강 비콘) — 대전 느낌
+        var wood = Mat(new Color(0.55f, 0.36f, 0.2f));
+        Color[] team = { new Color(0.25f, 0.5f, 1f), new Color(1f, 0.3f, 0.25f) };
+        for (int t = 0; t < 2; t++)
+        {
+            float z = t == 0 ? -0.09f : 0.09f;
+            Prim(PrimitiveType.Cube, p, new Vector3(0.52f, 0.1f, z), new Vector3(0.14f, 0.02f, 0.1f), wood);
+            for (int dx = -1; dx <= 1; dx += 2)
+                for (int dz = -1; dz <= 1; dz += 2)
+                    Prim(PrimitiveType.Cube, p, new Vector3(0.52f + dx * 0.055f, 0.05f, z + dz * 0.035f), new Vector3(0.02f, 0.09f, 0.02f), wood);
+            Prim(PrimitiveType.Sphere, p, new Vector3(0.52f, 0.16f, z), Vector3.one * 0.045f, Mat(team[t], 0.5f, team[t] * 1.6f));
+        }
+    }
+
+    void BuildSoccer(Transform p)   // 축구(대전): 피치 + 골대 2개 + 공
+    {
+        IslandBase(p, new Color(0.35f, 0.62f, 0.3f), new Color(0.5f, 0.38f, 0.26f));
+        var line = Mat(new Color(0.95f, 0.95f, 0.95f), 0.2f);
+        Prim(PrimitiveType.Cube, p, new Vector3(0f, 0.005f, 0f), new Vector3(0.02f, 0.015f, 0.7f), line);      // 센터 라인
+        Prim(PrimitiveType.Cylinder, p, new Vector3(0f, 0.006f, 0f), new Vector3(0.1f, 0.006f, 0.1f), line);   // 센터 점
+        var post = Mat(new Color(0.92f, 0.92f, 0.95f), 0.5f);
+        for (int side = -1; side <= 1; side += 2)
+        {
+            float x = side * 0.52f;
+            Prim(PrimitiveType.Cube, p, new Vector3(x, 0.08f, -0.14f), new Vector3(0.02f, 0.16f, 0.02f), post);
+            Prim(PrimitiveType.Cube, p, new Vector3(x, 0.08f, 0.14f), new Vector3(0.02f, 0.16f, 0.02f), post);
+            Prim(PrimitiveType.Cube, p, new Vector3(x, 0.165f, 0f), new Vector3(0.02f, 0.02f, 0.3f), post);
+        }
+        Prim(PrimitiveType.Sphere, p, new Vector3(0.08f, 0.06f, 0.05f), Vector3.one * 0.11f, Mat(Color.white, 0.35f));
     }
 
     void BuildClimb(Transform p)   // 등반: 암벽(색 홀드) + 정상 깃발 + 테니스공

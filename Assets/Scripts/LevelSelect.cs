@@ -35,6 +35,10 @@ public class LevelSelect : MonoBehaviour
 
     [Tooltip("★맵 선택 미니어처(갤럭시 스타일 회전 섬) — 있으면 스크린샷 대신 라이브 3D 미니어처 표시")]
     public MapMiniatures miniatures;
+    [Tooltip("★맵 선택 3D 프리뷰 전환 연출 — 호버=등장/퇴장, 클릭=확정 연출 후 로드")]
+    public MapSelectPreview preview;
+    int previewHover = -1;
+    bool loadPending;
 
     int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가)
     string codeInput = "";
@@ -59,7 +63,12 @@ public class LevelSelect : MonoBehaviour
         if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
         Showing = true; step = 0; codeInput = "";
     }
-    public void Close() { Showing = false; }
+    public void Close()
+    {
+        Showing = false;
+        if (preview != null) preview.HideAll();
+        previewHover = -1;
+    }
 
     void Update()
     {
@@ -158,6 +167,19 @@ public class LevelSelect : MonoBehaviour
         if (step == 0) DrawModeSelect();
         else if (step == 1) DrawStageSelect();
         else DrawJoin();
+
+        // 스테이지 선택 화면이 아니면 프리뷰 퇴장
+        if (preview != null && step != 1 && Event.current.type == EventType.Repaint)
+        {
+            preview.HideAll();
+            previewHover = -1;
+        }
+    }
+
+    void OnDisable()
+    {
+        if (preview != null) preview.HideAll();
+        previewHover = -1;
     }
 
     // ── ② 스테이지 선택(1인/로컬 — 클릭 즉시 로드) ──
@@ -180,6 +202,14 @@ public class LevelSelect : MonoBehaviour
             Rect thumbR = new Rect(x, y, tw, th);
             bool hover = thumbR.Contains(Event.current.mousePosition);
 
+            // ★호버 = 3D 프리뷰 전환(방향 = 인덱스 증감)
+            if (hover && preview != null && !loadPending && i != previewHover)
+            {
+                int dir = (previewHover >= 0 && i < previewHover) ? -1 : 1;
+                preview.Show(i, dir);
+                previewHover = i;
+            }
+
             // 흰 프레임 + 얇은 검은 테두리(hover 시 테두리 두껍게)
             float b = hover ? 4f : 2f;
             Rect2(new Rect(x - 4f - b, y - 4f - b, tw + 8f + b * 2f, th + 8f + b * 2f), Color.black);
@@ -193,7 +223,18 @@ public class LevelSelect : MonoBehaviour
             var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
             GUI.Label(nameChip, levels[i].label, labelStyle);
 
-            if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none)) LoadLocal(i);
+            // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백)
+            if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none) && !loadPending)
+            {
+                if (preview != null && !preview.Busy)
+                {
+                    loadPending = true;
+                    int captured = i;
+                    preview.Show(i, 1);               // 다른 타일 프리뷰 중이었어도 클릭한 맵으로
+                    preview.Confirm(() => { loadPending = false; LoadLocal(captured); });
+                }
+                else if (preview == null) LoadLocal(i);
+            }
         }
 
         if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle)) step = 0;
