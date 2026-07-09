@@ -20,6 +20,8 @@ public class TennisCaterpillar : MonoBehaviour
     public float speed = 1.2f;
     public float bunchAmp = 0.07f;
     public float liftAmp = 0.06f;
+    [Tooltip("가로(좌우) 스네이크 웨이브 진폭 — 몸이 S자로 크게 굽이치는 느낌")]
+    public float sideAmp = 0.16f;
     public float waveHz = 2.2f;
     public float phaseStep = 0.95f;
 
@@ -99,6 +101,14 @@ public class TennisCaterpillar : MonoBehaviour
             float s = headS - i * spacing + Mathf.Sin(phase) * bunchAmp;
             Vector3 p = Sample(s);
             p.y += Mathf.Max(0f, Mathf.Sin(phase)) * liftAmp;
+            // 가로 스네이크: 경로 접선의 수직 방향으로 느린 S자 웨이브(파장 길게 = 몸 전체가 굽이침)
+            Vector3 dir = Sample(s + 0.25f) - Sample(s - 0.25f);
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 1e-6f)
+            {
+                Vector3 side = Vector3.Cross(Vector3.up, dir.normalized);
+                p += side * (Mathf.Sin(phase * 0.55f) * sideAmp);
+            }
             balls[i].position = p;
         }
     }
