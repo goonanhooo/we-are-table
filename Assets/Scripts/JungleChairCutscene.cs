@@ -39,6 +39,14 @@ public class JungleChairCutscene : MonoBehaviour
     [Tooltip("이 높이보다 위면 아직 낙하 중으로 간주")]
     public float airborneY = 12f;
 
+    [Tooltip("컷씬 동안 함께 끌 컴포넌트(예: 빙산 동굴 CaveCamera — 고정 카메라가 컷씬 카메라를 덮어쓰는 것 방지)")]
+    public Behaviour[] alsoDisable;
+
+    [Header("컷씬 카메라 OTS 오프셋(테이블 기준) — 좁은 방(빙산 동굴)에선 뒷벽에 안 묻히게 줄일 것")]
+    public float camBack = 3.4f;
+    public float camLeft = 1.7f;
+    public float camUp = 2.0f;
+
     [Header("걸음 연출")]
     public float stepHz = 2.2f;
     public float swingAmp = 26f;
@@ -82,6 +90,7 @@ public class JungleChairCutscene : MonoBehaviour
     {
         FreezeTable(true);
         if (camFollow != null) camFollow.enabled = false;
+        if (alsoDisable != null) foreach (var b in alsoDisable) if (b != null) b.enabled = false;
         Vector3 p0 = cam.position;
         Quaternion r0 = cam.rotation;
         var camCam = cam.GetComponent<Camera>();
@@ -100,7 +109,7 @@ public class JungleChairCutscene : MonoBehaviour
         // 그 시선을 따라 창고로 걸어가는 의자를 바라보는 자연스러운 OTS 구도
         Vector3 toDoor = doorPos - board.position; toDoor.y = 0f; toDoor.Normalize();
         Vector3 left = Vector3.Cross(toDoor, Vector3.up).normalized;
-        Vector3 camPos = board.position - toDoor * 3.4f + left * 1.7f + Vector3.up * 2.0f;
+        Vector3 camPos = board.position - toDoor * camBack + left * camLeft + Vector3.up * camUp;
 
         // ① 블렌드 인(+FOV 줌인)
         for (float t = 0f; t < blendIn; t += Time.deltaTime)
@@ -138,6 +147,7 @@ public class JungleChairCutscene : MonoBehaviour
         cam.SetPositionAndRotation(p0, r0);
         if (camCam != null) camCam.fieldOfView = fov0;
         if (camFollow != null) camFollow.enabled = true;
+        if (alsoDisable != null) foreach (var b in alsoDisable) if (b != null) b.enabled = true;
         FreezeTable(false);
     }
 
@@ -174,7 +184,8 @@ public class JungleChairCutscene : MonoBehaviour
                 }
                 rem -= seg;
             }
-            float targetY = Grounded(p).y;
+            // 폴리라인 p는 y=0로 평탄화돼 있음 — 현재 걷는 높이(curY) 기준으로 지면 탐색(높은 지형(빙산 y≈96)에서도 유효)
+            float targetY = Grounded(new Vector3(p.x, curY, p.z)).y;
             curY = Mathf.Lerp(curY, targetY, Mathf.Clamp01(Time.deltaTime * 4.5f));
             p.y = curY;
             float cyc = t * stepHz;
