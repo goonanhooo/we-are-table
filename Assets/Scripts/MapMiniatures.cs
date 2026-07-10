@@ -55,23 +55,34 @@ public class MapMiniatures : MonoBehaviour
         return clone;
     }
 
-    /// <summary>선택 화면이 이 프레임에 보임(LevelSelect.OnGUI에서 호출) —
-    /// ⚠️이 컨텍스트에서 즉시 회전+수동 Render()해야 RT에 그려짐(실측:
-    /// Update()에서 Render()하면 검게 나옴, OnGUI/코루틴 컨텍스트는 정상).</summary>
+    /// <summary>선택 화면이 이 프레임에 보임(OnGUI에서 호출) — 하트비트만.
+    /// ⚠️실제 렌더는 EndOfFrame 코루틴에서(URP에서 검증된 컨텍스트).
+    /// OnGUI 도중 카메라 수동 Render()는 에디터 멈춤/크래시 위험이라 금지(2026-07-10).</summary>
     public void MarkVisible()
     {
         if (!built) Build();
         lastMark = Time.unscaledTime;
-        if (Time.frameCount == lastRenderFrame) return;   // OnGUI 다중 호출 가드(프레임당 1회)
-        lastRenderFrame = Time.frameCount;
-        if (debugLog) Debug.Log("MM: render frame=" + Time.frameCount);
-        for (int i = 0; i < spins.Length; i++)
-            if (spins[i] != null) spins[i].Rotate(0f, spinSpeed * Time.unscaledDeltaTime, 0f, Space.World);
-        for (int i = 0; i < cams.Length; i++)
-            if (cams[i] != null) cams[i].Render();
     }
 
-    void Start() { Build(); }
+    // 프레임 끝에서 회전+수동 렌더(코루틴/EndOfFrame 컨텍스트는 URP에서 정상 실측)
+    System.Collections.IEnumerator RenderLoop()
+    {
+        var eof = new WaitForEndOfFrame();
+        while (true)
+        {
+            yield return eof;
+            if (!built || Time.unscaledTime - lastMark >= 0.25f) continue;
+            if (Time.frameCount == lastRenderFrame) continue;
+            lastRenderFrame = Time.frameCount;
+            if (debugLog) Debug.Log("MM: render frame=" + Time.frameCount);
+            for (int i = 0; i < spins.Length; i++)
+                if (spins[i] != null) spins[i].Rotate(0f, spinSpeed * Time.unscaledDeltaTime, 0f, Space.World);
+            for (int i = 0; i < cams.Length; i++)
+                if (cams[i] != null) cams[i].Render();
+        }
+    }
+
+    void Start() { Build(); StartCoroutine(RenderLoop()); }
 
     // ── 빌드 ──────────────────────────────────────────────────────────────
     void Build()
