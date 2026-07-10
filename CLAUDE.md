@@ -70,7 +70,7 @@
 - **Soccer.unity**(축구, 1v1/2v2): **팀=슬롯 짝수(0,2)파랑/홀수(1,3)빨강**(1v1=0vs1, 2v2=0·2vs1·3). SoccerStage — 경기 3분(NV 초 단위만 갱신), 골존(SoccerGoalZone, goalTeam=지키는 팀)에 '공 RB'만 판정 → 상대 득점 → GOAL 배너 3s → 공 중앙+전원 킥오프 ResetPoseAtXZ → 재개, 종료 시 승자 배너 10s → 0:0 재경기. **★'1' 수동 리셋 차단**: ArtSceneReset에 `disableManualReset` 신설(워치독/뒤집힘 복구는 유지) — SoccerStage.Start가 전 테이블에 설정. 아레나=피치 70×50+벽 h5+골대(기둥/크로스바/뒷그물 물리)+킥오프 4지점, 공=SoccerBall(RB 1.2kg+SoccerBallPhys 바운스 0.55+NetworkObject/Transform/Rigidbody — 게스트 수신 전용). 실측: 골→득점→공 중앙 리셋→킥오프 재배치✓, 리셋 차단✓.
 - 로비 등록: NetDebugPanel "경주 (대전)"/"축구 (대전)"(싱글 LevelSelect엔 제외 — 멀티 전용, 다만 싱글로 열려도 1대로 동작). 게스트 검증은 실기기 2대 필요(MPPM은 MCP 릴레이 가로챔 금지 — 기존 함정). ⚠️ResetPoseAtXZ의 yaw는 호스트 카메라 기준이라 킥오프 방향이 부정확할 수 있음(개선 여지).
 
-## 맵 선택 미니어처(갤럭시 스타일) ★2026-07-10 신규
+## 맵 선택 미니어처(갤럭시 스타일) ★2026-07-10 신규 → ⚠️**보류(같은 날)**: 사용자 요청으로 StartScreen에서 연결 해제(MapMiniatures/MapSelectPreview GO 제거, LevelSelect 참조 null → 폴백=기존 스크린샷+클릭 즉시 로드). 코드/미니어처는 전부 유지, **PreviewLab.unity가 독립 쇼케이스** — 나중에 재연결 예정(StartScreen에 GO 2개 만들고 LevelSelect.miniatures/preview만 연결하면 됨).
 - **MapMiniatures.cs**(StartScreen GO, LevelSelect.miniatures로 연결): 맵 8개를 **절차 생성 미니어처 섬**(상징물 심플 재창작 — 의자/화산+기린/눈사람/은하/트랙/달+지구/협곡 토템/암벽 홀드)으로 만들어 **빙빙 돌며(28°/s)** 맵별 카메라→RenderTexture(384×240)로 그림. LevelSelect가 스크린샷 대신 이 RT를 표시(mini 없으면 기존 썸네일 폴백 — 멀티 로비는 무관). 전부 런타임 생성(씬 직렬화 없음), 월드 (0,-500,0) 격리 구역.
 - ⚠️★**URP 오프스크린 카메라 함정(실측)**: enabled 카메라 자동 렌더도, Update()에서의 수동 Render()도 RT가 검게 나옴 — **소비 직전(OnGUI에서 불리는 MarkVisible) 컨텍스트에서 수동 cam.Render()** 해야 그려짐(프레임당 1회 가드). 선택 화면이 안 보이면 렌더 비용 0.
 - ⚠️디버깅 교훈: 'RT 검정'의 진짜 원인은 **Build()에서 cams[i]=c 대입 누락**(널 배열 → 렌더 루프 통째 스킵)이었음 — 컨텍스트 실험(EXP)으로 렌더 경로 자체는 정상임을 먼저 확정한 뒤 잡음.
