@@ -1546,7 +1546,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  startScene: NewStartScreen
+  startScene: StartScreen
   controlsMove: {fileID: 2800000, guid: 0c7bdf465bf554735abedbadd22f55f8, type: 3}
   controlsGiraffe: {fileID: 2800000, guid: 4c51681d1c52e4eac9edc7904868d36c, type: 3}
   controlsSquid: {fileID: 2800000, guid: 2f6dcd7a1b74741bd84b925f9b5695df, type: 3}

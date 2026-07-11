@@ -19,16 +19,18 @@ public class LevelSelect : MonoBehaviour
     [System.Serializable]
     public class Level { public string label; public string scene; public string thumb; }
 
-    public Level[] levels =
+    public Level[] levels =   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
     {
-        new Level { label = "시작",      scene = "Hallway",     thumb = "Thumbs/hallway" },
-        new Level { label = "정글",      scene = "Jungle",      thumb = "Thumbs/jungle"  },
-        new Level { label = "눈 덮인 산", scene = "IceMountain", thumb = "Thumbs/ice"     },
-        new Level { label = "우주",      scene = "Space",       thumb = "Thumbs/space"   },   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
-        new Level { label = "트랙",      scene = "Track",       thumb = "Thumbs/track"   },
-        new Level { label = "달",        scene = "Moon",        thumb = "Thumbs/moon"    },
-        new Level { label = "모험",      scene = "Adventure",   thumb = "Thumbs/adventure" },
-        new Level { label = "등반",      scene = "Climb",       thumb = "Thumbs/climb"   },
+        new Level { label = "시작", scene = "Hallway",     thumb = "Thumbs/hallway" },
+        new Level { label = "정글", scene = "Jungle",      thumb = "Thumbs/jungle"  },
+        new Level { label = "빙산", scene = "IceMountain", thumb = "Thumbs/ice"     },
+    };
+    [Tooltip("'구현중인 맵들' 버튼을 눌러야 보이는 목록")]
+    public Level[] wipLevels =
+    {
+        new Level { label = "우주", scene = "Space", thumb = "Thumbs/space" },
+        new Level { label = "등반", scene = "Climb", thumb = "Thumbs/climb" },
+        new Level { label = "달",   scene = "Moon",  thumb = "Thumbs/moon"  },
     };
 
     public bool Showing { get; private set; }
@@ -44,7 +46,8 @@ public class LevelSelect : MonoBehaviour
     string codeInput = "";
     bool busy;           // 방 생성/참가 진행 중
 
-    Texture2D[] thumbs;
+    Texture2D[] thumbs, wipThumbs;
+    bool showWip;        // 스테이지 선택에서 '구현중인 맵들' 목록 표시 중
     GUIStyle labelStyle, titleStyle, backStyle, btnStyle, smallStyle, codeStyle;
     Texture2D white;
 
@@ -53,6 +56,9 @@ public class LevelSelect : MonoBehaviour
         thumbs = new Texture2D[levels.Length];
         for (int i = 0; i < levels.Length; i++)
             thumbs[i] = Resources.Load<Texture2D>(levels[i].thumb);
+        wipThumbs = new Texture2D[wipLevels.Length];
+        for (int i = 0; i < wipLevels.Length; i++)
+            wipThumbs[i] = Resources.Load<Texture2D>(wipLevels[i].thumb);
         white = Texture2D.whiteTexture;
     }
 
@@ -61,13 +67,21 @@ public class LevelSelect : MonoBehaviour
         // 세션 중(로비/인게임)엔 다시 안 연다 — 로비 창(NetDebugPanel)과 겹침 방지
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
-        Showing = true; step = 0; codeInput = "";
+        Showing = true; step = 0; codeInput = ""; showWip = false;
     }
     public void Close()
     {
         Showing = false;
         if (preview != null) preview.HideAll();
         previewHover = -1;
+    }
+
+    /// <summary>테스트/외부 진입용: 0=모드 선택, 1=스테이지 선택(wip=구현중 목록), 2=코드 참가.</summary>
+    public void GoTo(int s, bool wip = false)
+    {
+        Showing = true;
+        step = Mathf.Clamp(s, 0, 2);
+        showWip = wip;
     }
 
     void Update()
@@ -183,13 +197,18 @@ public class LevelSelect : MonoBehaviour
     }
 
     // ── ② 스테이지 선택(1인/로컬 — 클릭 즉시 로드) ──
+    // 기본 = levels(시작/정글/빙산), '구현중인 맵들' 버튼 = wipLevels(우주/등반/달)로 전환.
     void DrawStageSelect()
     {
-        ChipLabel(Screen.height * 0.5f - 175f, 340f, 50f, "스테이지 선택", titleStyle);
+        var arr = showWip ? wipLevels : levels;
+        var tex = showWip ? wipThumbs : thumbs;
+        ChipLabel(Screen.height * 0.5f - (showWip ? 210f : 175f), 340f, 50f, showWip ? "구현중인 맵들" : "스테이지 선택", titleStyle);
+        if (showWip)
+            ChipLabel(Screen.height * 0.5f - 165f, 430f, 26f, "아직 만드는 중이라 미완성일 수 있어요", smallStyle);
 
-        int n = levels.Length;
+        int n = arr.Length;
         float gap = 36f;
-        float maxW = (Screen.width - gap * (n + 1));
+        float maxW = (Screen.width - gap * (n + 1) - 200f);   // 우측 '구현중' 버튼 자리 확보
         float tw = Mathf.Min(300f, maxW / n);
         float th = tw * 0.625f;            // 320x200 비율
         float totalW = n * tw + (n - 1) * gap;
@@ -202,8 +221,8 @@ public class LevelSelect : MonoBehaviour
             Rect thumbR = new Rect(x, y, tw, th);
             bool hover = thumbR.Contains(Event.current.mousePosition);
 
-            // ★호버 = 3D 프리뷰 전환(방향 = 인덱스 증감)
-            if (hover && preview != null && !loadPending && i != previewHover)
+            // ★호버 = 3D 프리뷰 전환(방향 = 인덱스 증감) — 기본 목록에서만(인덱스가 미니어처 순서와 일치)
+            if (!showWip && hover && preview != null && !loadPending && i != previewHover)
             {
                 int dir = (previewHover >= 0 && i < previewHover) ? -1 : 1;
                 preview.Show(i, dir);
@@ -216,28 +235,39 @@ public class LevelSelect : MonoBehaviour
             Rect2(new Rect(x - 4f, y - 4f, tw + 8f, th + 8f), Color.white);
             // ★미니어처 우선: 살아있는 3D 회전 섬(RT). 없으면 기존 스크린샷 폴백.
             Texture mini = null;
-            if (miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
+            if (!showWip && miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
             if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
-            else if (thumbs[i] != null) GUI.DrawTexture(thumbR, thumbs[i], ScaleMode.ScaleAndCrop);
+            else if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
             else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
             var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
-            GUI.Label(nameChip, levels[i].label, labelStyle);
+            GUI.Label(nameChip, arr[i].label, labelStyle);
 
             // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백)
             if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none) && !loadPending)
             {
-                if (preview != null && !preview.Busy)
+                if (!showWip && preview != null && !preview.Busy)
                 {
                     loadPending = true;
-                    int captured = i;
+                    var captured = arr[i];
                     preview.Show(i, 1);               // 다른 타일 프리뷰 중이었어도 클릭한 맵으로
                     preview.Confirm(() => { loadPending = false; LoadLocal(captured); });
                 }
-                else if (preview == null) LoadLocal(i);
+                else if (showWip || preview == null) LoadLocal(arr[i]);
             }
         }
 
-        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle)) step = 0;
+        // 우측 '구현중인 맵들' 진입 버튼(기본 목록에서만)
+        if (!showWip)
+        {
+            var wipR = new Rect(x0 + totalW + gap + 8f, y + th * 0.5f - 34f, 168f, 68f);
+            if (WhiteBtn(wipR, "구현중인\n맵들 ▶", backStyle)) { showWip = true; if (preview != null) preview.HideAll(); previewHover = -1; }
+        }
+
+        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle))
+        {
+            if (showWip) showWip = false;
+            else step = 0;
+        }
     }
 
     // ── ① 모드 선택(첫 화면): 1인 / 로컬 멀티 / 방 만들기 / 코드 참가 ──
@@ -268,11 +298,11 @@ public class LevelSelect : MonoBehaviour
         if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) Close();
     }
 
-    void LoadLocal(int i)
+    void LoadLocal(Level lv)
     {
         Time.timeScale = 1f;
         Close();
-        NetScene.Load(levels[i].scene);
+        NetScene.Load(lv.scene);
     }
 
     // ── ③ 코드로 참가: 화면이 열리면 바로 타이핑 활성 ──
