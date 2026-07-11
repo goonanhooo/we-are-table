@@ -4925,7 +4925,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 200131459}
-  - component: {fileID: 200131458}
+  - component: {fileID: 200131460}
   m_Layer: 0
   m_Name: ChairCutscene
   m_TagString: Untagged
@@ -4933,39 +4933,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &200131458
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 200131457}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 747760f40353d4526a98a0df7ad65343, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::JungleChairCutscene
-  chairTemplate: {fileID: 985346463}
-  doorPos: {x: 3.5, y: 95, z: 24}
-  doorOutward: {x: 0, y: 0, z: -1}
-  startOutside: 4
-  doorInDepth: 6
-  holePos: {x: 3.5, y: 94, z: 44}
-  walkSpeed: 3
-  blendIn: 0.5
-  walkTime: 2.7
-  blendOut: 0.8
-  settleSpeed: 0.8
-  settleTime: 0.6
-  airborneY: 120
-  alsoDisable: []
-  camBack: 2
-  camLeft: -1.2
-  camUp: 1.6
-  stepHz: 2.2
-  swingAmp: 26
-  bobAmp: 0.03
-  cutsceneFov: 36
 --- !u!4 &200131459
 Transform:
   m_ObjectHideFlags: 0
@@ -4981,6 +4948,41 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &200131460
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 200131457}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26ce84dcecccb4e7b84f1b2449dcb776, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IceChairCutscene
+  chairTemplate: {fileID: 985346463}
+  doorPos: {x: 3.5, y: 95, z: 24}
+  startInside: 4
+  freezeZ: 34.5
+  slideEndZ: 88
+  slideCenterX: 0
+  walkSpeed: 3
+  camInsideOffset: {x: -2.4, y: 1.2, z: -2.8}
+  camOutsidePos: {x: 10.5, y: 98.5, z: 31}
+  camSlidePos: {x: 1.2, y: 101.5, z: 28.5}
+  insideFov: 40
+  outsideFov: 38
+  blendIn: 0.5
+  blendOut: 0.8
+  watchSlide: 1.2
+  settleSpeed: 0.8
+  settleTime: 0.6
+  stepHz: 2.2
+  swingAmp: 26
+  bobAmp: 0.03
+  stopBeat: 0.4
+  frozenBeat: 0.8
+  iceMaterial: {fileID: 0}
 --- !u!1 &206743543
 GameObject:
   m_ObjectHideFlags: 0
