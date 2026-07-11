@@ -245,6 +245,7 @@ public class GiraffeCutscene : MonoBehaviour
     // 기린 대사 = 기린 머리 왼쪽에 말풍선 이미지(텍스트는 빌드에 폰트가 없어 안 나오므로 이미지로 구워 표시).
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (currentBubble == null || giraffe == null) return;
         var c = Camera.main;
         if (c == null) return;

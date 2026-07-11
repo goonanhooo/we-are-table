@@ -179,6 +179,7 @@ public class NewStartScreenUI : MonoBehaviour
     // ── OnGUI ───────────────────────────────────────────────────────────
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         // 세션 중(로비/인게임 미니)은 NetDebugPanel에 양보
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && nm.IsListening) return;

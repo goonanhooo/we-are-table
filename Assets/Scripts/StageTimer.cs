@@ -59,6 +59,7 @@ public class StageTimer : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         float t = cleared ? clearTime : Time.time - startTime;
         var chip = UiKit.Chip(Screen.width * 0.5f, 10f, 150f, 34f);
         GUI.Label(chip, Fmt(t), UiKit.Btn);

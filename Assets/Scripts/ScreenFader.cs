@@ -66,6 +66,7 @@ public class ScreenFader : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (alpha <= 0.001f) return;
         GUI.depth = -10000;   // 다른 OnGUI(배너/조작법)보다 위에
         var pc = GUI.color;

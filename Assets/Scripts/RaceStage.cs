@@ -121,6 +121,7 @@ public class RaceStage : NetworkBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (!IsSpawned || mode == null) return;
         var n = net.Value;
         float c = Clock;

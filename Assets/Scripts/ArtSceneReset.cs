@@ -115,6 +115,7 @@ public class ArtSceneReset : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (flippedTime < flipPromptDelay) return;
         if (bannerStyle == null)
         {

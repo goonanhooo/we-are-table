@@ -425,6 +425,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     Texture2D giraffeIcon;
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (!active) return;
         if (giraffeIcon == null) giraffeIcon = MakeGiraffeIcon();
         float s = 3.0f; // 픽셀 확대

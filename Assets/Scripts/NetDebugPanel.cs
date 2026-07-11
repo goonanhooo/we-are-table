@@ -153,6 +153,7 @@ public class NetDebugPanel : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (NM == null || !InSession) return;   // ★ 세션 없으면 아무것도 안 그림
         if (!visible && !InLobby) return;
         EnsureStyles();

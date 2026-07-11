@@ -164,6 +164,7 @@ public class LevelSelect : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (!Showing) return;
         EnsureStyles();
 

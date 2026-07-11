@@ -230,6 +230,7 @@ public class PauseMenu : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (IsBackground() || !paused) return;
         EnsureStyles();
         Vector2 gm = GuiMouse();

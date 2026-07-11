@@ -55,6 +55,7 @@ public class LetterOverlay : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (tex == null) return;
         if (titleStyle == null)
         {

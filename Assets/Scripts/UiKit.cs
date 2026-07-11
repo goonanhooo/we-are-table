@@ -10,6 +10,24 @@ public static class UiKit
     public const float Border = 2f;   // '얇은' 검은 테두리 두께(px)
     static readonly Color Ink = new Color(0.08f, 0.08f, 0.08f, 1f);
 
+    // ★WebGL 한글 폰트(2026-07-12): 웹엔 OS 폰트가 없어 기본 폰트로는 한글이 전부 사라짐(□/공백).
+    //   내장 나눔고딕(Resources/Fonts)을 GUI.skin에 꽂는다 — skin은 세션 공유라 한 번만 적용돼도
+    //   모든 OnGUI(캐시된 GUIStyle 포함: font==null이면 skin 폰트로 폴백)가 한글을 그린다.
+    //   각 UI의 OnGUI 첫 줄에서 호출(참조 비교 가드라 매 프레임 호출해도 공짜).
+    static Font kfont;
+    static bool kfontTried;
+    public static void ApplyKoreanFont()
+    {
+        if (kfont == null)
+        {
+            if (kfontTried) return;
+            kfontTried = true;
+            kfont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
+            if (kfont == null) { Debug.LogWarning("[UiKit] 한글 폰트 로드 실패 — Resources/Fonts/NanumGothic-Regular"); return; }
+        }
+        if (GUI.skin.font != kfont) GUI.skin.font = kfont;
+    }
+
     static GUIStyle title, btn, label, center, small;
     public static GUIStyle Title { get { Ensure(); return title; } }
     public static GUIStyle Btn { get { Ensure(); return btn; } }

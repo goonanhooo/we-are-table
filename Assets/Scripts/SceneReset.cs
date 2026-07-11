@@ -304,6 +304,7 @@ public class SceneReset : MonoBehaviour
     // 테이블이 뒤집히면 화면 하단에 'Press "1"' 안내. (일시정지 중엔 숨김)
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (Time.timeScale == 0f) return;
         if (!ShowFlipPrompt) return;
         EnsureFlipStyles();

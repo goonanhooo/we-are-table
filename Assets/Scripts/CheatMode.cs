@@ -133,6 +133,7 @@ public class CheatMode : MonoBehaviour
     GUIStyle hintStyle;
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (!Active) return;
         if (hintStyle == null)
         {

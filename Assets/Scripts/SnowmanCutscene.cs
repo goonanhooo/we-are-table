@@ -276,6 +276,7 @@ public class SnowmanCutscene : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (currentBubble == null || body == null) return;
         var c = Camera.main; if (c == null) return;
         // ★꼬리(버블 텍스처 오른쪽 가장자리, 위에서 ~43% 높이)가 '머리 공 왼쪽 가장자리'에 닿게 배치.

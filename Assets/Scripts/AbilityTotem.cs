@@ -74,6 +74,7 @@ public class AbilityTotem : MonoBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (string.IsNullOrEmpty(message) || Time.time >= msgUntil) return;
         var r = UiKit.Chip(Screen.width * 0.5f, 96f, 720f, 62f);
         GUI.Label(r, message, UiKit.Btn);

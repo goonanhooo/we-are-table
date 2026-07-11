@@ -114,6 +114,7 @@ public class SoccerStage : NetworkBehaviour
 
     void OnGUI()
     {
+        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (!IsSpawned) return;
         // 스코어보드
         var r = UiKit.Chip(Screen.width * 0.5f, 12f, 340f, 40f);
