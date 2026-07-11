@@ -593,30 +593,31 @@ MonoBehaviour:
   - label: "\uC2DC\uC791"
     scene: Hallway
     thumb: Thumbs/hallway
+    wip: 0
   - label: "\uC815\uAE00"
     scene: Jungle
     thumb: Thumbs/jungle
-  - label: "\uB208 \uB36E\uC778 \uC0B0"
+    wip: 0
+  - label: "\uBE59\uC0B0"
     scene: IceMountain
     thumb: Thumbs/ice
+    wip: 0
   - label: "\uC6B0\uC8FC"
     scene: Space
     thumb: Thumbs/space
-  - label: "\uD2B8\uB799"
-    scene: Track
-    thumb: Thumbs/track
+    wip: 1
   - label: "\uB2EC"
     scene: Moon
     thumb: Thumbs/moon
-  - label: "\uBAA8\uD5D8"
-    scene: Adventure
-    thumb: Thumbs/adventure
-  - label: "\uB4F1\uBC18"
+    wip: 1
+  - label: "\uD14C\uB2C8\uC2A4\uACF5"
     scene: Climb
     thumb: Thumbs/climb
+    wip: 1
   enterTime: 0.32
   dropPixels: 70
   hoverScale: 1.045
+  panelCenterX: 0.4
 --- !u!4 &404797400
 Transform:
   m_ObjectHideFlags: 0

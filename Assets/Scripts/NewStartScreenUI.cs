@@ -15,17 +15,15 @@ public class NewStartScreenUI : MonoBehaviour
     enum Step { Home, Mode, Stage, Join, Options }
 
     [System.Serializable]
-    public class Level { public string label; public string scene; public string thumb; }
+    public class Level { public string label; public string scene; public string thumb; public bool wip; }
     public Level[] levels =
     {
-        new Level { label = "시작",      scene = "Hallway",     thumb = "Thumbs/hallway" },
-        new Level { label = "정글",      scene = "Jungle",      thumb = "Thumbs/jungle"  },
-        new Level { label = "눈 덮인 산", scene = "IceMountain", thumb = "Thumbs/ice"     },
-        new Level { label = "우주",      scene = "Space",       thumb = "Thumbs/space"   },
-        new Level { label = "트랙",      scene = "Track",       thumb = "Thumbs/track"   },
-        new Level { label = "달",        scene = "Moon",        thumb = "Thumbs/moon"    },
-        new Level { label = "모험",      scene = "Adventure",   thumb = "Thumbs/adventure" },
-        new Level { label = "등반",      scene = "Climb",       thumb = "Thumbs/climb"   },
+        new Level { label = "시작",     scene = "Hallway",     thumb = "Thumbs/hallway" },
+        new Level { label = "정글",     scene = "Jungle",      thumb = "Thumbs/jungle"  },
+        new Level { label = "빙산",     scene = "IceMountain", thumb = "Thumbs/ice"     },
+        new Level { label = "우주",     scene = "Space",       thumb = "Thumbs/space",  wip = true },
+        new Level { label = "달",       scene = "Moon",        thumb = "Thumbs/moon",   wip = true },
+        new Level { label = "테니스공", scene = "Climb",       thumb = "Thumbs/climb",  wip = true },
     };
 
     [Header("연출")]
@@ -236,7 +234,7 @@ public class NewStartScreenUI : MonoBehaviour
     {
         float cx = Screen.width * 0.46f, cyOff = DropOffset();
         int n = levels.Length;
-        int cols = 4, rows = (n + cols - 1) / cols;
+        int cols = 3, rows = (n + cols - 1) / cols;   // 3×2: 윗줄=플레이 가능, 아랫줄=구현중
         float pw = Mathf.Min(200f, (Screen.width - 160f) / cols - 26f);
         float ph = pw * 0.72f + 34f;
         float gridW = cols * (pw + 26f) - 26f;
@@ -268,6 +266,16 @@ public class NewStartScreenUI : MonoBehaviour
             if (thumbs[i] != null) GUI.DrawTexture(photo, thumbs[i], ScaleMode.ScaleAndCrop);
             else Fill(photo, new Color(0.9f, 0.9f, 0.88f));
             GUI.Label(new Rect(x, photo.yMax + 2f, pw, 24f), levels[i].label, polaLabel);
+            // (구현중) 스티커 — 사진 좌상단에 노란 테이프 배지
+            if (levels[i].wip)
+            {
+                var badge = new Rect(x + 10f, y + 16f, 76f, 24f);
+                var bm = GUI.matrix;
+                GUIUtility.RotateAroundPivot(-7f, badge.center);
+                Bordered(badge, new Color(1f, 0.93f, 0.62f, 0.96f), new Color(0.72f, 0.6f, 0.28f), 1.5f);
+                GUI.Label(badge, "구현중", small);
+                GUI.matrix = bm;
+            }
             // 핀
             var pin = new Rect(frame.center.x - 6f, y - 6f, 12f, 12f);
             Fill(pin, PinColors[i % PinColors.Length]);
