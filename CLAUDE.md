@@ -221,6 +221,7 @@
 
 ## 빌드 (★2026-07-11)
 - **첫 씬 = StartScreen**(빌드 0번, 사용자 결정 — NewStartScreen에서 원복), Table.prefab의 `PauseMenu.startScene = "StartScreen"`. **StartScreen 스테이지 선택 = 기본 3맵**(시작/정글/빙산) + 우측 **'구현중인 맵들 ▶' 버튼** → wipLevels(우주/등반/달) 목록으로 전환('뒤로'=기본 목록 복귀), 트랙/모험은 숨김. LevelSelect.GoTo(step, wip) 테스트 훅. 프리뷰/미니어처는 기본 목록에서만(인덱스 정합). (NewStartScreen도 6맵 구성으로 빌드에 남아 있음 — 크래프트 UI 대안.) ⚠️levels/wipLevels는 씬 직렬화 — 목록 변경은 씬 인스턴스 수정 필수.
+- **⚠️WebGL 한글 폰트(2026-07-12)**: 웹엔 OS 폰트가 없어 기본 폰트로는 **한글이 전부 사라짐**(itch.io에서 ASCII만 보임) — `Assets/Resources/Fonts/NanumGothic-Regular.ttf`(OFL) 내장 + **`UiKit.ApplyKoreanFont()`를 모든 OnGUI 첫 줄에서 호출**(GUI.skin.font 교체; skin은 세션 공유 + 캐시 GUIStyle은 font==null이면 skin 폴백이라 한 번 적용이면 전 UI 커버). 새 OnGUI UI를 만들면 첫 줄에 이 호출 추가할 것.
 - **3종 빌드 방법**(에디터 열린 채 RunCommand에서 BuildPipeline.BuildPlayer **동기 호출** — delayCall은 유실됨, 동기는 MCP가 완주를 기다림): macOS(.app)/Windows x64(Mono — Mac에서 IL2CPP 크로스 불가)/WebGL. **WebGL은 itch.io용으로 `PlayerSettings.WebGL.compressionFormat=Gzip` + `decompressionFallback=true`**(서버 설정 불필요). 산출물 `Builds/`(gitignore): Mac 187M / Windows 169M / Web 38M + `we-are-table-web-itch.zip`(index.html이 zip 루트). 빌드 후 액티브 타깃 macOS 원복(SwitchActiveBuildTargetAsync). ⚠️WebGL에선 UnityTransport(UDP) 미지원 — 멀티(방 만들기/참가)는 웹 빌드에서 동작 안 함(싱글 플로우는 정상).
 
 ## 일시정지 메뉴 / 다리 색(X-ray)
