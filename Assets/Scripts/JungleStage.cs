@@ -213,6 +213,26 @@ public class JungleStage : MonoBehaviour
         return null;
     }
 
+    /// <summary>★F1 '다시 시작'(2026-07-12): 용암 강을 건넌 뒤면 '지금 있던 쪽'의 안전 지점
+    /// (용암 사망 리스폰과 같은 체크포인트 규칙), 아직 안 건넜으면 처음 스폰(해변). true=정글이 처리함.</summary>
+    public bool RestartRespawn(ArtSceneReset reset)
+    {
+        if (island == null || reset == null) return false;
+        ignoreUntil = Time.time + respawnCooldown;   // 리스폰 직후 용암 판정 유예(기존 리스폰과 동일)
+        float spawnSide = island.SignedSideOfRiver(spawnPoint.x, spawnPoint.z);
+        if (lastSafeSide != spawnSide)
+        {
+            Vector2 cur = tableTop != null ? new Vector2(tableTop.position.x, tableTop.position.z)
+                        : table != null ? new Vector2(table.position.x, table.position.z)
+                        : new Vector2(spawnPoint.x, spawnPoint.z);
+            Vector3 safe = FindNearestSafe(cur, lastSafeSide);
+            reset.ResetPoseAtXZ(safe.x, safe.z, safe.y + 3f);   // 낮은 스캔 = 야자수 위에 안 얹힘
+        }
+        else
+            reset.ResetPoseAtXZ(spawnPoint.x, spawnPoint.z);    // 처음 스폰 해변(트인 하늘)
+        return true;
+    }
+
     void Respawn()
     {
         ignoreUntil = Time.time + respawnCooldown;

@@ -129,8 +129,8 @@ public class SceneReset : MonoBehaviour
     void Update()
     {
         var kb = Keyboard.current;
-        if (kb != null && kb.digit1Key.wasPressedThisFrame)
-            ResetPoseInPlace();
+        if (kb != null && kb.f1Key.wasPressedThisFrame)   // ★'1' 자세 복원 폐지 → F1 = 처음 스폰에서 다시 시작
+            ResetAll();
 
         // 뒤집힘 감지: 상판이 '많이 누운' 채 '거의 멈춰'(정착) 있어야 타이머 시작.
         // 구르는 중·일시적 기울임엔 시작 안 함 → 너무 자주 뜨던 문제 해결.
@@ -318,8 +318,8 @@ public class SceneReset : MonoBehaviour
         GUI.DrawTexture(new Rect(x, y, w, 4f), flipTex);                 // 상단 강조선
         GUI.color = prev;
 
-        GUI.Label(new Rect(x, y + 10f, w, 40f), "Press \"1\"", flipBig);
-        GUI.Label(new Rect(x, y + 48f, w, 24f), "테이블이 뒤집혔어요 — 자세 다시 잡기", flipSmall);
+        GUI.Label(new Rect(x, y + 10f, w, 40f), "F1 — 다시 시작", flipBig);
+        GUI.Label(new Rect(x, y + 48f, w, 24f), "테이블이 뒤집혔어요", flipSmall);
     }
 
     void EnsureFlipStyles()

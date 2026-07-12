@@ -2,13 +2,15 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// ArticulationBody 테이블용 리셋/리스폰 — 본게임 SceneReset의 상호작용을 충실히 재현. 테이블 루트에 부착.
-/// - '1' = 지금 자리(XZ)에서 자세만 복원. ★yaw는 '카메라가 보는 방향'으로 정렬(원본과 동일 —
-///   기울어진 상태의 eulerAngles.y 는 부정확해 다리-카메라 매핑이 틀어지므로 카메라 기준. 리셋 후 항상 WASD 다리가 화면 먼왼쪽).
-/// - ResetPoseAtXZ = 용암 리스폰 등: 지정 XZ의 땅 위에 복원(500 높이에서 스캔 — 다른 고지대로 보내는 경우 대비).
-/// - lift = 콜라이더 기하 1회 측정(boardClearance + tableHeight × groundLiftFactor) — 원본 공식.
+/// ArticulationBody 테이블용 리셋/리스폰. 테이블 루트에 부착.
+/// ★2026-07-12 개편(사용자 요청): '1' 제자리 자세 복원 폐지 → **F1 = 다시 시작(처음 스폰 위치 리스폰)**.
+/// - F1 또는 뒤집힘 배너의 [다시 시작] 버튼 = Restart(): 초기 스폰 XZ에 리스폰(스캔은 초기 높이 바로 위에서 —
+///   빙산 동굴처럼 지붕 있는 곳에서 지붕 위로 안 올라가게). 정글은 JungleStage.RestartRespawn이 가로채
+///   강을 건넌 뒤면 '지금 있던 쪽' 안전 지점(체크포인트 규칙)에 리스폰.
+/// - ResetPoseAtXZ = 용암/추락 리스폰 등: 지정 XZ의 땅 위에 복원. yaw는 카메라 방향(조작-화면 매핑 일관).
+/// - lift = 콜라이더 기하 1회 측정(boardClearance + tableHeight × groundLiftFactor).
 /// - 다리 ResetState + HoldVertical(0.4s), GiraffeMode.ResetLegs(늘어난 길이 초기화).
-/// - 뒤집힘 2초(+정착) 시 'Press 1' 배너.
+/// - 뒤집힘 2초(+정착) 시 [다시 시작 (F1)] 버튼 배너(클릭은 Mouse.current — PauseMenu 패턴).
 /// </summary>
 public class ArtSceneReset : MonoBehaviour
 {
@@ -27,7 +29,7 @@ public class ArtSceneReset : MonoBehaviour
     public float watchdogMinY = -150f;
     [Tooltip("리셋 시 아래에 지면이 없으면 현재 높이 유지(무중력 씬용). false=기존 동작(스캔 높이/폴백).")]
     public bool keepYIfNoGround = false;
-    [Tooltip("★'1' 수동 리셋 차단(축구 등 규칙 씬 — 골이 나야만 재배치). 워치독/뒤집힘 복구는 유지.")]
+    [Tooltip("★F1 다시 시작 차단(축구 등 규칙 씬 — 골이 나야만 재배치). 워치독/뒤집힘 복구는 유지.")]
     public bool disableManualReset = false;
 
     ArticulationBody root;
@@ -36,7 +38,8 @@ public class ArtSceneReset : MonoBehaviour
     float tableHeight = 0.8f, boardClearance = 0.75f;   // MeasureGeometry로 갱신
     float flippedTime;
     Vector2 lastGoodXZ; bool haveGoodXZ;                 // NaN/폭발 워치독용(원본 SceneReset 이식)
-    GUIStyle bannerStyle, bannerSub;
+    Vector3 initPos;                                     // F1 다시 시작용 초기 스폰(루트 위치, Awake 캡처)
+    GUIStyle bannerStyle, bannerSub, btnLabel;
     Texture2D white;
 
     void Awake()
@@ -45,6 +48,7 @@ public class ArtSceneReset : MonoBehaviour
         foreach (var ab in bodies)
             if (ab.isRoot) { root = ab; break; }
         legs = GetComponentsInChildren<ArtLegController>(true);
+        if (root != null) initPos = root.transform.position;
         MeasureGeometry();
     }
 
@@ -104,33 +108,67 @@ public class ArtSceneReset : MonoBehaviour
     {
         var kb = Keyboard.current;
         if (kb == null || root == null) return;
-        if (!disableManualReset && kb.digit1Key.wasPressedThisFrame) ResetPoseInPlace();
+        if (!disableManualReset && kb.f1Key.wasPressedThisFrame) Restart();
 
         // 뒤집힘 감지(원본: 많이 누움 + 거의 정지일 때만 카운트 → 구르는 중 오탐 방지)
         bool flipped = Vector3.Dot(root.transform.up, Vector3.up) < flipDot
                        && root.linearVelocity.magnitude < flipCalmSpeed
                        && root.angularVelocity.magnitude < flipCalmSpeed;
         flippedTime = flipped ? flippedTime + Time.deltaTime : 0f;
+
+        // 뒤집힘 배너의 [다시 시작] 버튼 클릭 — GUI.Button은 새 입력시스템에서 안 먹어 Mouse.current로 직접(PauseMenu 패턴)
+        var mouse = Mouse.current;
+        if (!disableManualReset && flippedTime >= flipPromptDelay && mouse != null && mouse.leftButton.wasPressedThisFrame)
+        {
+            Vector2 p = mouse.position.ReadValue();
+            Vector2 gm = new Vector2(p.x, Screen.height - p.y);   // 좌하 원점 → GUI 좌상 원점
+            if (RestartBtnRect().Contains(gm)) Restart();
+        }
+    }
+
+    Rect BannerRect() => new Rect((Screen.width - 372f) * 0.5f, Screen.height * 0.18f, 372f, 112f);
+    Rect RestartBtnRect()
+    {
+        var r = BannerRect();
+        return new Rect(r.x + r.width * 0.5f - 110f, r.y + 56f, 220f, 42f);
     }
 
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
+        if (disableManualReset) return;
         if (flippedTime < flipPromptDelay) return;
         if (bannerStyle == null)
         {
             white = Texture2D.whiteTexture;
             Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-            bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 29, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             bannerStyle.normal.textColor = ink;
             bannerSub = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
             bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+            btnLabel = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            btnLabel.normal.textColor = ink;
         }
-        float w = 372f, h = 80f;
-        var r = new Rect((Screen.width - w) * 0.5f, Screen.height * 0.18f, w, h);
+        var r = BannerRect();
         UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
-        GUI.Label(new Rect(r.x, r.y + 8f, r.width, 36f), "Press 1", bannerStyle);
-        GUI.Label(new Rect(r.x, r.y + 46f, r.width, 24f), "뒤집혔어요 — 1 키로 자세 복구", bannerSub);
+        GUI.Label(new Rect(r.x, r.y + 8f, r.width, 34f), "뒤집혔어요!", bannerStyle);
+
+        var btn = RestartBtnRect();
+        bool hover = btn.Contains(Event.current.mousePosition);
+        UiKit.Panel(btn);
+        if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
+        GUI.Label(btn, "다시 시작 (F1)", btnLabel);
+    }
+
+    /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면
+    /// JungleStage가 '지금 있던 쪽' 안전 지점(체크포인트 규칙)으로 가로챈다.</summary>
+    public void Restart()
+    {
+        if (root == null || disableManualReset) return;
+        var js = Object.FindAnyObjectByType<JungleStage>();
+        if (js != null && js.RestartRespawn(this)) return;
+        // 스캔을 '초기 높이 바로 위'에서 → 빙산 동굴처럼 지붕 있는 스폰에서 지붕 위로 안 올라감.
+        ResetPoseAtXZ(initPos.x, initPos.z, initPos.y + 2f);
     }
 
     /// <summary>'1': 지금 자리(XZ)·카메라 방향(yaw) 유지, 기울기/다리만 똑바로.
