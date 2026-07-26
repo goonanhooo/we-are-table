@@ -3,7 +3,9 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// ArticulationBody 테이블용 리셋/리스폰. 테이블 루트에 부착.
-/// ★2026-07-12 개편(사용자 요청): '1' 제자리 자세 복원 폐지 → **F1 = 다시 시작(처음 스폰 위치 리스폰)**.
+/// ★2026-07-12 개편: F1 = 다시 시작(처음 스폰 위치 리스폰). ★2026-07-13 '1' 자세 다시 잡기 부활 —
+/// **맵당 poseResetMax(3)회 충전제**(우상단 동그라미 UI, 쓸 때마다 비워짐, CheatMode.Active면 무제한/소모 없음,
+/// 충전 아이템용 AddPoseResets/RefillPoseResets API — 아이템 자체는 추후).
 /// - F1 또는 뒤집힘 배너의 [다시 시작] 버튼 = Restart(): 초기 스폰 XZ에 리스폰(스캔은 초기 높이 바로 위에서 —
 ///   빙산 동굴처럼 지붕 있는 곳에서 지붕 위로 안 올라가게). 정글은 JungleStage.RestartRespawn이 가로채
 ///   강을 건넌 뒤면 '지금 있던 쪽' 안전 지점(체크포인트 규칙)에 리스폰.
@@ -32,6 +34,16 @@ public class ArtSceneReset : MonoBehaviour
     [Tooltip("★F1 다시 시작 차단(축구 등 규칙 씬 — 골이 나야만 재배치). 워치독/뒤집힘 복구는 유지.")]
     public bool disableManualReset = false;
 
+    [Header("자세 다시 잡기(1키) — 맵당 충전제(★2026-07-13)")]
+    [Tooltip("맵당 자세 다시 잡기 횟수(씬 로드 시 가득 충전). 치트 중엔 소모 없음.")]
+    public int poseResetMax = 3;
+    [Tooltip("우상단 충전 동그라미 지름(px)")]
+    public float chargeCircleSize = 38f;
+
+    int poseResetsLeft;
+    /// <summary>남은 자세 다시 잡기 횟수(읽기 — UI/외부 확인용).</summary>
+    public int PoseResetsLeft => poseResetsLeft;
+
     ArticulationBody root;
     ArticulationBody[] bodies;
     ArtLegController[] legs;
@@ -40,7 +52,7 @@ public class ArtSceneReset : MonoBehaviour
     Vector2 lastGoodXZ; bool haveGoodXZ;                 // NaN/폭발 워치독용(원본 SceneReset 이식)
     Vector3 initPos;                                     // F1 다시 시작용 초기 스폰(루트 위치, Awake 캡처)
     GUIStyle bannerStyle, bannerSub, btnLabel;
-    Texture2D white;
+    Texture2D white, circleFull, circleEmpty;
 
     void Awake()
     {
@@ -49,8 +61,25 @@ public class ArtSceneReset : MonoBehaviour
             if (ab.isRoot) { root = ab; break; }
         legs = GetComponentsInChildren<ArtLegController>(true);
         if (root != null) initPos = root.transform.position;
+        poseResetsLeft = poseResetMax;   // 맵당 충전(씬 로드마다 새 인스턴스)
         MeasureGeometry();
     }
+
+    /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트(CheatMode.Active) 중엔 무제한.</summary>
+    public void TryPoseReset()
+    {
+        if (disableManualReset || root == null) return;
+        bool cheat = CheatMode.Active;
+        if (!cheat && poseResetsLeft <= 0) return;   // 다 씀 — 맵의 충전 아이템(추후)으로 회복
+        ResetPoseInPlace();
+        if (!cheat) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1);
+    }
+
+    /// <summary>충전 아이템용(아직 아이템 없음 — 시스템만): n회 회복(최대치 제한).</summary>
+    public void AddPoseResets(int n = 1) => poseResetsLeft = Mathf.Clamp(poseResetsLeft + n, 0, poseResetMax);
+
+    /// <summary>가득 충전.</summary>
+    public void RefillPoseResets() => poseResetsLeft = poseResetMax;
 
     /// <summary>워치독(원본 SceneReset 이식): 어느 바디든 위치가 NaN/거대값이면 마지막 정상 XZ로 전체 복구.
     /// 폭발은 '거대하지만 유한'일 수 있어 Finite 검사만으론 못 잡는다 — 거리/깊이 한계 포함.</summary>
@@ -109,6 +138,7 @@ public class ArtSceneReset : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null || root == null) return;
         if (!disableManualReset && kb.f1Key.wasPressedThisFrame) Restart();
+        if (!disableManualReset && kb.digit1Key.wasPressedThisFrame) TryPoseReset();   // ★부활: 맵당 3회 충전제
 
         // 뒤집힘 감지(원본: 많이 누움 + 거의 정지일 때만 카운트 → 구르는 중 오탐 방지)
         bool flipped = Vector3.Dot(root.transform.up, Vector3.up) < flipDot
@@ -126,38 +156,86 @@ public class ArtSceneReset : MonoBehaviour
         }
     }
 
-    Rect BannerRect() => new Rect((Screen.width - 372f) * 0.5f, Screen.height * 0.18f, 372f, 112f);
+    Rect BannerRect() => new Rect((Screen.width - 372f) * 0.5f, Screen.height * 0.18f, 372f, 134f);
     Rect RestartBtnRect()
     {
         var r = BannerRect();
-        return new Rect(r.x + r.width * 0.5f - 110f, r.y + 56f, 220f, 42f);
+        return new Rect(r.x + r.width * 0.5f - 110f, r.y + 52f, 220f, 42f);
+    }
+
+    // 원형 텍스처 1회 생성(IMGUI엔 원 프리미티브가 없음) — 부드러운 가장자리(AA) 포함
+    static Texture2D MakeCircleTex(int size, Color fill, Color line, float lineWidth)
+    {
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        float c = (size - 1) * 0.5f, rOut = c - 1f, rIn = rOut - lineWidth;
+        var px = new Color[size * size];
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c));
+                Color col;
+                if (d <= rIn) col = fill;
+                else if (d <= rOut) col = line;
+                else col = new Color(0f, 0f, 0f, 0f);
+                float edge = Mathf.Clamp01(rOut + 1f - d);          // 바깥 가장자리 AA
+                col.a *= edge;
+                px[y * size + x] = col;
+            }
+        tex.SetPixels(px);
+        tex.Apply();
+        tex.hideFlags = HideFlags.DontSave;
+        return tex;
+    }
+
+    void EnsureUiAssets()
+    {
+        if (bannerStyle != null) return;
+        white = Texture2D.whiteTexture;
+        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
+        bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        bannerStyle.normal.textColor = ink;
+        bannerSub = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
+        bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        btnLabel = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+        btnLabel.normal.textColor = ink;
+        // 충전 동그라미: 채움=잉크(가득), 빈 것=흰 배경에 회색 테두리(다 씀)
+        circleFull = MakeCircleTex(64, new Color(0.16f, 0.13f, 0.10f, 1f), Color.black, 4f);
+        circleEmpty = MakeCircleTex(64, new Color(1f, 1f, 1f, 0.85f), new Color(0f, 0f, 0f, 0.55f), 4f);
     }
 
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (disableManualReset) return;
-        if (flippedTime < flipPromptDelay) return;
-        if (bannerStyle == null)
+        EnsureUiAssets();
+
+        // ── 우상단 '자세 다시 잡기' 충전 동그라미 3개(사용할 때마다 하나씩 비워짐) ──
+        float d = chargeCircleSize, gap = 12f;
+        float x0 = Screen.width - 18f - poseResetMax * d - (poseResetMax - 1) * gap;
+        float cy = 16f;
+        bool cheat = CheatMode.Active;
+        for (int i = 0; i < poseResetMax; i++)
         {
-            white = Texture2D.whiteTexture;
-            Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-            bannerStyle = new GUIStyle(GUI.skin.label) { fontSize = 26, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            bannerStyle.normal.textColor = ink;
-            bannerSub = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
-            bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
-            btnLabel = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            btnLabel.normal.textColor = ink;
+            bool full = cheat || i < poseResetsLeft;   // 치트 중엔 항상 가득(무제한)
+            GUI.DrawTexture(new Rect(x0 + i * (d + gap), cy, d, d), full ? circleFull : circleEmpty);
         }
+
+        // ── 뒤집힘 배너 ──
+        if (flippedTime < flipPromptDelay) return;
         var r = BannerRect();
         UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
-        GUI.Label(new Rect(r.x, r.y + 8f, r.width, 34f), "뒤집혔어요!", bannerStyle);
+        GUI.Label(new Rect(r.x, r.y + 6f, r.width, 34f), "뒤집혔어요!", bannerStyle);
 
         var btn = RestartBtnRect();
         bool hover = btn.Contains(Event.current.mousePosition);
         UiKit.Panel(btn);
         if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
         GUI.Label(btn, "다시 시작 (F1)", btnLabel);
+
+        string hint = (cheat || poseResetsLeft > 0)
+            ? "또는 1 키 — 자세 다시 잡기 (" + (cheat ? "치트: 무제한" : "남은 횟수 " + poseResetsLeft) + ")"
+            : "자세 다시 잡기를 모두 썼어요";
+        GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), hint, bannerSub);
     }
 
     /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면
