@@ -41,6 +41,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Soccer.unity
     guid: 8f6bd3b462d724f4daa64e8f2d8401e3
+  - enabled: 1
+    path: Assets/Scenes/NewJungle.unity
+    guid: d2d6eb9025b4a42cb8f0c211c065202d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
