@@ -22,6 +22,23 @@ public class NetDebugPanel : MonoBehaviour
     NetworkManager NM => NetworkManager.Singleton;
     NetLegLink Link => FindAnyObjectByType<NetLegLink>();
 
+    // ★2026-07-14 로딩/오버레이 겹침 방지: LevelSelect가 아직 떠 있으면(방 만드는 중 로딩 화면 포함)
+    //   로비를 그리지도, 클릭을 받지도 않는다 — HostAsync 완료 전 세션이 먼저 열려 둘이 겹치던 문제.
+    LevelSelect ls;
+    float lsFindAt;
+    bool OverlayBlocked
+    {
+        get
+        {
+            if (ls == null && Time.unscaledTime > lsFindAt)
+            {
+                ls = FindAnyObjectByType<LevelSelect>();
+                lsFindAt = Time.unscaledTime + 2f;
+            }
+            return ls != null && ls.Showing;
+        }
+    }
+
     // ★맵 선택 3D 프리뷰(StartScreen에만 존재 — 인게임 씬에선 null이라 자동 무시)
     MapSelectPreview preview;
     float previewFindAt;
@@ -88,6 +105,7 @@ public class NetDebugPanel : MonoBehaviour
 
         if (InLobby)
         {
+            if (OverlayBlocked) return;   // 로딩/오버레이 중엔 로비 클릭 무시
             var link = Link;
             for (int i = 0; i < 4; i++)
                 if (LegBtn(i).Contains(gm)) { link.ClaimLegRpc((byte)i); return; }   // ★토글(여러 개 선택 가능)
@@ -163,6 +181,7 @@ public class NetDebugPanel : MonoBehaviour
 
         if (InLobby)
         {
+            if (OverlayBlocked) return;   // 로딩/오버레이 중엔 로비를 아직 그리지 않음(겹침 방지)
             // ★왼쪽 열 손글씨 레이아웃(홈 메뉴 계층에 포함) — 배경 창/딤 없음
             var link = Link;
             GUI.Label(R(0f, 0f, panel.width, 40f), L.T("함께하기 — 로비", "play together — lobby"), hTitle);

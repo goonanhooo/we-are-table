@@ -45,6 +45,7 @@ public class LevelSelect : MonoBehaviour
     int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가)
     string codeInput = "";
     bool busy;           // 방 생성/참가 진행 중
+    string busyMsg = ""; // ★로딩 화면 문구(방 만드는 중/참가 중) — busy 동안 전용 화면 표시(2026-07-14)
 
     Texture2D[] thumbs, wipThumbs;
     bool showWip;        // 스테이지 선택에서 '구현중인 맵들' 목록 표시 중
@@ -146,13 +147,14 @@ public class LevelSelect : MonoBehaviour
     {
         if (busy) return;
         busy = true;
+        busyMsg = L.T("방 만드는 중", "creating room");
         NetLegLink.ResetSessionCache();   // 새 세션 — 이전 세션의 배정/시작 캐시 제거
         bool ok = await NetSession.HostAsync();
         busy = false;
         if (ok)
         {
             Time.timeScale = 1f;
-            Close();   // 오버레이 닫힘 → NetDebugPanel 로비(중앙 창)가 이어받음
+            Close();   // 오버레이 닫힘 → NetDebugPanel 로비가 이어받음
         }
     }
 
@@ -161,6 +163,7 @@ public class LevelSelect : MonoBehaviour
     {
         if (busy || codeInput.Length < 4) return;
         busy = true;
+        busyMsg = L.T("참가 중", "joining");
         bool ok = await NetSession.JoinAsync(codeInput);
         busy = false;
         if (ok) Close();
@@ -219,6 +222,18 @@ public class LevelSelect : MonoBehaviour
         EnsureStyles();
 
         // ★B안: 딤 없음 — 흰 배경 위 왼쪽 열에 그대로 그린다(홈 메뉴 자리를 하위 메뉴가 교대)
+
+        // ★로딩 중(방 만들기/참가 네트워크 대기): 다른 메뉴 전부 숨기고 로딩 문구만 — 겹침/오클릭 방지
+        if (busy)
+        {
+            float blx = Screen.width * 0.09f;
+            float by = Screen.height * 0.40f;
+            int dots = (int)(Time.unscaledTime * 2f) % 4;
+            GUI.Label(new Rect(blx, by, 700f, 60f), busyMsg + new string('.', dots), nameStyle);
+            GUI.Label(new Rect(blx, by + 64f, 700f, 30f),
+                L.T("잠시만 기다려 주세요", "just a moment"), smallStyle);
+            return;
+        }
 
         // ESC = 한 단계 뒤로(시작하기 직행이면 홈으로)
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
