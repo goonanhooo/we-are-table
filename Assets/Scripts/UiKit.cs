@@ -43,11 +43,10 @@ public static class UiKit
         Fill(r, new Color(1f, 1f, 1f, bgAlpha));
     }
 
-    /// <summary>버튼: 흰 배경+검은 테두리+검은 글씨. hover 시 옅은 회색.</summary>
+    /// <summary>버튼: 흰 배경+검은 테두리+검은 글씨. ★2026-07-14 호버 색 변화 전면 제거(사용자 요청).</summary>
     public static void Button(Rect r, string text, bool hover)
     {
         Panel(r);
-        if (hover) Fill(r, new Color(0f, 0f, 0f, 0.10f));
         GUI.Label(r, text, Btn);
     }
 

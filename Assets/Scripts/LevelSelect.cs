@@ -272,9 +272,11 @@ public class LevelSelect : MonoBehaviour
 
         for (int i = 0; i < arr.Length; i++)
         {
+            // ★2026-07-14 진행 잠금(사용자: 처음엔 '시작'만): 이전 맵 클리어 전엔 실루엣+??? — 치트는 전부 해금
+            bool locked = !showWip && !CheatMode.Active && !Progress.IsUnlocked(arr[i].scene);
             var frame0 = new Rect(lx, y, tw + 18f, th + 18f);
             var rowR = new Rect(lx, y, tw + 18f + 210f, th + 18f);   // 이름까지 클릭 영역
-            bool hover = rowR.Contains(Event.current.mousePosition);
+            bool hover = !locked && rowR.Contains(Event.current.mousePosition);
 
             // ★호버 = 3D 프리뷰 전환 — 기본 목록에서만(인덱스가 미니어처 순서와 일치)
             if (!showWip && hover && preview != null && !loadPending && i != previewHover)
@@ -291,25 +293,37 @@ public class LevelSelect : MonoBehaviour
             if (hover) GUIUtility.RotateAroundPivot(-1.0f, frame.center);
             Rect2(frame, Color.white);
             if (HandUI.BoxTile != null) GUI.DrawTexture(frame, HandUI.BoxTile, ScaleMode.StretchToFill);
-            // ★미니어처 우선: 살아있는 3D 회전 섬(RT). 없으면 기존 스크린샷 폴백.
-            Texture mini = null;
-            if (!showWip && miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
-            if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
-            else if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
-            else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
+            // ★미니어처 우선: 살아있는 3D 회전 섬(RT). 없으면 기존 스크린샷 폴백. 잠금 맵=검은 실루엣.
+            if (locked)
+            {
+                var pc = GUI.color;
+                GUI.color = new Color(0.10f, 0.10f, 0.10f, 1f);   // 어둡게 곱해 실루엣만 남김
+                if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
+                else GUI.DrawTexture(thumbR, white, ScaleMode.StretchToFill);
+                GUI.color = pc;
+            }
+            else
+            {
+                Texture mini = null;
+                if (!showWip && miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
+                if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
+                else if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
+                else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
+            }
             GUI.matrix = tm;
 
-            // 이름: 썸네일 오른쪽에 손글씨(호버 시 밑줄)
+            // 이름: 썸네일 오른쪽에 손글씨(호버 시 밑줄). 잠금 맵은 ???
             var nameR = new Rect(frame0.xMax + 18f, y + frame0.height * 0.5f - 24f, 200f, 48f);
-            GUI.Label(nameR, MapLabel(arr[i]), nameStyle);
+            string nm = locked ? "???" : MapLabel(arr[i]);
+            GUI.Label(nameR, nm, nameStyle);
             if (hover && HandUI.Underline != null)
             {
-                float textW = nameStyle.CalcSize(new GUIContent(MapLabel(arr[i]))).x;
+                float textW = nameStyle.CalcSize(new GUIContent(nm)).x;
                 GUI.DrawTexture(new Rect(nameR.x, nameR.yMax - 6f, textW, 14f), HandUI.Underline, ScaleMode.StretchToFill);
             }
 
-            // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백)
-            if (GUI.Button(rowR, GUIContent.none, GUIStyle.none) && !loadPending)
+            // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백). 잠금 맵은 클릭 불가
+            if (!locked && GUI.Button(rowR, GUIContent.none, GUIStyle.none) && !loadPending)
             {
                 if (!showWip && preview != null && !preview.Busy)
                 {

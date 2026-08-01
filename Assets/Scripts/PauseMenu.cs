@@ -31,13 +31,18 @@ public class PauseMenu : MonoBehaviour
     int openedFrame = -1;   // 메뉴를 연 프레임. 그 프레임의 클릭은 '바깥 클릭 닫기'로 처리하지 않음.
 
     GUIStyle titleStyle, btnStyle, labelStyle, centerStyle;
+    GUIStyle handTitle, handItem, handLabel;   // ★시작 화면 손글씨 모드
     Texture2D tex;
 
-    const float PanelW = 380f, PanelH = 776f;
-    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, lettersBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
-    bool showLetters; int letterPage;   // 편지 열람 화면(조작법 화면과 같은 패턴)
+    // ★2026-07-14 시작 화면(StartScreenMenu 존재)에선 가운데 창 대신 왼쪽 손글씨 메뉴 계층으로(사용자 요청)
+    bool handMode;
+
+    const float PanelW = 380f, PanelH = 660f;
+    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
     Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
+
+    static readonly Rect Off = new Rect(-9999f, -9999f, 0f, 0f);   // 손글씨 모드에서 숨길 버튼
 
     void Awake() => xray = GetComponent<LegColorXray>();
 
@@ -63,6 +68,8 @@ public class PauseMenu : MonoBehaviour
 
     void ComputeLayout()
     {
+        if (handMode) { ComputeHandLayout(); return; }
+
         float x = (Screen.width - PanelW) * 0.5f;
         float y = (Screen.height - PanelH) * 0.5f;
         panel = new Rect(x, y, PanelW, PanelH);
@@ -79,11 +86,33 @@ public class PauseMenu : MonoBehaviour
         sfxSlider   = new Rect(ix, cy, iw, 22f);   cy += 22f + 14f;
         colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        lettersBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
         cheatBtn    = new Rect(ix, cy, iw, 46f);   // 맨 아래 '숨은' 버튼 — 호버해야만 보임
+    }
+
+    /// <summary>★손글씨 모드(시작 화면): 홈 메뉴와 같은 왼쪽 열 — 가운데 창 없음.
+    /// Update의 클릭/드래그 판정이 같은 Rect 필드를 쓰므로 위치만 바꾸면 로직 공유.</summary>
+    void ComputeHandLayout()
+    {
+        float lx = Screen.width * 0.09f;
+        float cy = Screen.height * 0.34f;   // 타이틀 그래픽 아래(LevelSelect와 같은 기준대)
+        float sw = 340f;   // 슬라이더 폭
+
+        panel = Off;
+        titleRect  = new Rect(lx, cy, 500f, 44f);  cy += 56f;
+        volLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
+        volSlider  = new Rect(lx, cy, sw, 24f);    cy += 40f;
+        bgmLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
+        bgmSlider  = new Rect(lx, cy, sw, 24f);    cy += 40f;
+        sfxLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
+        sfxSlider  = new Rect(lx, cy, sw, 24f);    cy += 48f;
+        colorBtn   = new Rect(lx, cy, 420f, 50f);  cy += 58f;
+        controlsBtn = new Rect(lx, cy, 420f, 50f); cy += 58f;
+        resumeBtn  = new Rect(lx, cy, 150f, 50f);  cy += 58f;   // = 뒤로(닫기)
+        cheatBtn   = new Rect(lx, cy, 420f, 44f);               // 숨은 치트(호버 시만 표시)
+        restartBtn = Off; menuBtn = Off; quitBtn = Off;          // 시작 화면에선 의미 없음
     }
 
     void ComputeControlsLayout()
@@ -123,7 +152,6 @@ public class PauseMenu : MonoBehaviour
         if (kb != null && kb.escapeKey.wasPressedThisFrame)
         {
             if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
-            else if (paused && showLetters) showLetters = false; // 편지 화면이면 메뉴로 복귀
             else SetPaused(!paused);
         }
 
@@ -148,20 +176,6 @@ public class PauseMenu : MonoBehaviour
             return;
         }
 
-        // 편지 화면: 페이지 넘김 / 닫기만 처리(조작법 화면과 동일 레이아웃 재사용)
-        if (showLetters)
-        {
-            ComputeControlsLayout();
-            if (mouse.leftButton.wasPressedThisFrame)
-            {
-                string[] nm; var pg = LetterPages(out nm);
-                if (cClose.Contains(gm)) showLetters = false;
-                else if (pg.Length > 1 && cNext.Contains(gm)) letterPage = (letterPage + 1) % pg.Length;
-                else if (pg.Length > 1 && cPrev.Contains(gm)) letterPage = (letterPage - 1 + pg.Length) % pg.Length;
-            }
-            return;
-        }
-
         ComputeLayout();
 
         // 3개 볼륨 슬라이더 드래그 (마스터 / BGM / SFX)
@@ -182,7 +196,6 @@ public class PauseMenu : MonoBehaviour
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
-            else if (lettersBtn.Contains(gm)) { showLetters = true; letterPage = 0; }
             else if (restartBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
@@ -213,16 +226,17 @@ public class PauseMenu : MonoBehaviour
         Time.timeScale = p ? 0f : 1f;
         if (p)
         {
+            // ★시작 화면(홈 메뉴 존재)이면 손글씨 왼쪽 열 모드
+            handMode = Object.FindAnyObjectByType<StartScreenMenu>() != null;
             openedFrame = Time.frameCount;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
         else
         {
-            // 게임으로 복귀: 마우스 시점(CameraFollow)을 위해 다시 잠금
+            // 게임으로 복귀: 마우스 시점(CameraFollow)을 위해 다시 잠금(시작 화면은 StartScreenMenu가 매 프레임 해제)
             dragSlider = 0;
             showControls = false;
-            showLetters = false;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -236,9 +250,10 @@ public class PauseMenu : MonoBehaviour
         Vector2 gm = GuiMouse();
 
         if (showControls) { DrawControlsScreen(gm); return; }
-        if (showLetters) { DrawLettersScreen(gm); return; }
 
         ComputeLayout();
+
+        if (handMode) { DrawHandMenu(gm); return; }
 
         // 화면 살짝 어둡게(흰 패널이 도드라지게)
         Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
@@ -261,10 +276,6 @@ public class PauseMenu : MonoBehaviour
 
         DrawButton(controlsBtn, "Controls (조작법)", gm);
 
-        int found = 0;
-        for (int i = 0; i < LetterSystem.Ids.Length; i++) if (LetterSystem.IsCollected(LetterSystem.Ids[i])) found++;
-        DrawButton(lettersBtn, "Letters (편지)  " + found + "/" + LetterSystem.Ids.Length, gm);
-
         DrawButton(restartBtn, "Restart (다시 시작)", gm);
 
         DrawButton(menuBtn, "Main Menu", gm);
@@ -274,6 +285,62 @@ public class PauseMenu : MonoBehaviour
         // 치트: 평소엔 안 보임 — 메뉴 맨 아래 빈 자리에 마우스를 올려야만 나타나는 숨은 버튼
         if (cheatBtn.Contains(gm))
             DrawButton(cheatBtn, "Cheat (치트): " + (CheatMode.Active ? "ON" : "OFF"), gm);
+    }
+
+    /// <summary>★손글씨 모드(시작 화면 '설정'): 홈 메뉴와 같은 왼쪽 열 맨글씨 — 창/딤 없음.
+    /// 클릭 판정은 Update가 같은 Rect로 처리하므로 여기선 그리기만.</summary>
+    void DrawHandMenu(Vector2 gm)
+    {
+        GUI.Label(titleRect, L.T("설정", "options"), handTitle);
+
+        GUI.Label(volLabel, L.T("소리", "master") + "   " + Mathf.RoundToInt(AudioListener.volume * 100f) + "%", handLabel);
+        HandSlider(volSlider, AudioListener.volume);
+        GUI.Label(bgmLabel, L.T("배경음", "music") + "   " + Mathf.RoundToInt(Bgm.Volume * 100f) + "%", handLabel);
+        HandSlider(bgmSlider, Bgm.Volume);
+        GUI.Label(sfxLabel, L.T("효과음", "sfx") + "   " + Mathf.RoundToInt(Sfx.Volume * 100f) + "%", handLabel);
+        HandSlider(sfxSlider, Sfx.Volume);
+
+        bool on = xray != null && xray.IsOn;
+        HandItem(colorBtn, L.T("다리 색 표시: ", "leg colors: ") + (on ? L.T("켜짐", "on") : L.T("꺼짐", "off")), gm);
+        HandItem(controlsBtn, L.T("조작법", "controls"), gm);
+        HandItem(resumeBtn, L.T("뒤로", "back"), gm);
+
+        // 숨은 치트: 맨 아래 빈 자리에 호버해야만 보임(기존과 동일)
+        if (cheatBtn.Contains(gm))
+            HandItem(cheatBtn, L.T("치트: ", "cheat: ") + (CheatMode.Active ? "ON" : "OFF"), gm);
+    }
+
+    /// <summary>손글씨 메뉴 항목: 맨글씨 + 호버 시 살짝 기울임+밑줄(홈/LevelSelect와 동일 룩, 색 변화 없음).</summary>
+    void HandItem(Rect r, string text, Vector2 gm)
+    {
+        bool hover = r.Contains(gm);
+        var m = GUI.matrix;
+        if (hover) GUIUtility.RotateAroundPivot(-1.2f, new Vector2(r.x, r.center.y));
+        GUI.Label(r, text, handItem);
+        if (hover && HandUI.Underline != null)
+        {
+            float tw2 = Mathf.Min(handItem.CalcSize(new GUIContent(text)).x, r.width);
+            GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw2, 14f), HandUI.Underline, ScaleMode.StretchToFill);
+        }
+        GUI.matrix = m;
+    }
+
+    /// <summary>손그림 슬라이더: 연한 밑줄 트랙 + 값만큼 진한 밑줄 채움.</summary>
+    void HandSlider(Rect r, float v)
+    {
+        if (HandUI.Underline == null) { UiKit.Slider(r, v); return; }
+        v = Mathf.Clamp01(v);
+        float ty = r.y + r.height * 0.5f - 7f;
+        var pc = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, 0.25f);
+        GUI.DrawTexture(new Rect(r.x, ty, r.width, 14f), HandUI.Underline, ScaleMode.StretchToFill);
+        GUI.color = pc;
+        if (v > 0.01f)
+        {
+            GUI.BeginGroup(new Rect(r.x, r.y, r.width * v, r.height));
+            GUI.DrawTexture(new Rect(0f, r.height * 0.5f - 7f, r.width, 14f), HandUI.Underline, ScaleMode.StretchToFill);
+            GUI.EndGroup();
+        }
     }
 
     void DrawControlsScreen(Vector2 gm)
@@ -291,52 +358,6 @@ public class PauseMenu : MonoBehaviour
 
         GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, centerStyle);
 
-        if (pages.Length > 1)
-        {
-            DrawButton(cPrev, "◀ 이전", gm);
-            DrawButton(cNext, "다음 ▶", gm);
-        }
-        DrawButton(cClose, "닫기", gm);
-    }
-
-    // 수집한 편지 페이지(텍스처+제목) 목록
-    Texture2D[] LetterPages(out string[] names)
-    {
-        var texs = new System.Collections.Generic.List<Texture2D>();
-        var nms = new System.Collections.Generic.List<string>();
-        for (int i = 0; i < LetterSystem.Ids.Length; i++)
-            if (LetterSystem.IsCollected(LetterSystem.Ids[i]))
-            {
-                texs.Add(LetterSystem.LoadImage(LetterSystem.Ids[i]));
-                nms.Add(LetterSystem.Titles[i]);
-            }
-        names = nms.ToArray();
-        return texs.ToArray();
-    }
-
-    void DrawLettersScreen(Vector2 gm)
-    {
-        ComputeControlsLayout();
-        string[] names; var pages = LetterPages(out names);
-
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
-
-        if (pages.Length == 0)
-        {
-            GUI.Label(ctrlTitle, "편지", titleStyle);
-            GUI.Label(new Rect(0, Screen.height * 0.45f, Screen.width, 40f), "아직 찾은 편지가 없어요 — 맵 곳곳에 떨어져 있어요!", centerStyle);
-            DrawButton(cClose, "닫기", gm);
-            return;
-        }
-        letterPage = Mathf.Clamp(letterPage, 0, pages.Length - 1);
-
-        GUI.Label(ctrlTitle, names[letterPage], titleStyle);
-        if (pages[letterPage] != null)
-            GUI.DrawTexture(ctrlImg, pages[letterPage], ScaleMode.ScaleToFit, true);
-        else
-            GUI.Label(new Rect(0, Screen.height * 0.45f, Screen.width, 40f), "(이미지 없음 — Resources/Letters 에 텍스처 필요)", centerStyle);
-
-        GUI.Label(ctrlPageLbl, (letterPage + 1) + " / " + pages.Length, centerStyle);
         if (pages.Length > 1)
         {
             DrawButton(cPrev, "◀ 이전", gm);
@@ -376,5 +397,10 @@ public class PauseMenu : MonoBehaviour
         centerStyle = new GUIStyle(GUI.skin.label)
         { fontSize = 17, alignment = TextAnchor.MiddleCenter };
         centerStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+
+        // ★손글씨 모드(시작 화면) — 홈/LevelSelect와 같은 톤
+        handTitle = HandUI.Style(28, HandUI.InkSoft, TextAnchor.MiddleLeft);
+        handItem = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
+        handLabel = HandUI.Style(22, HandUI.Ink, TextAnchor.MiddleLeft);
     }
 }

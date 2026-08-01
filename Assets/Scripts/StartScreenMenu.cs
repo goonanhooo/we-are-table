@@ -30,9 +30,20 @@ public class StartScreenMenu : MonoBehaviour
         pauseMenu = Object.FindAnyObjectByType<PauseMenu>();
     }
 
+    // ★멀티 세션(로비) 중엔 홈 메뉴 숨김 — 로비가 왼쪽 열을 이어받는다(2026-07-14)
+    static bool InNetSession
+    {
+        get
+        {
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            return nm != null && (nm.IsHost || nm.IsConnectedClient);
+        }
+    }
+
     bool MenuVisible =>
         !(levelSelect != null && levelSelect.Showing) &&
-        !(pauseMenu != null && pauseMenu.IsOpen);
+        !(pauseMenu != null && pauseMenu.IsOpen) &&
+        !InNetSession;
 
     string ItemLabel(int i)
     {
@@ -85,7 +96,12 @@ public class StartScreenMenu : MonoBehaviour
             case 0: if (levelSelect != null) levelSelect.OpenStage(); break;    // 1인 → 스테이지 선택(뒤로=홈)
             case 1: if (levelSelect != null) levelSelect.OpenMulti(); break;    // 함께하기 → 멀티 모드
             case 2: if (pauseMenu != null) pauseMenu.OpenMenu(); break;
-            case 3: Application.Quit(); break;
+            case 3:
+                Application.Quit();                  // ★나가기 = 게임 종료(사용자 요청)
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;   // 에디터: 플레이 정지
+#endif
+                break;
         }
     }
 
