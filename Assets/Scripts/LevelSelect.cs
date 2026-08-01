@@ -62,12 +62,38 @@ public class LevelSelect : MonoBehaviour
         white = Texture2D.whiteTexture;
     }
 
+    bool multiOnly;      // ★B안: '함께하기'로 열면 모드 선택에서 1인 버튼 숨김
+
     public void Open()
     {
         // 세션 중(로비/인게임)엔 다시 안 연다 — 로비 창(NetDebugPanel)과 겹침 방지
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
-        Showing = true; step = 0; codeInput = ""; showWip = false;
+        Showing = true; step = 0; codeInput = ""; showWip = false; multiOnly = false;
+    }
+
+    /// <summary>★B안 '함께하기': 멀티 옵션만 있는 모드 선택으로 열기.</summary>
+    public void OpenMulti()
+    {
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
+        Showing = true; step = 0; codeInput = ""; showWip = false; multiOnly = true;
+    }
+
+    /// <summary>맵 이름 한/영(레이블은 씬에 한글 직렬화 — 영문은 씬 이름 매핑).</summary>
+    static string MapLabel(Level lv)
+    {
+        if (L.Korean) return lv.label;
+        switch (lv.scene)
+        {
+            case "Hallway": return "start";
+            case "Jungle": return "jungle";
+            case "IceMountain": return "iceberg";
+            case "Space": return "space";
+            case "Climb": return "climb";
+            case "Moon": return "moon";
+            default: return lv.scene.ToLower();
+        }
     }
     public void Close()
     {
@@ -126,39 +152,36 @@ public class LevelSelect : MonoBehaviour
     void EnsureStyles()
     {
         if (labelStyle != null) return;
-        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-        labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        labelStyle.normal.textColor = ink;
-        titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        titleStyle.normal.textColor = ink;
-        backStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        backStyle.normal.textColor = ink;
-        btnStyle = new GUIStyle(GUI.skin.label) { fontSize = 21, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btnStyle.normal.textColor = ink;
-        smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleCenter };
-        smallStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        // ★B안 손그림 리스킨(2026-07-13): 전 스타일 개구체(Gaegu) — 손글씨 폰트라 사이즈 상향
+        labelStyle = HandUI.Style(26, HandUI.Ink);
+        titleStyle = HandUI.Style(42, HandUI.Ink);
+        backStyle = HandUI.Style(26, HandUI.Ink);
+        btnStyle = HandUI.Style(30, HandUI.Ink);
+        smallStyle = HandUI.Style(20, HandUI.InkSoft);
         // 방코드 입력칸 전용: 크고 진한 검은 글자(흰 배경 고정 — 호버/포커스 색 변화 없음)
-        codeStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        codeStyle.normal.textColor = Color.black;
+        codeStyle = HandUI.Style(38, Color.black);
     }
 
     void Rect2(Rect r, Color c) { var p = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = p; }
 
-    /// <summary>흰 배경+검은 테두리+검은 글씨 버튼(클릭은 투명 GUI.Button). disabled 시 흐리게.</summary>
+    /// <summary>손그림 버튼(★B안): 흰 종이+손그림 테두리, 호버=살짝 기울며 옅은 음영. disabled 시 흐리게.</summary>
     bool WhiteBtn(Rect r, string text, GUIStyle style, bool enabled = true)
     {
-        UiKit.Panel(r);
-        bool hover = r.Contains(Event.current.mousePosition);
-        if (!enabled) UiKit.Fill(r, new Color(1f, 1f, 1f, 0.55f));
-        else if (hover) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.10f));
+        bool hover = enabled && r.Contains(Event.current.mousePosition);
+        var m = GUI.matrix;
+        if (hover) GUIUtility.RotateAroundPivot(-0.8f, r.center);
+        HandUI.Paper(r, HandUI.BoxWide, enabled ? 0.97f : 0.6f);
+        if (hover) UiKit.Fill(new Rect(r.x + 6f, r.y + 6f, r.width - 12f, r.height - 12f), new Color(0f, 0f, 0f, 0.06f));
         GUI.Label(r, text, style);
+        GUI.matrix = m;
         return enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
     }
 
-    /// <summary>제목/안내문 뒤에 흰 칩을 깔고 글자를 그린다(어두운 딤 위 가독성).</summary>
+    /// <summary>제목/안내문 — 흰 종이+손그림 테두리 칩(★B안).</summary>
     void ChipLabel(float y, float w, float h, string text, GUIStyle style)
     {
-        var r = UiKit.Chip(Screen.width * 0.5f, y, w, h);
+        var r = new Rect(Screen.width * 0.5f - w * 0.5f, y, w, h);
+        HandUI.Paper(r, HandUI.BoxWide, 0.97f);
         GUI.Label(r, text, style);
     }
 
@@ -203,9 +226,11 @@ public class LevelSelect : MonoBehaviour
     {
         var arr = showWip ? wipLevels : levels;
         var tex = showWip ? wipThumbs : thumbs;
-        ChipLabel(Screen.height * 0.5f - (showWip ? 210f : 175f), 340f, 50f, showWip ? "구현중인 맵들" : "스테이지 선택", titleStyle);
+        ChipLabel(Screen.height * 0.5f - (showWip ? 216f : 180f), 400f, 56f,
+            showWip ? L.T("구현중인 맵들", "maps in progress") : L.T("스테이지 선택", "choose a stage"), titleStyle);
         if (showWip)
-            ChipLabel(Screen.height * 0.5f - 165f, 430f, 26f, "아직 만드는 중이라 미완성일 수 있어요", smallStyle);
+            ChipLabel(Screen.height * 0.5f - 158f, 470f, 34f,
+                L.T("아직 만드는 중이라 미완성일 수 있어요", "still under construction — may be rough"), smallStyle);
 
         int n = arr.Length;
         float gap = 36f;
@@ -230,18 +255,24 @@ public class LevelSelect : MonoBehaviour
                 previewHover = i;
             }
 
-            // 흰 프레임 + 얇은 검은 테두리(hover 시 테두리 두껍게)
-            float b = hover ? 4f : 2f;
-            Rect2(new Rect(x - 4f - b, y - 4f - b, tw + 8f + b * 2f, th + 8f + b * 2f), Color.black);
-            Rect2(new Rect(x - 4f, y - 4f, tw + 8f, th + 8f), Color.white);
+            // ★B안: 흰 종이 여백 + 손그림 프레임(hover 시 살짝 커지고 기울어짐)
+            float grow = hover ? 5f : 0f;
+            var frame = new Rect(x - 9f - grow, y - 9f - grow, tw + 18f + grow * 2f, th + 18f + grow * 2f);
+            var tm = GUI.matrix;
+            if (hover) GUIUtility.RotateAroundPivot(-1.1f, frame.center);
+            Rect2(frame, Color.white);
+            if (HandUI.BoxTile != null) GUI.DrawTexture(frame, HandUI.BoxTile, ScaleMode.StretchToFill);
             // ★미니어처 우선: 살아있는 3D 회전 섬(RT). 없으면 기존 스크린샷 폴백.
             Texture mini = null;
             if (!showWip && miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
             if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
             else if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
             else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
-            var nameChip = UiKit.Chip(x + tw * 0.5f, y + th + 12f, Mathf.Min(tw, 170f), 32f);
-            GUI.Label(nameChip, arr[i].label, labelStyle);
+            GUI.matrix = tm;
+            var chipW = Mathf.Min(tw, 180f);
+            var nameChip = new Rect(x + tw * 0.5f - chipW * 0.5f, y + th + 14f, chipW, 40f);
+            HandUI.Paper(nameChip, HandUI.BoxWide, 0.97f);
+            GUI.Label(nameChip, MapLabel(arr[i]), labelStyle);
 
             // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백)
             if (GUI.Button(thumbR, GUIContent.none, GUIStyle.none) && !loadPending)
@@ -260,11 +291,11 @@ public class LevelSelect : MonoBehaviour
         // 우측 '구현중인 맵들' 진입 버튼(기본 목록에서만)
         if (!showWip)
         {
-            var wipR = new Rect(x0 + totalW + gap + 8f, y + th * 0.5f - 34f, 168f, 68f);
-            if (WhiteBtn(wipR, "구현중인\n맵들 ▶", backStyle)) { showWip = true; if (preview != null) preview.HideAll(); previewHover = -1; }
+            var wipR = new Rect(x0 + totalW + gap + 8f, y + th * 0.5f - 40f, 180f, 80f);
+            if (WhiteBtn(wipR, L.T("구현중인\n맵들 ▶", "wip\nmaps ▶"), backStyle)) { showWip = true; if (preview != null) preview.HideAll(); previewHover = -1; }
         }
 
-        if (WhiteBtn(new Rect(Screen.width * 0.5f - 60f, y + th + 60f, 120f, 40f), "뒤로", backStyle))
+        if (WhiteBtn(new Rect(Screen.width * 0.5f - 70f, y + th + 66f, 140f, 48f), L.T("뒤로", "back"), backStyle))
         {
             if (showWip) showWip = false;
             else step = 0;
@@ -275,28 +306,34 @@ public class LevelSelect : MonoBehaviour
     void DrawModeSelect()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        ChipLabel(cy - 208f, 560f, 44f, "어떻게 플레이할까요?", titleStyle);
+        ChipLabel(cy - 214f, 560f, 56f,
+            multiOnly ? L.T("함께하기", "play together") : L.T("어떻게 플레이할까요?", "how do you want to play?"),
+            titleStyle);
 
-        float bw = 360f, bh = 56f, gap = 18f;
+        float bw = 420f, bh = 62f, gap = 18f;
         float y = cy - 134f;
 
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "1인 플레이", btnStyle)) step = 1;
+        if (!multiOnly)
+        {
+            if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), L.T("1인 플레이", "solo"), btnStyle)) step = 1;
+            y += bh + gap;
+        }
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), L.T("로컬 멀티 (한 키보드 최대 4인)", "local co-op (one keyboard, up to 4)"), btnStyle)) step = 1;
         y += bh + gap;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "로컬 멀티 (한 키보드 최대 4인)", btnStyle)) step = 1;
-        y += bh + gap;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "방 만드는 중…" : "온라인 — 방 만들기 (호스트)", btnStyle, !busy)) HostRoom();
-        var hint = UiKit.Chip(cx, y + bh + 4f, 460f, 24f);
-        GUI.Label(hint, "방을 만들면 여기서 코드가 발급되고, 사람을 모은 뒤 게임을 시작해요", smallStyle);
-        y += bh + gap + 26f;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), "온라인 — 코드로 참가", btnStyle, !busy)) { step = 2; codeInput = ""; }
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh),
+            busy ? L.T("방 만드는 중…", "creating room…") : L.T("온라인 — 방 만들기 (호스트)", "online — host a room"), btnStyle, !busy)) HostRoom();
+        var hint = new Rect(cx - 250f, y + bh + 4f, 500f, 30f);
+        GUI.Label(hint, L.T("방을 만들면 여기서 코드가 발급되고, 사람을 모은 뒤 게임을 시작해요",
+                            "hosting gives you a room code — gather friends, then start"), smallStyle);
+        y += bh + gap + 30f;
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), L.T("온라인 — 코드로 참가", "online — join with a code"), btnStyle, !busy)) { step = 2; codeInput = ""; }
         y += bh + gap + 8f;
         if (!string.IsNullOrEmpty(NetSession.Status))
         {
-            var st = UiKit.Chip(cx, y, 420f, 26f);
-            GUI.Label(st, NetSession.Status, smallStyle);
+            GUI.Label(new Rect(cx - 210f, y, 420f, 26f), NetSession.Status, smallStyle);
             y += 34f;
         }
-        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) Close();
+        if (WhiteBtn(new Rect(cx - 70f, y, 140f, 48f), L.T("뒤로", "back"), backStyle)) Close();
     }
 
     void LoadLocal(Level lv)
@@ -310,23 +347,23 @@ public class LevelSelect : MonoBehaviour
     void DrawJoin()
     {
         float cx = Screen.width * 0.5f, cy = Screen.height * 0.5f;
-        ChipLabel(cy - 172f, 480f, 44f, "방 코드로 참가", titleStyle);
+        ChipLabel(cy - 176f, 480f, 56f, L.T("방 코드로 참가", "join with a room code"), titleStyle);
 
-        float bw = 340f, bh = 56f;
+        float bw = 360f, bh = 62f;
         float y = cy - 104f;
 
-        // ★방코드 입력칸: 흰 배경 고정(호버/포커스 색 전환 없음) + 크고 진한 검은 글자 + 깜빡이 커서.
+        // ★방코드 입력칸(손그림 종이): 흰 배경 고정 + 크고 진한 검은 글자 + 깜빡이 커서.
         //   클릭 포커스 없이 이 화면에선 항상 타이핑 활성(Update가 캡처).
-        Rect codeR = new Rect(cx - bw * 0.5f, y, bw, 56f);
-        Rect2(new Rect(codeR.x - 2f, codeR.y - 2f, codeR.width + 4f, codeR.height + 4f), Color.black);
-        Rect2(codeR, Color.white);
+        Rect codeR = new Rect(cx - bw * 0.5f, y, bw, 64f);
+        HandUI.Paper(codeR, HandUI.BoxWide, 1f);
         bool blink = Time.unscaledTime % 1f < 0.55f;
         GUI.Label(codeR, codeInput + (busy ? "" : (blink ? "|" : " ")), codeStyle);
-        var hint1 = UiKit.Chip(cx, y + 62f, 420f, 24f);
-        GUI.Label(hint1, "친구의 방 코드를 입력하세요 (엔터 = 참가)", smallStyle);
+        GUI.Label(new Rect(cx - 230f, y + 70f, 460f, 28f),
+            L.T("친구의 방 코드를 입력하세요 (엔터 = 참가)", "type your friend's room code (enter = join)"), smallStyle);
 
-        y += 104f;
-        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh), busy ? "참가 중…" : "참가", btnStyle, !busy && codeInput.Length >= 4)) JoinRoom();
+        y += 112f;
+        if (WhiteBtn(new Rect(cx - bw * 0.5f, y, bw, bh),
+            busy ? L.T("참가 중…", "joining…") : L.T("참가", "join"), btnStyle, !busy && codeInput.Length >= 4)) JoinRoom();
 
         y += bh + 14f;
         if (!string.IsNullOrEmpty(NetSession.Status))
@@ -336,6 +373,6 @@ public class LevelSelect : MonoBehaviour
         }
 
         y += 36f;
-        if (WhiteBtn(new Rect(cx - 60f, y, 120f, 40f), "뒤로", backStyle)) step = 0;
+        if (WhiteBtn(new Rect(cx - 70f, y, 140f, 48f), L.T("뒤로", "back"), backStyle)) step = 0;
     }
 }

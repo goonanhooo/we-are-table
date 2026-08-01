@@ -14,3 +14,7 @@
 NaNDump_*.txt
 PopFuzzReport*.txt
 Builds/
+Adobe Premiere Pro Auto-Save/
+*.prproj
+*.prin
+*.mp4

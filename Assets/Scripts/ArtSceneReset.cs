@@ -54,6 +54,8 @@ public class ArtSceneReset : MonoBehaviour
     GUIStyle bannerStyle, bannerSub, btnLabel;
     Texture2D white, circleFull, circleEmpty;
 
+    bool inMenuScene;   // 시작 화면(배경 테이블)에선 충전 UI/뒤집힘 배너 숨김
+
     void Awake()
     {
         bodies = GetComponentsInChildren<ArticulationBody>(true);
@@ -63,6 +65,12 @@ public class ArtSceneReset : MonoBehaviour
         if (root != null) initPos = root.transform.position;
         poseResetsLeft = poseResetMax;   // 맵당 충전(씬 로드마다 새 인스턴스)
         MeasureGeometry();
+    }
+
+    void Start()
+    {
+        inMenuScene = Object.FindAnyObjectByType<StartScreenMenu>(FindObjectsInactive.Include) != null
+                   || Object.FindAnyObjectByType<NewStartScreenUI>(FindObjectsInactive.Include) != null;
     }
 
     /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트(CheatMode.Active) 중엔 무제한.</summary>
@@ -206,7 +214,7 @@ public class ArtSceneReset : MonoBehaviour
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
-        if (disableManualReset) return;
+        if (disableManualReset || inMenuScene) return;   // 규칙 씬/시작 화면에선 숨김
         EnsureUiAssets();
 
         // ── 우상단 '자세 다시 잡기' 충전 동그라미 3개(사용할 때마다 하나씩 비워짐) ──

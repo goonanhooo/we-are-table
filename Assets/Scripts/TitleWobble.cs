@@ -17,7 +17,8 @@ public class TitleWobble : MonoBehaviour
     Vector3 baseLocal;
     bool isUI;
 
-    void Start()
+    // ★OnEnable로 변경(2026-07-13): TitleLocalizer가 한/영 스왑 후 토글로 베이스를 재캡처할 수 있게.
+    void OnEnable()
     {
         rt = transform as RectTransform;
         if (rt != null) { isUI = true; baseAnchored = rt.anchoredPosition; }
