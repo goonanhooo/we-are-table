@@ -266,7 +266,8 @@ public class PauseMenu : MonoBehaviour
         {
             // 게임 화면 위: 살짝 어둡게 + 손그림 흰 종이 박스
             Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
-            if (HandUI.BoxPanel != null) HandUI.Paper(panel, HandUI.BoxPanel, 0.97f);
+            // box_panel은 패널(420×664)의 정확히 2배 비율로 재생성됨(2026-07-14) — 선 중심 여백 20px/840 기준 인셋
+            if (HandUI.BoxPanel != null) HandUI.Paper(panel, HandUI.BoxPanel, 0.97f, 0.028f, 0.018f);
             else UiKit.Panel(panel, 0.97f);
         }
 
