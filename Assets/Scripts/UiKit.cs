@@ -76,15 +76,24 @@ public static class UiKit
     static void Ensure()
     {
         if (title != null) return;
-        title = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        title.normal.textColor = Ink;
-        btn = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btn.normal.textColor = Ink;
-        label = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.MiddleLeft };
-        label.normal.textColor = Ink;
-        center = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-        center.normal.textColor = Ink;
-        small = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
-        small.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+        title = Mk(30, Ink, TextAnchor.MiddleCenter, true);
+        btn = Mk(19, Ink, TextAnchor.MiddleCenter, true);
+        label = Mk(16, Ink, TextAnchor.MiddleLeft, false);
+        center = Mk(17, Ink, TextAnchor.MiddleCenter, false);
+        small = Mk(13, new Color(0.3f, 0.3f, 0.3f, 1f), TextAnchor.MiddleCenter, false);
+    }
+
+    // ⚠️hover/active 색을 normal과 동일하게 — 스킨 hover 색 상속되면 마우스만 올려도 글자가 흐려짐(2026-07-14)
+    static GUIStyle Mk(int size, Color c, TextAnchor anchor, bool bold)
+    {
+        var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor };
+        if (bold) st.fontStyle = FontStyle.Bold;
+        st.normal.textColor = c;
+        st.hover.textColor = c;
+        st.active.textColor = c;
+        st.focused.textColor = c;
+        st.hover.background = null;
+        st.active.background = null;
+        return st;
     }
 }

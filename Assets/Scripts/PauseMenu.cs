@@ -31,13 +31,13 @@ public class PauseMenu : MonoBehaviour
     int openedFrame = -1;   // 메뉴를 연 프레임. 그 프레임의 클릭은 '바깥 클릭 닫기'로 처리하지 않음.
 
     GUIStyle titleStyle, btnStyle, labelStyle, centerStyle;
-    GUIStyle handTitle, handItem, handLabel;   // ★시작 화면 손글씨 모드
+    GUIStyle handTitle, handItem, handLabel, handItemC, handTitleC, handPage;   // ★손글씨(시작 화면+인게임)
     Texture2D tex;
 
     // ★2026-07-14 시작 화면(StartScreenMenu 존재)에선 가운데 창 대신 왼쪽 손글씨 메뉴 계층으로(사용자 요청)
     bool handMode;
 
-    const float PanelW = 380f, PanelH = 660f;
+    const float PanelW = 420f, PanelH = 664f;
     Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
     Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
@@ -66,6 +66,8 @@ public class PauseMenu : MonoBehaviour
         names = nms.ToArray(); return texs.ToArray();
     }
 
+    // ★2026-07-14 인게임도 손그림 흰 종이 박스 + 손글씨 항목(사용자 요청) — 시작 화면과 같은 룩,
+    //   다만 게임 화면 위라 중앙 박스+딤 유지. 항목 순서: 계속하기 먼저(복귀가 제일 중요).
     void ComputeLayout()
     {
         if (handMode) { ComputeHandLayout(); return; }
@@ -74,21 +76,21 @@ public class PauseMenu : MonoBehaviour
         float y = (Screen.height - PanelH) * 0.5f;
         panel = new Rect(x, y, PanelW, PanelH);
 
-        float ix = x + 26f, iw = PanelW - 52f;
-        float cy = y + 24f;
-        titleRect   = new Rect(ix, cy, iw, 40f);   cy += 40f + 14f;
-        resumeBtn   = new Rect(ix, cy, iw, 46f);   cy += 46f + 14f;
-        volLabel    = new Rect(ix, cy, iw, 20f);   cy += 20f + 3f;
-        volSlider   = new Rect(ix, cy, iw, 22f);   cy += 22f + 10f;
-        bgmLabel    = new Rect(ix, cy, iw, 20f);   cy += 20f + 3f;
-        bgmSlider   = new Rect(ix, cy, iw, 22f);   cy += 22f + 10f;
-        sfxLabel    = new Rect(ix, cy, iw, 20f);   cy += 20f + 3f;
-        sfxSlider   = new Rect(ix, cy, iw, 22f);   cy += 22f + 14f;
-        colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
-        quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 46f + 12f;
+        float ix = x + 34f, iw = PanelW - 68f;
+        float cy = y + 28f;
+        titleRect   = new Rect(ix, cy, iw, 40f);   cy += 52f;
+        resumeBtn   = new Rect(ix, cy, iw, 46f);   cy += 56f;
+        volLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
+        volSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
+        bgmLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
+        bgmSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
+        sfxLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
+        sfxSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
+        colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
         cheatBtn    = new Rect(ix, cy, iw, 46f);   // 맨 아래 '숨은' 버튼 — 호버해야만 보임
     }
 
@@ -253,45 +255,24 @@ public class PauseMenu : MonoBehaviour
 
         ComputeLayout();
 
-        if (handMode) { DrawHandMenu(gm); return; }
-
-        // 화면 살짝 어둡게(흰 패널이 도드라지게)
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
-        // 패널: 흰 배경 + 얇은 검은 테두리
-        UiKit.Panel(panel, 0.97f);
-
-        GUI.Label(titleRect, "PAUSED", titleStyle);
-
-        DrawButton(resumeBtn, "Resume", gm);
-
-        GUI.Label(volLabel, "Master   " + Mathf.RoundToInt(AudioListener.volume * 100f) + "%", labelStyle);
-        DrawSlider(volSlider, AudioListener.volume);
-        GUI.Label(bgmLabel, "BGM   " + Mathf.RoundToInt(Bgm.Volume * 100f) + "%", labelStyle);
-        DrawSlider(bgmSlider, Bgm.Volume);
-        GUI.Label(sfxLabel, "SFX (효과음)   " + Mathf.RoundToInt(Sfx.Volume * 100f) + "%", labelStyle);
-        DrawSlider(sfxSlider, Sfx.Volume);
-
-        bool on = xray != null && xray.IsOn;
-        DrawButton(colorBtn, "Color: " + (on ? "ON" : "OFF"), gm);
-
-        DrawButton(controlsBtn, "Controls (조작법)", gm);
-
-        DrawButton(restartBtn, "Restart (다시 시작)", gm);
-
-        DrawButton(menuBtn, "Main Menu", gm);
-
-        DrawButton(quitBtn, "Quit (게임 종료)", gm);
-
-        // 치트: 평소엔 안 보임 — 메뉴 맨 아래 빈 자리에 마우스를 올려야만 나타나는 숨은 버튼
-        if (cheatBtn.Contains(gm))
-            DrawButton(cheatBtn, "Cheat (치트): " + (CheatMode.Active ? "ON" : "OFF"), gm);
+        DrawHandMenu(gm);
     }
 
-    /// <summary>★손글씨 모드(시작 화면 '설정'): 홈 메뉴와 같은 왼쪽 열 맨글씨 — 창/딤 없음.
+    /// <summary>★손글씨 옵션(두 모드 공통 룩): 시작 화면=왼쪽 열 맨글씨, 인게임=딤+손그림 흰 종이 박스.
     /// 클릭 판정은 Update가 같은 Rect로 처리하므로 여기선 그리기만.</summary>
     void DrawHandMenu(Vector2 gm)
     {
+        if (!handMode)
+        {
+            // 게임 화면 위: 살짝 어둡게 + 손그림 흰 종이 박스
+            Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
+            if (HandUI.BoxPanel != null) HandUI.Paper(panel, HandUI.BoxPanel, 0.97f);
+            else UiKit.Panel(panel, 0.97f);
+        }
+
         GUI.Label(titleRect, L.T("설정", "options"), handTitle);
+
+        if (!handMode) HandItem(resumeBtn, L.T("계속하기", "resume"), gm);
 
         GUI.Label(volLabel, L.T("소리", "master") + "   " + Mathf.RoundToInt(AudioListener.volume * 100f) + "%", handLabel);
         HandSlider(volSlider, AudioListener.volume);
@@ -303,7 +284,14 @@ public class PauseMenu : MonoBehaviour
         bool on = xray != null && xray.IsOn;
         HandItem(colorBtn, L.T("다리 색 표시: ", "leg colors: ") + (on ? L.T("켜짐", "on") : L.T("꺼짐", "off")), gm);
         HandItem(controlsBtn, L.T("조작법", "controls"), gm);
-        HandItem(resumeBtn, L.T("뒤로", "back"), gm);
+
+        if (!handMode)
+        {
+            HandItem(restartBtn, L.T("다시 시작", "restart"), gm);
+            HandItem(menuBtn, L.T("메인 메뉴", "main menu"), gm);
+            HandItem(quitBtn, L.T("게임 종료", "quit game"), gm);
+        }
+        else HandItem(resumeBtn, L.T("뒤로", "back"), gm);
 
         // 숨은 치트: 맨 아래 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
@@ -311,16 +299,18 @@ public class PauseMenu : MonoBehaviour
     }
 
     /// <summary>손글씨 메뉴 항목: 맨글씨 + 호버 시 살짝 기울임+밑줄(홈/LevelSelect와 동일 룩, 색 변화 없음).</summary>
-    void HandItem(Rect r, string text, Vector2 gm)
+    void HandItem(Rect r, string text, Vector2 gm, GUIStyle style = null)
     {
+        if (style == null) style = handItem;
         bool hover = r.Contains(gm);
         var m = GUI.matrix;
         if (hover) GUIUtility.RotateAroundPivot(-1.2f, new Vector2(r.x, r.center.y));
-        GUI.Label(r, text, handItem);
+        GUI.Label(r, text, style);
         if (hover && HandUI.Underline != null)
         {
-            float tw2 = Mathf.Min(handItem.CalcSize(new GUIContent(text)).x, r.width);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw2, 14f), HandUI.Underline, ScaleMode.StretchToFill);
+            float tw2 = Mathf.Min(style.CalcSize(new GUIContent(text)).x, r.width);
+            float ux = style.alignment == TextAnchor.MiddleCenter ? r.center.x - tw2 * 0.5f : r.x;
+            GUI.DrawTexture(new Rect(ux, r.yMax - 8f, tw2, 14f), HandUI.Underline, ScaleMode.StretchToFill);
         }
         GUI.matrix = m;
     }
@@ -352,18 +342,18 @@ public class PauseMenu : MonoBehaviour
 
         Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
 
-        GUI.Label(ctrlTitle, "조작법 — " + names[controlsPage], titleStyle);
+        GUI.Label(ctrlTitle, L.T("조작법 — ", "controls — ") + names[controlsPage], handTitleC);
         if (pages[controlsPage] != null)
             GUI.DrawTexture(ctrlImg, pages[controlsPage], ScaleMode.ScaleToFit, true);
 
-        GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, centerStyle);
+        GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, handPage);
 
         if (pages.Length > 1)
         {
-            DrawButton(cPrev, "◀ 이전", gm);
-            DrawButton(cNext, "다음 ▶", gm);
+            HandItem(cPrev, L.T("◀ 이전", "◀ prev"), gm, handItemC);
+            HandItem(cNext, L.T("다음 ▶", "next ▶"), gm, handItemC);
         }
-        DrawButton(cClose, "닫기", gm);
+        HandItem(cClose, L.T("닫기", "close"), gm, handItemC);
     }
 
     void DrawButton(Rect r, string label, Vector2 gm)
@@ -398,9 +388,12 @@ public class PauseMenu : MonoBehaviour
         { fontSize = 17, alignment = TextAnchor.MiddleCenter };
         centerStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
 
-        // ★손글씨 모드(시작 화면) — 홈/LevelSelect와 같은 톤
+        // ★손글씨 스타일(시작 화면 + 인게임 공통) — 홈/LevelSelect와 같은 톤
         handTitle = HandUI.Style(28, HandUI.InkSoft, TextAnchor.MiddleLeft);
         handItem = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
         handLabel = HandUI.Style(22, HandUI.Ink, TextAnchor.MiddleLeft);
+        handItemC = HandUI.Style(28, HandUI.Ink, TextAnchor.MiddleCenter);
+        handTitleC = HandUI.Style(32, HandUI.Ink, TextAnchor.MiddleCenter);
+        handPage = HandUI.Style(20, HandUI.InkSoft, TextAnchor.MiddleCenter);
     }
 }

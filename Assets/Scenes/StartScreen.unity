@@ -1051,7 +1051,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TitleLocalizer
   krFirst: {fileID: 21300000, guid: 667508156d705494a8c1d5ac7608c609, type: 3}
   krSecond: {fileID: 21300000, guid: c3d3fdbec0fe74fe7be7c60da5fd72d6, type: 3}
-  krHeight: 92
+  krHeight: 132
 --- !u!1 &947573742
 GameObject:
   m_ObjectHideFlags: 0

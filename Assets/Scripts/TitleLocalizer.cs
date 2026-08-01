@@ -11,7 +11,7 @@ public class TitleLocalizer : MonoBehaviour
 {
     [Tooltip("한글 첫 조각(우리는)")] public Sprite krFirst;
     [Tooltip("한글 둘째 조각(테이블)")] public Sprite krSecond;
-    [Tooltip("한글 조각 표시 높이(px)")] public float krHeight = 92f;
+    [Tooltip("한글 조각 표시 높이(px)")] public float krHeight = 132f;   // ★2026-07-14 타이틀 확대(사용자 요청)
 
     Image we, are, table;
     RectTransform weRt, tableRt;

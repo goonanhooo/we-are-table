@@ -363,8 +363,7 @@ public class LevelSelect : MonoBehaviour
             if (WhiteBtn(new Rect(lx, y, bw, bh), L.T("1인 플레이", "solo"), btnStyle)) step = 1;
             y += bh + gap;
         }
-        if (WhiteBtn(new Rect(lx, y, bw, bh), L.T("로컬 멀티 (한 키보드 최대 4인)", "local co-op (one keyboard, up to 4)"), btnStyle)) step = 1;
-        y += bh + gap;
+        // ★2026-07-14 로컬 멀티 항목 삭제(사용자 요청) — 한 키보드 협동은 그냥 시작하기로 하면 됨
         if (WhiteBtn(new Rect(lx, y, bw, bh),
             busy ? L.T("방 만드는 중…", "creating room…") : L.T("온라인 — 방 만들기 (호스트)", "online — host a room"), btnStyle, !busy)) HostRoom();
         y += bh + 6f;
