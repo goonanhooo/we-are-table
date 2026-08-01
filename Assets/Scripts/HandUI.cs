@@ -25,7 +25,10 @@ public static class HandUI
     /// <summary>흰 종이 + 손그림 테두리(박스 텍스처 스트레치).</summary>
     public static void Paper(Rect r, Texture2D box, float bgAlpha = 0.96f)
     {
-        UiKit.Fill(r, new Color(1f, 1f, 1f, bgAlpha));
+        // ★2026-07-14 흰 채움을 손그림 선 '안쪽'까지만(선 밖으로 흰 네모가 튀어나오던 것 제거).
+        //   선 위치 실측(box_panel 700×520: 선이 가장자리 7~13px) → 비율 인셋, 선이 채움 가장자리를 덮는다.
+        UiKit.Fill(new Rect(r.x + r.width * 0.018f, r.y + r.height * 0.025f,
+                            r.width * 0.964f, r.height * 0.95f), new Color(1f, 1f, 1f, bgAlpha));
         if (box != null) GUI.DrawTexture(r, box, ScaleMode.StretchToFill);
     }
 
