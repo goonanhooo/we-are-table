@@ -82,7 +82,7 @@ public class StartScreenMenu : MonoBehaviour
         if (hover < 0) return;
         switch (hover)
         {
-            case 0: if (levelSelect != null) levelSelect.GoTo(1); break;        // 1인 → 스테이지 선택
+            case 0: if (levelSelect != null) levelSelect.OpenStage(); break;    // 1인 → 스테이지 선택(뒤로=홈)
             case 1: if (levelSelect != null) levelSelect.OpenMulti(); break;    // 함께하기 → 멀티 모드
             case 2: if (pauseMenu != null) pauseMenu.OpenMenu(); break;
             case 3: Application.Quit(); break;
@@ -117,11 +117,12 @@ public class StartScreenMenu : MonoBehaviour
             GUI.matrix = m;
         }
 
-        // 우상단 언어 토글(손그림 박스)
+        // 우상단 언어 토글(맨글씨 + 호버 밑줄 — 홈과 통일)
         var lr = LangRect();
         bool lh = lr.Contains(Event.current.mousePosition);
-        HandUI.Paper(lr, HandUI.BoxWide, lh ? 1f : 0.9f);
         GUI.Label(lr, L.T("한국어 → English", "English → 한국어"), langStyle);
+        if (lh && HandUI.Underline != null)
+            GUI.DrawTexture(new Rect(lr.x + 10f, lr.yMax - 8f, lr.width - 20f, 12f), HandUI.Underline, ScaleMode.StretchToFill);
 
         // 좌하단 버전(출시작 디테일)
         GUI.Label(new Rect(Screen.width * leftX, Screen.height - 34f, 300f, 24f), "v0.9", verStyle);
