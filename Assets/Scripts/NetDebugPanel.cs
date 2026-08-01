@@ -176,13 +176,16 @@ public class NetDebugPanel : MonoBehaviour
                 long owner = link != null ? link.OwnerOf(i) : -2;
                 bool mine = link != null && link.IsMine(i);
                 var r = LegBtn(i);
+                var col = LegPalette.BySlot[i];
                 UiKit.Panel(r);
-                if (mine) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.14f));            // 내 자리 = 진한 음영
-                else if (owner != -2) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.05f)); // 남의 자리 = 옅은 음영
-                else if (r.Contains(gm)) UiKit.Fill(r, new Color(0f, 0f, 0f, 0.08f));
-                string who = mine ? "★ 나 (다시 클릭=해제)" : owner == -2 ? "빈 자리" : owner == -1 ? "호스트" : "P" + owner;
-                GUI.Label(new Rect(r.x, r.y + 10f, r.width, 28f), LegNames[i], btn);
-                GUI.Label(new Rect(r.x, r.y + 42f, r.width, 26f), who, small);
+                // ★다리 고유색으로 채움 — 인게임 다리 색과 같은 팔레트(선택 상태에 따라 진하기만 다름)
+                float a = mine ? 0.50f : owner != -2 ? 0.30f : r.Contains(gm) ? 0.22f : 0.13f;
+                UiKit.Fill(r, new Color(col.r, col.g, col.b, a));
+                UiKit.Fill(new Rect(r.x, r.y, 10f, r.height), col);   // 왼쪽 진한 색 띠
+                string nick = LegPalette.NickOf(owner);
+                string who = mine ? "★ 나 (" + nick + ") — 다시 클릭=해제" : owner == -2 ? "빈 자리" : nick;
+                GUI.Label(new Rect(r.x + 14f, r.y + 10f, r.width - 14f, 28f), LegNames[i], btn);
+                GUI.Label(new Rect(r.x + 14f, r.y + 42f, r.width - 14f, 26f), who, small);
             }
 
             // 맵 선택(호스트=클릭, 게스트=표시만)

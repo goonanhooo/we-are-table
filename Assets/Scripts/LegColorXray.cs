@@ -47,6 +47,14 @@ public class LegColorXray : MonoBehaviour
 
     void Start()
     {
+        // ★멀티 세션이면 자동으로 켜고 선도 굵게 — 누가 어느 다리인지 색으로 바로 보이게.
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm != null && nm.IsListening)
+        {
+            startOn = true;
+            lineWidth = Mathf.Max(lineWidth, 0.025f);
+        }
+
         var shader = Shader.Find("Custom/XrayLine");
         _mat = new Material(shader != null ? shader : Shader.Find("Sprites/Default"));
         _mat.hideFlags = HideFlags.DontSave;

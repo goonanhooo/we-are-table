@@ -49,10 +49,11 @@ public class TitleLocalizer : MonoBehaviour
             weRt.anchoredPosition = weBasePos;
 
             table.sprite = krSecond;
-            float h2 = krHeight * 1.12f;   // 테이블 조각이 원본에서도 살짝 큼
+            // ★2026-07-14 타이틀 정렬 통일(사용자 요청): 두 조각 같은 높이·같은 y 기준(전엔 EN table의 y를 따라 어긋남)
+            float h2 = krHeight;
             float w2 = h2 * krSecond.rect.width / krSecond.rect.height;
             tableRt.sizeDelta = new Vector2(w2, h2);
-            tableRt.anchoredPosition = new Vector2(weBasePos.x + w1 * 0.5f + w2 * 0.5f + 64f, tableBasePos.y);   // 두 단어 사이 띄움
+            tableRt.anchoredPosition = new Vector2(weBasePos.x + w1 * 0.5f + w2 * 0.5f + 48f, weBasePos.y);   // 두 단어 사이 띄움
         }
         else
         {

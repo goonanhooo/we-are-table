@@ -172,7 +172,8 @@ public class LevelSelect : MonoBehaviour
         // ★B안 손그림 리스킨(2026-07-13): 전 스타일 개구체(Gaegu) — 손글씨 폰트라 사이즈 상향
         // ★홈 화면과 통일(박스 없는 손글씨 좌측 정렬)
         labelStyle = HandUI.Style(26, HandUI.Ink);
-        titleStyle = HandUI.Style(44, HandUI.Ink, TextAnchor.MiddleLeft);
+        // ★2026-07-14 제목은 메뉴 항목과 구분(사용자 요청): 작고 연한 회색 = 호버/클릭 안 되는 안내 글씨
+        titleStyle = HandUI.Style(28, HandUI.InkSoft, TextAnchor.MiddleLeft);
         backStyle = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
         btnStyle = HandUI.Style(32, HandUI.Ink, TextAnchor.MiddleLeft);
         smallStyle = HandUI.Style(20, HandUI.InkSoft, TextAnchor.MiddleLeft);

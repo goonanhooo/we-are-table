@@ -232,6 +232,14 @@
 - **ArtSceneReset.inMenuScene**: 시작 화면(StartScreenMenu/NewStartScreenUI 존재)에선 충전 동그라미/뒤집힘 배너 숨김(언어 토글과 겹치던 문제).
 - 검증: KR/EN 홈·스테이지·함께하기 스크린샷, 에러 0. 사용자에게 한글 타이틀 시안 전달(교체 시 Title_kr_*.png만 갈아끼우면 됨).
 
+## 멀티 다리 색·닉네임 + 메뉴 제목 구분 (★2026-07-14)
+- **`LegPalette.cs`**: 다리 색/닉네임 공용 정적 팔레트 — **로비 슬롯 순서(0=WASD 앞왼FL 초록, 1=TFGH 앞오FR 빨강, 2=IJKL 뒤왼BL 노랑, 3=Arrows 뒤오BR 파랑)**. LegColorXray(FR,FL,BR,BL 순서)·조작법 이미지와 같은 색. `NickOf(OwnerOf값)`: -1(호스트)=P1, clientId c=P(c+1) — NGO clientId가 접속 순서라 모든 클라에서 동일, 동기화 불필요(게스트에서 호스트 소유는 clientId 0으로 보여도 P1로 일치).
+- **로비(NetDebugPanel)**: 다리 타일을 다리 색으로 채움(내 자리 진하게 α0.50/남의 자리 0.30/호버 0.22/빈 0.13)+왼쪽 색 띠, 소유자 줄 = "★ 나 (P1) — 다시 클릭=해제" / "P2" / "빈 자리".
+- **인게임**: `LegColorXray.Start`에서 **NM.IsListening이면 자동 SetOn + lineWidth≥0.025**(멀티는 씬 로드 시점에 세션이 이미 켜져 있어 Start 검사로 충분). **`LegNameTags.cs`**(Table.prefab 루트, LegColorXray 옆): 주인 있는 다리 위(피벗+0.55m)에 다리 색 TextMesh 빌보드 P1/P2 — 멀티 세션에서만, 빈 다리(-2)는 숨김(⚠️1인1테이블 모드의 호스트 테이블은 AssignAllServer가 NONE이라 태그 없음 — 수용).
+- **하위 메뉴 제목 구분**(사용자: 호버/클릭 안 되는 그냥 글씨): LevelSelect.titleStyle 44 Ink → **28 InkSoft** — '스테이지 선택/함께하기/방 코드로 참가'가 메뉴 항목(32~34 Ink)과 즉시 구분됨.
+- **타이틀 정렬 통일**: Title_kr_1/2.png 재생성(scratchpad title_kr.py — **공통 캔버스 높이 270px·같은 폰트 px·가로만 크롭**이라 두 조각 스케일 자동 일치, 지터 ±1.8°). TitleLocalizer의 **1.12배 제거 + 둘째 조각 y를 weBasePos.y로**(전엔 EN table의 y를 따라 어긋남), 간격 64→48. 같은 파일명 덮어쓰기라 재링크 불필요.
+- 검증: StartScreen 플레이 워처(파일 기반 스크립트 + PlayerPrefs 플래그 — RunCommand 스니펫 클래스는 도메인 리로드에 안 살아남음) — 로컬 StartHost→ClaimLegRpc(0,3)→로비 색 타일+★나(P1) 스크린샷, 배경 테이블 다리 위 파란 P1 태그 확인, 에러 0. ⚠️진짜 게스트(P2) 표시는 MPPM으로 사용자 확인 필요.
+
 ## NewJungle + VARCO 3D 소품 파이프라인 (★2026-07-13)
 - **NewJungle.unity** = Jungle 복제(빌드 등록됨, 메뉴 미노출). **"JungleProps"** 루트 아래 VARCO 생성 소품 33개: 티키 석상 2(높이 2.8 목표, 콜라이더 O) / 통나무 5(길이 2.8, O) / 바위 10(폭 1.7, O) / 양치식물 16(높이 1.3, 콜라이더 X — 통과 가능). 배치는 시드 고정 RNG(7) + IslandTerrain 순수 함수(HeightAt/DistanceToRiver — 에디트 모드 OK)로 유효지점 탐색(물가·협곡·급경사·스폰 11m·창고 문 9m 회피, 티키 먼저 배치해 간격 확보). 크기 정규화=렌더러 바운즈 실측→목표 크기 스케일, 접지=HeightAt-sink.
 - **VARCO 워크플로**(브라우저 탭 열려 있어야 MCP 동작): TextInput→GenerateImage(nano-banana-2, 1:1, 20cr)→Generate3D(30k tri, tex1024, 200cr)→**Remesh(1500~2500 tri, 무료)** 체인 4개. 다운로드는 get_output_downloads **fbx + pivotToBottom=true** → Assets/Models/JungleProps/, 유니티 네이티브 임포트(URP Lit 재질+텍스처 자동). 양치식물 텍스처가 회백색이라 **FernGreen.mat**(원본 복제+초록 틴트)로 교체.
