@@ -43,10 +43,19 @@ public class LegColorXray : MonoBehaviour
     Material _mat;
     bool _on;
 
-    // ★2026-07-14 앞면 표시(사용자 요청 v7 — 화살표 폐지): 각 다리 X-ray 박스의 '앞면'(초기에 앞을
-    //   향하는 +Z 면)만 얇게(반투명) 칠한다. 다리에 부착되어 요·스윙 회전을 그대로 따라감.
-    const float FaceAlpha = 0.30f;   // 앞면 칠 투명도(얇게 칠한 느낌)
-    readonly MeshRenderer[] _faceR = new MeshRenderer[4];
+    // ★2026-07-14 v8: 입력 방향 화살표 — 색 모드 중 '키를 누르는 동안만' 그 다리 색 납작 삼각형이
+    //   다리 옆 공중에 나타나 지금 명령한 이동/회전 방향(앞뒤 스윙=앞/뒤, 좌우 스핀=왼/오른쪽,
+    //   동시 입력=대각)을 가리킨다. 손을 떼면 사라짐.
+    const float ArrowHalf = 0.06f;    // 삼각형 밑변 반폭(m)
+    const float ArrowLen = 0.104f;    // 길이 = 반폭×1.732(정삼각형)
+    const float ArrowDist = 0.30f;    // 다리 중심에서 화살표까지 거리(m)
+    readonly Transform[] _legT = new Transform[4];
+    readonly Vector3[] _legC = new Vector3[4];
+    readonly Transform[] _yawT = new Transform[4];        // 다리 요 회전체(방향 기준)
+    readonly ArtLegController[] _ctrl = new ArtLegController[4];
+    readonly Transform[] _arrowT = new Transform[4];
+    readonly MeshRenderer[] _arrowR = new MeshRenderer[4];
+    TableInput _tin;
 
     public bool IsOn => _on;
 
@@ -80,18 +89,24 @@ public class LegColorXray : MonoBehaviour
             }
             var corners = Corners(center, ext);
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
+            _legT[i] = leg;
+            _legC[i] = center;
+            _yawT[i] = leg.parent != null && leg.parent.parent != null ? leg.parent.parent : leg;
+            _ctrl[i] = leg.parent != null ? leg.parent.GetComponent<ArtLegController>() : null;
 
-            // ★앞면(+Z) 얇게 칠하기 — 다리 트랜스폼에 부착(회전·기린 신장 자동 추종). 셰이더 Cull Off·정점색.
-            var fgo = new GameObject("Xray_Face_" + LegNames[i]);
-            fgo.transform.SetParent(leg, false);
-            fgo.AddComponent<MeshFilter>().sharedMesh = FrontFaceMesh(center, ext, new Color(col.r, col.g, col.b, FaceAlpha));
-            var fmr = fgo.AddComponent<MeshRenderer>();
-            fmr.sharedMaterial = _mat;
-            fmr.shadowCastingMode = ShadowCastingMode.Off;
-            fmr.receiveShadows = false;
-            fmr.lightProbeUsage = LightProbeUsage.Off;
-            fmr.reflectionProbeUsage = ReflectionProbeUsage.Off;
-            _faceR[i] = fmr;
+            // ★입력 방향 화살표(누르는 동안만 표시) — 납작 정삼각형, 다리 색
+            var ago = new GameObject("Xray_MoveArrow_" + LegNames[i]);
+            ago.transform.SetParent(transform, false);
+            ago.AddComponent<MeshFilter>().sharedMesh = TriMesh(col);
+            var amr = ago.AddComponent<MeshRenderer>();
+            amr.sharedMaterial = _mat;
+            amr.shadowCastingMode = ShadowCastingMode.Off;
+            amr.receiveShadows = false;
+            amr.lightProbeUsage = LightProbeUsage.Off;
+            amr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            amr.enabled = false;
+            _arrowT[i] = ago.transform;
+            _arrowR[i] = amr;
 
             var parent = new GameObject("Xray_" + LegNames[i]);
             parent.transform.SetParent(transform, false);
@@ -127,18 +142,16 @@ public class LegColorXray : MonoBehaviour
         SetOn(startOn);
     }
 
-    /// <summary>다리 박스의 +Z(앞) 면 사각형 — 반투명 다리 색. 셰이더 Cull Off라 양면 표시.</summary>
-    Mesh FrontFaceMesh(Vector3 c, Vector3 e, Color col)
+    /// <summary>납작 정삼각형(+Z=꼭짓점, XZ 평면) — 전 정점 다리 색. 셰이더 Cull Off라 양면 표시.</summary>
+    Mesh TriMesh(Color c)
     {
-        float z = c.z + e.z + 0.002f;   // 메시 표면보다 살짝 앞(z-fighting 방지)
         var v = new Vector3[]
         {
-            new Vector3(c.x - e.x, c.y - e.y, z), new Vector3(c.x + e.x, c.y - e.y, z),
-            new Vector3(c.x + e.x, c.y + e.y, z), new Vector3(c.x - e.x, c.y + e.y, z),
+            new Vector3(-ArrowHalf, 0f, 0f), new Vector3(ArrowHalf, 0f, 0f), new Vector3(0f, 0f, ArrowLen),
         };
-        var tris = new int[] { 0, 1, 2, 0, 2, 3 };
+        var tris = new int[] { 0, 1, 2 };
         var cols = new Color[v.Length];
-        for (int i = 0; i < cols.Length; i++) cols[i] = col;
+        for (int i = 0; i < cols.Length; i++) cols[i] = c;
         var m = new Mesh { hideFlags = HideFlags.DontSave };
         m.vertices = v;
         m.triangles = tris;
@@ -159,6 +172,38 @@ public class LegColorXray : MonoBehaviour
             _buf[1] = leg.TransformPoint(_bLocal[i]);
             _lines[i].SetPositions(_buf);
         }
+        UpdateMoveArrows();
+    }
+
+    // 키를 누르는 동안만: 명령한 이동/회전 방향으로 다리 색 삼각형 표시(요 프레임 기준, 수평).
+    // 앞뒤(스윙) = 요 +Z/-Z, 좌우(스핀) = 요 -X/+X(왼/오른쪽), 동시 입력 = 대각.
+    void UpdateMoveArrows()
+    {
+        if (_tin == null) _tin = TableInput.Of(this);
+        for (int i = 0; i < 4; i++)
+        {
+            if (_arrowR[i] == null) continue;
+            bool show = false;
+            if (_on && _ctrl[i] != null && _tin != null && _legT[i] != null && _yawT[i] != null)
+            {
+                LegInput inp = _tin.Get(_ctrl[i].controlSet);
+                float fw = (inp.up ? 1f : 0f) - (inp.down ? 1f : 0f);
+                float sd = (inp.right ? 1f : 0f) - (inp.left ? 1f : 0f);
+                if (fw != 0f || sd != 0f)
+                {
+                    Vector3 dir = _yawT[i].forward * fw + _yawT[i].right * sd;
+                    dir.y = 0f;
+                    if (dir.sqrMagnitude > 1e-4f)
+                    {
+                        dir.Normalize();
+                        Vector3 mid = _legT[i].TransformPoint(_legC[i]);
+                        _arrowT[i].SetPositionAndRotation(mid + dir * ArrowDist, Quaternion.LookRotation(dir));
+                        show = true;
+                    }
+                }
+            }
+            if (_arrowR[i].enabled != show) _arrowR[i].enabled = show;
+        }
     }
 
     public void SetOn(bool value)
@@ -166,8 +211,9 @@ public class LegColorXray : MonoBehaviour
         _on = value;
         foreach (var lr in _lines)
             if (lr != null) lr.enabled = value;
-        foreach (var mr in _faceR)
-            if (mr != null) mr.enabled = value;
+        if (!value)
+            foreach (var mr in _arrowR)
+                if (mr != null) mr.enabled = false;
         if (value) LateUpdate(); // 켜는 즉시 위치 갱신
     }
 
