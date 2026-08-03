@@ -43,15 +43,14 @@ public class LegColorXray : MonoBehaviour
     Material _mat;
     bool _on;
 
-    // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v3): 색 켜짐 동안 '각 다리' 앞면에서 일정 거리에
-    //   그 다리 색의 납작한 수평 삼각형(X-ray)이 둥둥 떠서 그 다리의 앞(W쪽)을 가리킴.
-    //   기준 = Leg_XX_Yaw(요 회전체)의 +Z — 다리를 좌우로 돌리면 삼각형도 같이 돈다.
-    [Tooltip("삼각형 밑변 반폭(m) — 길이는 √3배(정삼각형)")] public float arrowSize = 0.11f;
-    [Tooltip("삼각형 길이(m) — 정삼각형이면 반폭×1.732")] public float arrowLen = 0.19f;
-    [Tooltip("다리 중심에서 앞으로 띄우는 거리(m) — 다리 면 바로 앞")] public float arrowAhead = 0.12f;
+    // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v4): 색 켜짐 동안 '각 다리'의 앞면에 아주 작은
+    //   정삼각형(X-ray)이 딱 붙어서 그 면의 방향을 가리킴 — 다리 회전(좌우 요 + 스윙)을 전부 따라간다.
+    //   다리를 들어올리면(스윙) 앞면이 위를 보므로 삼각형도 위를 향함(사용자 요구).
+    [Tooltip("삼각형 밑변 반폭(m) — 길이는 √3배(정삼각형)")] public float arrowSize = 0.05f;
+    [Tooltip("삼각형 길이(m) — 정삼각형이면 반폭×1.732")] public float arrowLen = 0.087f;
+    [Tooltip("다리 중심에서 앞면 방향으로 띄우는 거리(m)")] public float arrowAhead = 0.10f;
     readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
     readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
-    readonly Transform[] _yawT = new Transform[4];   // Leg_XX_Yaw — 다리 좌우 회전 기준
     readonly Transform[] _pyr = new Transform[4];
     readonly MeshRenderer[] _pyrR = new MeshRenderer[4];
 
@@ -89,8 +88,6 @@ public class LegColorXray : MonoBehaviour
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
             _legT[i] = leg;
             _legC[i] = center;
-            // 다리 좌우 회전 기준(Leg_XX_Yaw) — 체인: Yaw > Pivot > Leg. 없으면 다리 자신으로 폴백
-            _yawT[i] = leg.parent != null && leg.parent.parent != null ? leg.parent.parent : leg;
 
             // ★다리 색 납작 삼각형 화살표(앞 방향 표시) — 셰이더가 Cull Off·정점색이라 메시 정점색만으로 착색
             var pgo = new GameObject("Xray_ArrowTri_" + LegNames[i]);
@@ -174,20 +171,16 @@ public class LegColorXray : MonoBehaviour
         UpdateArrows();
     }
 
-    // 각 다리의 '앞면'(요 회전체 +Z) 방향으로 일정 거리 떨어진 공중에 납작 삼각형을 배치.
-    // 다리를 좌우로 돌리면 그 다리의 삼각형도 같이 돈다(다리 면에 붙어 있는 느낌 + 살짝 둥둥).
+    // 각 다리 '앞면'(다리 자체의 +Z)에 작은 정삼각형을 고정 부착 — 다리의 요·스윙 회전을 전부 따라간다.
+    // 다리를 들어올리면 앞면이 위를 보므로 삼각형도 위를 향함. (기린 스케일은 TransformPoint만 타므로 모양 왜곡 없음)
     void UpdateArrows()
     {
         for (int i = 0; i < 4; i++)
         {
-            if (_pyr[i] == null || _legT[i] == null || _yawT[i] == null) continue;
-            Vector3 fwd = _yawT[i].forward;
-            fwd.y = 0f;
-            if (fwd.sqrMagnitude < 1e-4f) continue;   // 다리가 수직으로 뒤집힌 극단 자세 — 이전 위치 유지
-            fwd.Normalize();
+            if (_pyr[i] == null || _legT[i] == null) continue;
+            Vector3 fwd = _legT[i].forward;
             Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-            float bob = Mathf.Sin(Time.time * 2.2f + i * 1.7f) * 0.015f;   // 살짝 둥둥(면에 붙은 느낌 유지)
-            _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead + Vector3.up * bob, Quaternion.LookRotation(fwd));
+            _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead, _legT[i].rotation);
         }
     }
 
