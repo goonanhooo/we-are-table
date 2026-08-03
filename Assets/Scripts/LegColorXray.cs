@@ -53,10 +53,10 @@ public class LegColorXray : MonoBehaviour
     readonly Vector3[] _legC = new Vector3[4];
     readonly Transform[] _yawT = new Transform[4];        // 다리 요 회전체(방향 기준)
     readonly ArtLegController[] _ctrl = new ArtLegController[4];
-    readonly Transform[] _arrowT = new Transform[4];
-    readonly MeshRenderer[] _arrowR = new MeshRenderer[4];
-    readonly LineRenderer[] _spinBar = new LineRenderer[4];   // 좌우 스핀 = 얇은 직사각형 선(가로 막대)
-    readonly Vector3[] _rectBuf = new Vector3[5];
+    const float FillAlpha = 0.35f;    // 채움 투명도(약간 투명) — 테두리는 진한 같은 색
+    const float BarHalfW = 0.045f;    // 스핀 직사각형 반폭
+    readonly GameObject[] _arrowGO = new GameObject[4];   // 앞뒤 스윙 = 삼각형(채움+테두리)
+    readonly GameObject[] _spinGO = new GameObject[4];    // 좌우 스핀 = 직사각형(채움+테두리)
     TableInput _tin;
 
     public bool IsOn => _on;
@@ -96,39 +96,17 @@ public class LegColorXray : MonoBehaviour
             _yawT[i] = leg.parent != null && leg.parent.parent != null ? leg.parent.parent : leg;
             _ctrl[i] = leg.parent != null ? leg.parent.GetComponent<ArtLegController>() : null;
 
-            // ★입력 방향 화살표(누르는 동안만 표시) — 납작 정삼각형, 다리 색
-            var ago = new GameObject("Xray_MoveArrow_" + LegNames[i]);
-            ago.transform.SetParent(transform, false);
-            ago.AddComponent<MeshFilter>().sharedMesh = TriMesh(col);
-            var amr = ago.AddComponent<MeshRenderer>();
-            amr.sharedMaterial = _mat;
-            amr.shadowCastingMode = ShadowCastingMode.Off;
-            amr.receiveShadows = false;
-            amr.lightProbeUsage = LightProbeUsage.Off;
-            amr.reflectionProbeUsage = ReflectionProbeUsage.Off;
-            amr.enabled = false;
-            _arrowT[i] = ago.transform;
-            _arrowR[i] = amr;
+            // ★입력 방향 화살표(누르는 동안만) — 반투명 채움 + 같은 색 진한 테두리(와이어와 구분되는 룩)
+            var triPts = new Vector3[] { new Vector3(-ArrowHalf, 0f, 0f), new Vector3(ArrowHalf, 0f, 0f), new Vector3(0f, 0f, ArrowLen) };
+            _arrowGO[i] = MakeFilledShape("Xray_MoveArrow_" + LegNames[i], triPts, col);
 
-            // ★좌우 스핀 표시: 다리 옆면과 평행하게 도는 얇은 직사각형 선(좌/우 화살표 자리를 잇는 가로 막대)
-            var bgo = new GameObject("Xray_SpinBar_" + LegNames[i]);
-            bgo.transform.SetParent(transform, false);
-            var blr = bgo.AddComponent<LineRenderer>();
-            blr.useWorldSpace = true;
-            blr.sharedMaterial = _mat;
-            blr.widthMultiplier = lineWidth * 1.6f;
-            blr.numCapVertices = 0;
-            blr.numCornerVertices = 0;
-            blr.alignment = LineAlignment.View;
-            blr.shadowCastingMode = ShadowCastingMode.Off;
-            blr.receiveShadows = false;
-            blr.lightProbeUsage = LightProbeUsage.Off;
-            blr.reflectionProbeUsage = ReflectionProbeUsage.Off;
-            blr.startColor = col;
-            blr.endColor = col;
-            blr.positionCount = 5;   // 닫힌 직사각형(시작점 반복)
-            blr.enabled = false;
-            _spinBar[i] = blr;
+            // ★좌우 스핀: 다리 옆면과 평행하게 도는 얇은 직사각형(채움+테두리)
+            var rectPts = new Vector3[]
+            {
+                new Vector3(-ArrowDist, 0f, -BarHalfW), new Vector3(ArrowDist, 0f, -BarHalfW),
+                new Vector3(ArrowDist, 0f, BarHalfW), new Vector3(-ArrowDist, 0f, BarHalfW),
+            };
+            _spinGO[i] = MakeFilledShape("Xray_SpinBar_" + LegNames[i], rectPts, col);
 
             var parent = new GameObject("Xray_" + LegNames[i]);
             parent.transform.SetParent(transform, false);
@@ -164,23 +142,54 @@ public class LegColorXray : MonoBehaviour
         SetOn(startOn);
     }
 
-    /// <summary>납작 정삼각형(+Z=꼭짓점, XZ 평면) — 전 정점 다리 색. 셰이더 Cull Off라 양면 표시.</summary>
-    Mesh TriMesh(Color c)
+    /// <summary>납작 XZ 다각형(볼록) — 반투명 채움 메시 + 같은 색 진한 테두리 LineRenderer(로컬 좌표).
+    /// 기존 X-ray 와이어(선만)와 구분되는 '색칠+윤곽' 룩. 위치/회전은 루트 트랜스폼으로 제어.</summary>
+    GameObject MakeFilledShape(string name, Vector3[] pts, Color col)
     {
-        var v = new Vector3[]
-        {
-            new Vector3(-ArrowHalf, 0f, 0f), new Vector3(ArrowHalf, 0f, 0f), new Vector3(0f, 0f, ArrowLen),
-        };
-        var tris = new int[] { 0, 1, 2 };
-        var cols = new Color[v.Length];
-        for (int i = 0; i < cols.Length; i++) cols[i] = c;
+        var go = new GameObject(name);
+        go.transform.SetParent(transform, false);
+
+        // 채움(팬 삼각분할, 정점색 = 반투명)
+        var tris = new int[(pts.Length - 2) * 3];
+        for (int t = 0; t < pts.Length - 2; t++) { tris[t * 3] = 0; tris[t * 3 + 1] = t + 1; tris[t * 3 + 2] = t + 2; }
+        var cols = new Color[pts.Length];
+        for (int k = 0; k < cols.Length; k++) cols[k] = new Color(col.r, col.g, col.b, FillAlpha);
         var m = new Mesh { hideFlags = HideFlags.DontSave };
-        m.vertices = v;
+        m.vertices = pts;
         m.triangles = tris;
         m.colors = cols;
         m.RecalculateNormals();
         m.RecalculateBounds();
-        return m;
+        go.AddComponent<MeshFilter>().sharedMesh = m;
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = _mat;
+        mr.shadowCastingMode = ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+        mr.lightProbeUsage = LightProbeUsage.Off;
+        mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+
+        // 테두리(진한 같은 색, 로컬 좌표 루프 — 루트 트랜스폼 따라감)
+        var ogo = new GameObject("outline");
+        ogo.transform.SetParent(go.transform, false);
+        var lr = ogo.AddComponent<LineRenderer>();
+        lr.useWorldSpace = false;
+        lr.loop = true;
+        lr.sharedMaterial = _mat;
+        lr.widthMultiplier = lineWidth * 1.6f;
+        lr.numCapVertices = 0;
+        lr.numCornerVertices = 0;
+        lr.alignment = LineAlignment.View;
+        lr.shadowCastingMode = ShadowCastingMode.Off;
+        lr.receiveShadows = false;
+        lr.lightProbeUsage = LightProbeUsage.Off;
+        lr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+        lr.startColor = col;
+        lr.endColor = col;
+        lr.positionCount = pts.Length;
+        lr.SetPositions(pts);
+
+        go.SetActive(false);
+        return go;
     }
 
     void LateUpdate()
@@ -205,7 +214,7 @@ public class LegColorXray : MonoBehaviour
         if (_tin == null) _tin = TableInput.Of(this);
         for (int i = 0; i < 4; i++)
         {
-            if (_arrowR[i] == null) continue;
+            if (_arrowGO[i] == null) continue;
             bool showArrow = false, showBar = false;
             if (_on && _ctrl[i] != null && _tin != null && _legT[i] != null && _yawT[i] != null)
             {
@@ -221,27 +230,19 @@ public class LegColorXray : MonoBehaviour
                     if (dir.sqrMagnitude > 1e-4f)
                     {
                         dir.Normalize();
-                        _arrowT[i].SetPositionAndRotation(mid + dir * ArrowDist, Quaternion.LookRotation(dir));
+                        _arrowGO[i].transform.SetPositionAndRotation(mid + dir * ArrowDist, Quaternion.LookRotation(dir));
                         showArrow = true;
                     }
                 }
-                if (spin && _spinBar[i] != null)
+                if (spin && _spinGO[i] != null)
                 {
-                    // 가로 막대: 요 X축 방향으로 ±ArrowDist, 폭은 얇게 — 다리와 함께 회전
-                    Vector3 ax = _yawT[i].right;
-                    Vector3 az = _yawT[i].forward;
-                    float halfW = 0.045f;
-                    _rectBuf[0] = mid - ax * ArrowDist - az * halfW;
-                    _rectBuf[1] = mid + ax * ArrowDist - az * halfW;
-                    _rectBuf[2] = mid + ax * ArrowDist + az * halfW;
-                    _rectBuf[3] = mid - ax * ArrowDist + az * halfW;
-                    _rectBuf[4] = _rectBuf[0];
-                    _spinBar[i].SetPositions(_rectBuf);
+                    // 직사각형: 요 회전 그대로(다리 옆면과 평행) — 다리와 함께 돎
+                    _spinGO[i].transform.SetPositionAndRotation(mid, _yawT[i].rotation);
                     showBar = true;
                 }
             }
-            if (_arrowR[i].enabled != showArrow) _arrowR[i].enabled = showArrow;
-            if (_spinBar[i] != null && _spinBar[i].enabled != showBar) _spinBar[i].enabled = showBar;
+            if (_arrowGO[i].activeSelf != showArrow) _arrowGO[i].SetActive(showArrow);
+            if (_spinGO[i] != null && _spinGO[i].activeSelf != showBar) _spinGO[i].SetActive(showBar);
         }
     }
 
@@ -252,10 +253,10 @@ public class LegColorXray : MonoBehaviour
             if (lr != null) lr.enabled = value;
         if (!value)
         {
-            foreach (var mr in _arrowR)
-                if (mr != null) mr.enabled = false;
-            foreach (var lr2 in _spinBar)
-                if (lr2 != null) lr2.enabled = false;
+            foreach (var g in _arrowGO)
+                if (g != null) g.SetActive(false);
+            foreach (var g in _spinGO)
+                if (g != null) g.SetActive(false);
         }
         if (value) LateUpdate(); // 켜는 즉시 위치 갱신
     }
