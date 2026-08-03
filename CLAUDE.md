@@ -285,7 +285,7 @@
   - ⚠️ MCP revoked 상태에서 **프리팹 파일 직접 편집**으로 부착함(컴포넌트 9100000050 + m_Component 등록). Unity 포커스 시 리임포트되어 전 씬 반영. Samplescene 전용으로 옮기려면 MCP 켜고 인스턴스 added-component로 이동.
 
 ## ★ 세션 인계 가이드 (새 대화에서 먼저 읽기)
-- ⚠️★**MCP "Connection revoked" 반복 시 정답**(2026-07-08 재확인): 설정 승인 토글로는 안 풀림 — **`pkill -f relay_mac_arm64`로 릴레이 재시작**(낡은 릴레이 프로세스가 옛 거부 상태를 캐시). 그래도 안 되면 `Library/AI.MCP/connections-v2.asset` 삭제 → 재승인. 상세는 아래 "MCP 연결 삽질 일지".
+- ⚠️★**MCP "Connection revoked" 반복 시 정답**(2026-07-08 재확인): 설정 승인 토글로는 안 풀림 — **`pkill -f relay_mac_arm64`로 릴레이 재시작**(낡은 릴레이 프로세스가 옛 거부 상태를 캐시). 그래도 안 되면 `Library/AI.MCP/connections-v2.asset` 삭제 → 재승인. 상세는 아래 "MCP 연결 삽질 일지". ★**2026-07-14 케이스 추가**: 릴레이 재시작 '후'의 revoked는 반대로 **새 연결이 승인 대기인데 승인 팝업이 안 뜬 것**일 수 있음 — `connections-v2.asset`에서 현재 relay PID 항목이 `Status: 1, DialogShown: 0`이면 이 상태(설정 토글·릴레이 재재시작 무효). **정답 = 에디터 재시작**: kill <에디터PID> → `open -na .../Unity.app --args -projectPath` → 새 파이프(/tmp/unity-mcp-*-<새PID>) 확인 → 옛 파이프 rm + `pkill -f relay_mac_arm64` → 즉시 연결됨(재승인 팝업 없이).
 ### 작업 규칙 (중요)
 - 변경은 **에이전트가 파일을 직접 편집** → 사용자가 Unity에서 **저장 말고 reload(Don't Save)** 로 반영. (에디터에서 저장하면 파일 편집이 덮어써질 수 있음)
 - 씬/프리팹은 손으로 YAML 작성하거나 Python으로 생성. 편집 후 파이썬으로 무결성 검증(미해결 fileID 참조 0 확인).
