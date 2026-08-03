@@ -46,9 +46,10 @@ public class LegColorXray : MonoBehaviour
     // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v4): 색 켜짐 동안 '각 다리'의 앞면에 아주 작은
     //   정삼각형(X-ray)이 딱 붙어서 그 면의 방향을 가리킴 — 다리 회전(좌우 요 + 스윙)을 전부 따라간다.
     //   다리를 들어올리면(스윙) 앞면이 위를 보므로 삼각형도 위를 향함(사용자 요구).
-    [Tooltip("삼각형 밑변 반폭(m) — 길이는 반폭×1.732(정삼각형)")] public float arrowSize = 0.028f;
-    [Tooltip("삼각형 길이(m) — 정삼각형 = 반폭×1.732")] public float arrowLen = 0.0485f;
-    [Tooltip("다리 중심에서 앞면 방향으로 띄우는 거리(m) — 면에서 약 1.5cm")] public float arrowAhead = 0.075f;
+    // ⚠️직렬화 함정 방지: 씬/프리팹에 박힌 옛 값이 기본값을 덮어 크기 조정이 안 먹던 문제 → 상수로 고정
+    const float ArrowSize = 0.014f;    // 삼각형 밑변 반폭(m) — 한 변 2.8cm 정삼각형
+    const float ArrowLen = 0.0242f;    // 삼각형 길이 = 반폭×1.732
+    const float ArrowAhead = 0.068f;   // 다리 중심에서 앞면 방향 거리(면 바로 앞 8mm)
     readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
     readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
     readonly Transform[] _pyr = new Transform[4];
@@ -140,7 +141,7 @@ public class LegColorXray : MonoBehaviour
     /// 셰이더가 Cull Off라 단면 삼각형 하나로 양쪽에서 보인다.</summary>
     Mesh PyramidMesh(Color c)
     {
-        float w = arrowSize, l = arrowLen;
+        float w = ArrowSize, l = ArrowLen;
         var v = new Vector3[]
         {
             new Vector3(-w, 0f, 0f), new Vector3(w, 0f, 0f), new Vector3(0f, 0f, l),
@@ -180,7 +181,7 @@ public class LegColorXray : MonoBehaviour
             if (_pyr[i] == null || _legT[i] == null) continue;
             Vector3 fwd = _legT[i].forward;
             Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-            _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead, _legT[i].rotation);
+            _pyr[i].SetPositionAndRotation(mid + fwd * ArrowAhead, _legT[i].rotation);
         }
     }
 
