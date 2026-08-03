@@ -43,6 +43,14 @@ public class LegColorXray : MonoBehaviour
     Material _mat;
     bool _on;
 
+    // ★2026-07-14 앞 방향 화살표(사용자 요청): 색 켜짐 동안 앞다리(FL/FR) 중간 높이 앞 공중에
+    //   진행 방향(W쪽) 화살표를 X-ray로 상시 표시 — 어디가 앞인지 바로 보이게.
+    [Tooltip("앞 방향 화살표 색")]
+    public Color arrowColor = new Color(0.10f, 0.10f, 0.10f);
+    readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
+    readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
+    readonly List<LineRenderer> _arrow = new List<LineRenderer>();   // 0=몸통, 1·2=머리
+
     public bool IsOn => _on;
 
     void Start()
@@ -75,6 +83,8 @@ public class LegColorXray : MonoBehaviour
             }
             var corners = Corners(center, ext);
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
+            _legT[i] = leg;
+            _legC[i] = center;
 
             var parent = new GameObject("Xray_" + LegNames[i]);
             parent.transform.SetParent(transform, false);
@@ -107,6 +117,30 @@ public class LegColorXray : MonoBehaviour
             }
         }
 
+        // ★앞 방향 화살표: 몸통 1 + 머리 2 선분(같은 X-ray 재질, 다리 선보다 굵게)
+        var arrowParent = new GameObject("Xray_Arrow");
+        arrowParent.transform.SetParent(transform, false);
+        for (int e = 0; e < 3; e++)
+        {
+            var go = new GameObject("Arrow" + e);
+            go.transform.SetParent(arrowParent.transform, false);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.sharedMaterial = _mat;
+            lr.widthMultiplier = lineWidth * 3f;
+            lr.numCapVertices = 2;
+            lr.numCornerVertices = 0;
+            lr.alignment = LineAlignment.View;
+            lr.shadowCastingMode = ShadowCastingMode.Off;
+            lr.receiveShadows = false;
+            lr.lightProbeUsage = LightProbeUsage.Off;
+            lr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            lr.startColor = arrowColor;
+            lr.endColor = arrowColor;
+            lr.positionCount = 2;
+            _arrow.Add(lr);
+        }
+
         SetOn(startOn);
     }
 
@@ -121,12 +155,40 @@ public class LegColorXray : MonoBehaviour
             _buf[1] = leg.TransformPoint(_bLocal[i]);
             _lines[i].SetPositions(_buf);
         }
+        UpdateArrow();
+    }
+
+    // 앞다리(FL/FR) 메시 중심의 중간점 앞 공중에 진행 방향 화살표(수평 투영) 배치
+    void UpdateArrow()
+    {
+        if (_arrow.Count < 3) return;
+        if (_legT[0] == null || _legT[1] == null || _legT[2] == null || _legT[3] == null) return;
+        Vector3 fm = (_legT[0].TransformPoint(_legC[0]) + _legT[1].TransformPoint(_legC[1])) * 0.5f;   // FR+FL
+        Vector3 bm = (_legT[2].TransformPoint(_legC[2]) + _legT[3].TransformPoint(_legC[3])) * 0.5f;   // BR+BL
+        Vector3 fwd = fm - bm;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 1e-4f) return;
+        fwd.Normalize();
+        Vector3 side = Vector3.Cross(Vector3.up, fwd);
+        Vector3 baseP = fm + fwd * 0.55f;
+        Vector3 tip = baseP + fwd * 0.5f;
+        SetSeg(_arrow[0], baseP, tip);
+        SetSeg(_arrow[1], tip, tip - fwd * 0.2f + side * 0.14f);
+        SetSeg(_arrow[2], tip, tip - fwd * 0.2f - side * 0.14f);
+    }
+
+    void SetSeg(LineRenderer lr, Vector3 a, Vector3 b)
+    {
+        _buf[0] = a; _buf[1] = b;
+        lr.SetPositions(_buf);
     }
 
     public void SetOn(bool value)
     {
         _on = value;
         foreach (var lr in _lines)
+            if (lr != null) lr.enabled = value;
+        foreach (var lr in _arrow)
             if (lr != null) lr.enabled = value;
         if (value) LateUpdate(); // 켜는 즉시 위치 갱신
     }
