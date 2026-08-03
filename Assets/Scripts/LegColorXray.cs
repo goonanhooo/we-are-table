@@ -43,17 +43,10 @@ public class LegColorXray : MonoBehaviour
     Material _mat;
     bool _on;
 
-    // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v4): 색 켜짐 동안 '각 다리'의 앞면에 아주 작은
-    //   정삼각형(X-ray)이 딱 붙어서 그 면의 방향을 가리킴 — 다리 회전(좌우 요 + 스윙)을 전부 따라간다.
-    //   다리를 들어올리면(스윙) 앞면이 위를 보므로 삼각형도 위를 향함(사용자 요구).
-    // ⚠️직렬화 함정 방지: 씬/프리팹에 박힌 옛 값이 기본값을 덮어 크기 조정이 안 먹던 문제 → 상수로 고정
-    const float ArrowSize = 0.014f;    // 삼각형 밑변 반폭(m) — 한 변 2.8cm 정삼각형
-    const float ArrowLen = 0.0242f;    // 삼각형 길이 = 반폭×1.732
-    const float ArrowAhead = 0.068f;   // 다리 중심에서 앞면 방향 거리(면 바로 앞 8mm)
-    readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
-    readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
-    readonly Transform[] _pyr = new Transform[4];
-    readonly MeshRenderer[] _pyrR = new MeshRenderer[4];
+    // ★2026-07-14 앞면 표시(사용자 요청 v7 — 화살표 폐지): 각 다리 X-ray 박스의 '앞면'(초기에 앞을
+    //   향하는 +Z 면)만 얇게(반투명) 칠한다. 다리에 부착되어 요·스윙 회전을 그대로 따라감.
+    const float FaceAlpha = 0.30f;   // 앞면 칠 투명도(얇게 칠한 느낌)
+    readonly MeshRenderer[] _faceR = new MeshRenderer[4];
 
     public bool IsOn => _on;
 
@@ -87,21 +80,18 @@ public class LegColorXray : MonoBehaviour
             }
             var corners = Corners(center, ext);
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
-            _legT[i] = leg;
-            _legC[i] = center;
 
-            // ★다리 색 납작 삼각형 화살표(앞 방향 표시) — 셰이더가 Cull Off·정점색이라 메시 정점색만으로 착색
-            var pgo = new GameObject("Xray_ArrowTri_" + LegNames[i]);
-            pgo.transform.SetParent(transform, false);
-            pgo.AddComponent<MeshFilter>().sharedMesh = PyramidMesh(col);
-            var mr = pgo.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = _mat;
-            mr.shadowCastingMode = ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-            mr.lightProbeUsage = LightProbeUsage.Off;
-            mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
-            _pyr[i] = pgo.transform;
-            _pyrR[i] = mr;
+            // ★앞면(+Z) 얇게 칠하기 — 다리 트랜스폼에 부착(회전·기린 신장 자동 추종). 셰이더 Cull Off·정점색.
+            var fgo = new GameObject("Xray_Face_" + LegNames[i]);
+            fgo.transform.SetParent(leg, false);
+            fgo.AddComponent<MeshFilter>().sharedMesh = FrontFaceMesh(center, ext, new Color(col.r, col.g, col.b, FaceAlpha));
+            var fmr = fgo.AddComponent<MeshRenderer>();
+            fmr.sharedMaterial = _mat;
+            fmr.shadowCastingMode = ShadowCastingMode.Off;
+            fmr.receiveShadows = false;
+            fmr.lightProbeUsage = LightProbeUsage.Off;
+            fmr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            _faceR[i] = fmr;
 
             var parent = new GameObject("Xray_" + LegNames[i]);
             parent.transform.SetParent(transform, false);
@@ -137,18 +127,18 @@ public class LegColorXray : MonoBehaviour
         SetOn(startOn);
     }
 
-    /// <summary>위에서 보면 삼각형인 납작한 수평 화살표(+Z=꼭짓점, XZ 평면) — 전 정점을 다리 색으로 착색.
-    /// 셰이더가 Cull Off라 단면 삼각형 하나로 양쪽에서 보인다.</summary>
-    Mesh PyramidMesh(Color c)
+    /// <summary>다리 박스의 +Z(앞) 면 사각형 — 반투명 다리 색. 셰이더 Cull Off라 양면 표시.</summary>
+    Mesh FrontFaceMesh(Vector3 c, Vector3 e, Color col)
     {
-        float w = ArrowSize, l = ArrowLen;
+        float z = c.z + e.z + 0.002f;   // 메시 표면보다 살짝 앞(z-fighting 방지)
         var v = new Vector3[]
         {
-            new Vector3(-w, 0f, 0f), new Vector3(w, 0f, 0f), new Vector3(0f, 0f, l),
+            new Vector3(c.x - e.x, c.y - e.y, z), new Vector3(c.x + e.x, c.y - e.y, z),
+            new Vector3(c.x + e.x, c.y + e.y, z), new Vector3(c.x - e.x, c.y + e.y, z),
         };
-        var tris = new int[] { 0, 1, 2 };
+        var tris = new int[] { 0, 1, 2, 0, 2, 3 };
         var cols = new Color[v.Length];
-        for (int i = 0; i < cols.Length; i++) cols[i] = c;
+        for (int i = 0; i < cols.Length; i++) cols[i] = col;
         var m = new Mesh { hideFlags = HideFlags.DontSave };
         m.vertices = v;
         m.triangles = tris;
@@ -169,20 +159,6 @@ public class LegColorXray : MonoBehaviour
             _buf[1] = leg.TransformPoint(_bLocal[i]);
             _lines[i].SetPositions(_buf);
         }
-        UpdateArrows();
-    }
-
-    // 각 다리 '앞면'(다리 자체의 +Z)에 작은 정삼각형을 고정 부착 — 다리의 요·스윙 회전을 전부 따라간다.
-    // 다리를 들어올리면 앞면이 위를 보므로 삼각형도 위를 향함. (기린 스케일은 TransformPoint만 타므로 모양 왜곡 없음)
-    void UpdateArrows()
-    {
-        for (int i = 0; i < 4; i++)
-        {
-            if (_pyr[i] == null || _legT[i] == null) continue;
-            Vector3 fwd = _legT[i].forward;
-            Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-            _pyr[i].SetPositionAndRotation(mid + fwd * ArrowAhead, _legT[i].rotation);
-        }
     }
 
     public void SetOn(bool value)
@@ -190,7 +166,7 @@ public class LegColorXray : MonoBehaviour
         _on = value;
         foreach (var lr in _lines)
             if (lr != null) lr.enabled = value;
-        foreach (var mr in _pyrR)
+        foreach (var mr in _faceR)
             if (mr != null) mr.enabled = value;
         if (value) LateUpdate(); // 켜는 즉시 위치 갱신
     }

@@ -53,6 +53,11 @@ public class ArtSceneReset : MonoBehaviour
     Vector3 initPos;                                     // F1 다시 시작용 초기 스폰(루트 위치, Awake 캡처)
     GUIStyle bannerStyle, bannerSub, btnLabel;
     Texture2D white, circleFull, circleEmpty;
+    // ★2026-07-14 마리오 갤럭시식 3등분 파이 UI(손그림, Resources/HandUI) + 중앙 모드 아이콘
+    Texture2D[] pieTex;
+    Texture2D icoGiraffe, icoIce;
+    GiraffeMode giraffe;
+    IcePower ice;
 
     bool inMenuScene;   // 시작 화면(배경 테이블)에선 충전 UI/뒤집힘 배너 숨김
 
@@ -206,9 +211,17 @@ public class ArtSceneReset : MonoBehaviour
         bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         btnLabel = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         btnLabel.normal.textColor = ink;
-        // 충전 동그라미: 채움=잉크(가득), 빈 것=흰 배경에 회색 테두리(다 씀)
+        // 충전 동그라미: 채움=잉크(가득), 빈 것=흰 배경에 회색 테두리(다 씀) — 파이 텍스처 폴백용
         circleFull = MakeCircleTex(64, new Color(0.16f, 0.13f, 0.10f, 1f), Color.black, 4f);
         circleEmpty = MakeCircleTex(64, new Color(1f, 1f, 1f, 0.85f), new Color(0f, 0f, 0f, 0.55f), 4f);
+
+        // ★3등분 파이(0~3칸) + 모드 아이콘(손그림) — 없으면 위 동그라미 폴백
+        pieTex = new Texture2D[4];
+        for (int i = 0; i < 4; i++) pieTex[i] = Resources.Load<Texture2D>("HandUI/pose_pie_" + i);
+        icoGiraffe = Resources.Load<Texture2D>("HandUI/mode_giraffe");
+        icoIce = Resources.Load<Texture2D>("HandUI/mode_ice");
+        giraffe = transform.root.GetComponentInChildren<GiraffeMode>(true);
+        ice = transform.root.GetComponentInChildren<IcePower>(true);
     }
 
     void OnGUI()
@@ -217,15 +230,31 @@ public class ArtSceneReset : MonoBehaviour
         if (disableManualReset || inMenuScene) return;   // 규칙 씬/시작 화면에선 숨김
         EnsureUiAssets();
 
-        // ── 우상단 '자세 다시 잡기' 충전 동그라미 3개(사용할 때마다 하나씩 비워짐) ──
-        float d = chargeCircleSize, gap = 12f;
-        float x0 = Screen.width - 18f - poseResetMax * d - (poseResetMax - 1) * gap;
-        float cy = 16f;
+        // ── 우상단 '자세 다시 잡기' 충전 UI — 3등분 파이(마리오 갤럭시식, 손그림) + 중앙 모드 아이콘 ──
         bool cheat = CheatMode.Active;
-        for (int i = 0; i < poseResetMax; i++)
+        int left = cheat ? 3 : Mathf.Clamp(poseResetsLeft, 0, 3);   // 치트 중엔 항상 가득(무제한)
+        if (pieTex != null && pieTex[left] != null)
         {
-            bool full = cheat || i < poseResetsLeft;   // 치트 중엔 항상 가득(무제한)
-            GUI.DrawTexture(new Rect(x0 + i * (d + gap), cy, d, d), full ? circleFull : circleEmpty);
+            float ps = chargeCircleSize * 2.4f;   // 파이 지름(기존 동그라미의 2.4배)
+            var pieR = new Rect(Screen.width - 18f - ps, 14f, ps, ps);
+            GUI.DrawTexture(pieR, pieTex[left], ScaleMode.ScaleToFit, true);
+            // 모드가 켜져 있으면 파이 가운데에 아이콘(기린/얼음)
+            Texture2D icon = giraffe != null && giraffe.active ? icoGiraffe
+                           : ice != null && ice.active ? icoIce : null;
+            if (icon != null)
+            {
+                float isz = ps * 0.44f;
+                GUI.DrawTexture(new Rect(pieR.center.x - isz * 0.5f, pieR.center.y - isz * 0.5f, isz, isz),
+                    icon, ScaleMode.ScaleToFit, true);
+            }
+        }
+        else
+        {
+            // 폴백: 기존 동그라미 3개
+            float d = chargeCircleSize, gap = 12f;
+            float x0 = Screen.width - 18f - poseResetMax * d - (poseResetMax - 1) * gap;
+            for (int i = 0; i < poseResetMax; i++)
+                GUI.DrawTexture(new Rect(x0 + i * (d + gap), 16f, d, d), cheat || i < poseResetsLeft ? circleFull : circleEmpty);
         }
 
         // ── 뒤집힘 배너 ──

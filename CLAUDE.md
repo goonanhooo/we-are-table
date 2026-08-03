@@ -240,6 +240,11 @@
 - **타이틀 정렬 통일**: Title_kr_1/2.png 재생성(scratchpad title_kr.py — **공통 캔버스 높이 270px·같은 폰트 px·가로만 크롭**이라 두 조각 스케일 자동 일치, 지터 ±1.8°). TitleLocalizer의 **1.12배 제거 + 둘째 조각 y를 weBasePos.y로**(전엔 EN table의 y를 따라 어긋남), 간격 64→48. 같은 파일명 덮어쓰기라 재링크 불필요.
 - 검증: StartScreen 플레이 워처(파일 기반 스크립트 + PlayerPrefs 플래그 — RunCommand 스니펫 클래스는 도메인 리로드에 안 살아남음) — 로컬 StartHost→ClaimLegRpc(0,3)→로비 색 타일+★나(P1) 스크린샷, 배경 테이블 다리 위 파란 P1 태그 확인, 에러 0. ⚠️진짜 게스트(P2) 표시는 MPPM으로 사용자 확인 필요.
 
+## 앞면 칠 + 바로서기 파이 UI + 정글 코인 (★2026-07-14 심야)
+- **다리 앞면 칠(화살표 폐지)**: LegColorXray의 삼각형 화살표 제거(나중에 재추가 가능성 있음 — git 이력 v4~v6) → **각 다리 X-ray 박스의 +Z(앞) 면만 반투명(α0.30) 다리 색 사각형**으로 칠함. 다리 트랜스폼에 부착이라 요·스윙·기린 신장 자동 추종, 면 z+0.002(z-fight 방지), SetOn 토글.
+- **바로서기(자세 다시 잡기) UI**: 동그라미 3개 → **마리오 갤럭시식 3등분 손그림 원 하나**(Resources/HandUI/pose_pie_0..3.png, scratchpad pose_pie.py — 흰 반투명 원판+호박색 채움+잉크 손떨림 테두리/분할선, 12시부터 시계방향 채움). **모드 켜지면 중앙에 아이콘**(mode_giraffe/mode_ice.png — GiraffeMode.active/IcePower.active 검사, transform.root.GetComponentInChildren로 캐시). 지름 = chargeCircleSize×2.4. 텍스처 없으면 기존 동그라미 폴백.
+- **정글 코인 더미**: Jungle.unity "CoinPiles" 루트에 7더미(시드21, HeightAt/DistanceToRiver≥5/스폰 10m 회피/완경사/12m 간격 — VARCO 소품과 같은 조건식). 더미 = 누운 코인 4 + 빙글 도는 코인 1(CoinGold.mat 애셋, 콜라이더 제거) + 트리거 SphereCollider(r1.0) + **`CoinPickup.cs`**(LetterPickup 패턴 테이블 판별 → `ArtSceneReset.AddPoseResets(1)` 후 비활성). 검증: Jungle 플레이 — 파이 2/3+기린 중앙 아이콘+코인 7더미+앞면 칠 스크린샷 확인.
+
 ## 메뉴 개편 5종 — 호버·맵 잠금·편지 삭제·나가기·창 폐지 (★2026-07-14)
 - **호버 색 변화 전면 제거**(사용자 "호버하면 색이 옅어지는 거 다 빼줘"): UiKit.Button 호버 회색 채움 삭제(전 IMGUI 공통), 로비 다리 타일 호버 알파 삭제, 로비 맵 버튼 호버 채움 삭제. 호버 표현은 밑줄+살짝 기울임만 유지.
 - **`Progress.cs` 맵 진행 잠금**: 클리어 기준 = "다음 씬으로 가면 클리어"(사용자 정의) — sceneLoaded 훅에서 **게임 맵→'다른' 게임 맵 전환 시 이전 맵 클리어**(PlayerPrefs "clear.<씬>"; 같은 씬 재로드(F1)·StartScreen 복귀는 제외). 체인 Hallway→Jungle→IceMountain, IsUnlocked=이전 맵 클리어. LevelSelect 기본 목록: 잠금 맵 = **썸네일 검은 실루엣(GUI.color 0.10 곱)+이름 ???+호버/클릭/프리뷰 차단**(미니어처도 스킵), **CheatMode.Active면 전부 해금**. wip 목록은 잠금 없음. 검증: 초기화→시작만 열림, Hallway→Jungle 플레이 전환으로 clear.Hallway 자동 세팅→정글 해금·빙산 ??? 유지.
