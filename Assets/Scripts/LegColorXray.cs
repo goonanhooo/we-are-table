@@ -43,13 +43,15 @@ public class LegColorXray : MonoBehaviour
     Material _mat;
     bool _on;
 
-    // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v2): 색 켜짐 동안 '각 다리' 중간 높이 앞 공중에
-    //   그 다리 색의 입체 사각뿔(X-ray)이 진행 방향(W쪽)을 가리킴 — 각 플레이어가 자기 다리의 앞을 알게.
-    [Tooltip("다리 앞 사각뿔 밑면 반폭(m)")] public float arrowSize = 0.10f;
-    [Tooltip("다리 앞 사각뿔 길이(m)")] public float arrowLen = 0.30f;
+    // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v3): 색 켜짐 동안 '각 다리' 앞면에서 일정 거리에
+    //   그 다리 색의 납작한 수평 삼각형(X-ray)이 둥둥 떠서 그 다리의 앞(W쪽)을 가리킴.
+    //   기준 = Leg_XX_Yaw(요 회전체)의 +Z — 다리를 좌우로 돌리면 삼각형도 같이 돈다.
+    [Tooltip("삼각형 밑변 반폭(m)")] public float arrowSize = 0.13f;
+    [Tooltip("삼각형 길이(m)")] public float arrowLen = 0.30f;
     [Tooltip("다리 중심에서 앞으로 띄우는 거리(m)")] public float arrowAhead = 0.42f;
     readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
     readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
+    readonly Transform[] _yawT = new Transform[4];   // Leg_XX_Yaw — 다리 좌우 회전 기준
     readonly Transform[] _pyr = new Transform[4];
     readonly MeshRenderer[] _pyrR = new MeshRenderer[4];
 
@@ -87,9 +89,11 @@ public class LegColorXray : MonoBehaviour
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
             _legT[i] = leg;
             _legC[i] = center;
+            // 다리 좌우 회전 기준(Leg_XX_Yaw) — 체인: Yaw > Pivot > Leg. 없으면 다리 자신으로 폴백
+            _yawT[i] = leg.parent != null && leg.parent.parent != null ? leg.parent.parent : leg;
 
-            // ★다리 색 사각뿔 화살표(앞 방향 표시) — 셰이더가 Cull Off·정점색이라 메시 정점색만으로 착색
-            var pgo = new GameObject("Xray_ArrowPyr_" + LegNames[i]);
+            // ★다리 색 납작 삼각형 화살표(앞 방향 표시) — 셰이더가 Cull Off·정점색이라 메시 정점색만으로 착색
+            var pgo = new GameObject("Xray_ArrowTri_" + LegNames[i]);
             pgo.transform.SetParent(transform, false);
             pgo.AddComponent<MeshFilter>().sharedMesh = PyramidMesh(col);
             var mr = pgo.AddComponent<MeshRenderer>();
@@ -135,20 +139,16 @@ public class LegColorXray : MonoBehaviour
         SetOn(startOn);
     }
 
-    /// <summary>+Z가 앞(꼭짓점)인 사각뿔 메시 — 전 정점을 다리 색으로 착색.</summary>
+    /// <summary>위에서 보면 삼각형인 납작한 수평 화살표(+Z=꼭짓점, XZ 평면) — 전 정점을 다리 색으로 착색.
+    /// 셰이더가 Cull Off라 단면 삼각형 하나로 양쪽에서 보인다.</summary>
     Mesh PyramidMesh(Color c)
     {
         float w = arrowSize, l = arrowLen;
         var v = new Vector3[]
         {
-            new Vector3(-w, -w, 0f), new Vector3(w, -w, 0f), new Vector3(w, w, 0f), new Vector3(-w, w, 0f),
-            new Vector3(0f, 0f, l),
+            new Vector3(-w, 0f, 0f), new Vector3(w, 0f, 0f), new Vector3(0f, 0f, l),
         };
-        var tris = new int[]
-        {
-            0, 1, 2,  0, 2, 3,          // 밑면
-            0, 4, 1,  1, 4, 2,  2, 4, 3,  3, 4, 0,   // 옆면
-        };
+        var tris = new int[] { 0, 1, 2 };
         var cols = new Color[v.Length];
         for (int i = 0; i < cols.Length; i++) cols[i] = c;
         var m = new Mesh { hideFlags = HideFlags.DontSave };
@@ -174,22 +174,20 @@ public class LegColorXray : MonoBehaviour
         UpdateArrows();
     }
 
-    // 각 다리 메시 중심 앞(테이블 진행 방향, 수평 투영)에 그 다리 색 사각뿔을 배치
+    // 각 다리의 '앞면'(요 회전체 +Z) 방향으로 일정 거리 떨어진 공중에 납작 삼각형을 배치.
+    // 다리를 좌우로 돌리면 그 다리의 삼각형도 같이 돈다(다리 면에 붙어 있는 느낌 + 살짝 둥둥).
     void UpdateArrows()
     {
-        if (_legT[0] == null || _legT[1] == null || _legT[2] == null || _legT[3] == null) return;
-        Vector3 fm = (_legT[0].TransformPoint(_legC[0]) + _legT[1].TransformPoint(_legC[1])) * 0.5f;   // FR+FL
-        Vector3 bm = (_legT[2].TransformPoint(_legC[2]) + _legT[3].TransformPoint(_legC[3])) * 0.5f;   // BR+BL
-        Vector3 fwd = fm - bm;
-        fwd.y = 0f;
-        if (fwd.sqrMagnitude < 1e-4f) return;
-        fwd.Normalize();
-        var rot = Quaternion.LookRotation(fwd);
         for (int i = 0; i < 4; i++)
         {
-            if (_pyr[i] == null) continue;
+            if (_pyr[i] == null || _legT[i] == null || _yawT[i] == null) continue;
+            Vector3 fwd = _yawT[i].forward;
+            fwd.y = 0f;
+            if (fwd.sqrMagnitude < 1e-4f) continue;   // 다리가 수직으로 뒤집힌 극단 자세 — 이전 위치 유지
+            fwd.Normalize();
             Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-            _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead, rot);
+            float bob = Mathf.Sin(Time.time * 2.2f + i * 1.7f) * 0.03f;   // 둥둥 떠다니는 느낌
+            _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead + Vector3.up * bob, Quaternion.LookRotation(fwd));
         }
     }
 
