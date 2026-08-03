@@ -46,9 +46,9 @@ public class LegColorXray : MonoBehaviour
     // ★2026-07-14 다리별 앞 방향 화살표(사용자 요청 v3): 색 켜짐 동안 '각 다리' 앞면에서 일정 거리에
     //   그 다리 색의 납작한 수평 삼각형(X-ray)이 둥둥 떠서 그 다리의 앞(W쪽)을 가리킴.
     //   기준 = Leg_XX_Yaw(요 회전체)의 +Z — 다리를 좌우로 돌리면 삼각형도 같이 돈다.
-    [Tooltip("삼각형 밑변 반폭(m)")] public float arrowSize = 0.13f;
-    [Tooltip("삼각형 길이(m)")] public float arrowLen = 0.30f;
-    [Tooltip("다리 중심에서 앞으로 띄우는 거리(m)")] public float arrowAhead = 0.42f;
+    [Tooltip("삼각형 밑변 반폭(m) — 길이는 √3배(정삼각형)")] public float arrowSize = 0.11f;
+    [Tooltip("삼각형 길이(m) — 정삼각형이면 반폭×1.732")] public float arrowLen = 0.19f;
+    [Tooltip("다리 중심에서 앞으로 띄우는 거리(m) — 다리 면 바로 앞")] public float arrowAhead = 0.12f;
     readonly Transform[] _legT = new Transform[4];   // LegNames 순서(FR, FL, BR, BL)
     readonly Vector3[] _legC = new Vector3[4];       // 다리 메시 로컬 중심(다리 중간 높이)
     readonly Transform[] _yawT = new Transform[4];   // Leg_XX_Yaw — 다리 좌우 회전 기준
@@ -186,7 +186,7 @@ public class LegColorXray : MonoBehaviour
             if (fwd.sqrMagnitude < 1e-4f) continue;   // 다리가 수직으로 뒤집힌 극단 자세 — 이전 위치 유지
             fwd.Normalize();
             Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-            float bob = Mathf.Sin(Time.time * 2.2f + i * 1.7f) * 0.03f;   // 둥둥 떠다니는 느낌
+            float bob = Mathf.Sin(Time.time * 2.2f + i * 1.7f) * 0.015f;   // 살짝 둥둥(면에 붙은 느낌 유지)
             _pyr[i].SetPositionAndRotation(mid + fwd * arrowAhead + Vector3.up * bob, Quaternion.LookRotation(fwd));
         }
     }
