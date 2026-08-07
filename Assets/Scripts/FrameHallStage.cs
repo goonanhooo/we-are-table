@@ -177,8 +177,6 @@ public class FrameHallStage : MonoBehaviour
 public class PotTriggerRelay : MonoBehaviour
 {
     public FrameHallStage stage;
-    [Tooltip("홈 중심으로 끌어당기는 힘(흡착)")] public float pullStrength = 260f;
-    [Tooltip("수평 속도 감쇠(슬라임처럼 끈적임)")] public float pullDamping = 30f;
 
     void OnTriggerStay(Collider other)
     {
@@ -191,15 +189,5 @@ public class PotTriggerRelay : MonoBehaviour
         if (!n.StartsWith("Leg_")) return;
         if (n.EndsWith("_Pivot")) n = n.Replace("_Pivot", "");
         stage.NotifyLegInPot(n);
-
-        // ★흡착 보조(2026-07-15, 사용자 "슬라임처럼"): 다리를 홈 축으로 스프링 당김 + 수평 속도 감쇠 —
-        //   다리를 늘리다 홈 가장자리에서 튕겨나가던 문제를 '푹 박혀 고정'되는 느낌으로 해결.
-        if (ab != null)
-        {
-            Vector3 to = transform.position - ab.transform.position;
-            to.y = 0f;
-            Vector3 v = ab.linearVelocity;
-            ab.AddForce(to * pullStrength - new Vector3(v.x, 0f, v.z) * pullDamping);
-        }
     }
 }
