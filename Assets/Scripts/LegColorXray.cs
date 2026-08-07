@@ -51,9 +51,10 @@ public class LegColorXray : MonoBehaviour
     const float ArrowDist = 0.30f;    // 다리 중심에서 화살표까지 거리(m)
     readonly Transform[] _legT = new Transform[4];
     readonly Vector3[] _legC = new Vector3[4];
+    readonly Vector3[] _legFoot = new Vector3[4];         // 다리 메시 로컬 발끝(아래 끝)
     readonly Transform[] _yawT = new Transform[4];        // 다리 요 회전체(방향 기준)
     readonly ArtLegController[] _ctrl = new ArtLegController[4];
-    const float FillAlpha = 0.35f;    // 채움 투명도(약간 투명) — 테두리는 진한 같은 색
+    const float FillAlpha = 1f;       // 단색 채움(테두리와 같은 색) — 사용자 요청
     const float BarHalfW = 0.045f;    // 스핀 직사각형 반폭
     readonly GameObject[] _arrowGO = new GameObject[4];   // 앞뒤 스윙 = 삼각형(채움+테두리)
     readonly GameObject[] _spinGO = new GameObject[4];    // 좌우 스핀 = 직사각형(채움+테두리)
@@ -93,6 +94,7 @@ public class LegColorXray : MonoBehaviour
             Color col = i < legColors.Length ? legColors[i] : Color.magenta;
             _legT[i] = leg;
             _legC[i] = center;
+            _legFoot[i] = center - new Vector3(0f, ext.y, 0f);
             _yawT[i] = leg.parent != null && leg.parent.parent != null ? leg.parent.parent : leg;
             _ctrl[i] = leg.parent != null ? leg.parent.GetComponent<ArtLegController>() : null;
 
@@ -230,7 +232,9 @@ public class LegColorXray : MonoBehaviour
                     if (dir.sqrMagnitude > 1e-4f)
                     {
                         dir.Normalize();
-                        _arrowGO[i].transform.SetPositionAndRotation(mid + dir * ArrowDist, Quaternion.LookRotation(dir));
+                        // ★발끝을 앞서가는 위치 — 다리가 스윙해 올라가도 화살표를 넘지 못한다(사용자 지적)
+                        Vector3 foot = _legT[i].TransformPoint(_legFoot[i]);
+                        _arrowGO[i].transform.SetPositionAndRotation(foot + dir * 0.20f + Vector3.up * 0.05f, Quaternion.LookRotation(dir));
                         showArrow = true;
                     }
                 }
