@@ -23,6 +23,7 @@ public class LevelSelect : MonoBehaviour
     {
         new Level { label = "시작", scene = "Hallway",     thumb = "Thumbs/hallway" },
         new Level { label = "정글", scene = "Jungle",      thumb = "Thumbs/jungle"  },
+        new Level { label = "액자", scene = "FrameHall",   thumb = "Thumbs/frame"   },
         new Level { label = "빙산", scene = "IceMountain", thumb = "Thumbs/ice"     },
     };
     [Tooltip("'구현중인 맵들' 버튼을 눌러야 보이는 목록")]
@@ -106,6 +107,7 @@ public class LevelSelect : MonoBehaviour
         {
             case "Hallway": return "start";
             case "Jungle": return "jungle";
+            case "FrameHall": return "gallery";
             case "IceMountain": return "iceberg";
             case "Space": return "space";
             case "Climb": return "climb";
@@ -113,6 +115,18 @@ public class LevelSelect : MonoBehaviour
             default: return lv.scene.ToLower();
         }
     }
+    /// <summary>3D 프리뷰/미니어처 인덱스(기존 3맵 순서) — 없는 맵(액자 등)은 -1 = 정적 썸네일만.</summary>
+    static int PreviewIndex(string scene)
+    {
+        switch (scene)
+        {
+            case "Hallway": return 0;
+            case "Jungle": return 1;
+            case "IceMountain": return 2;
+            default: return -1;
+        }
+    }
+
     public void Close()
     {
         Showing = false;
@@ -293,12 +307,13 @@ public class LevelSelect : MonoBehaviour
             var rowR = new Rect(lx, y, tw + 18f + 210f, th + 18f);   // 이름까지 클릭 영역
             bool hover = !locked && rowR.Contains(Event.current.mousePosition);
 
-            // ★호버 = 3D 프리뷰 전환 — 기본 목록에서만(인덱스가 미니어처 순서와 일치)
-            if (!showWip && hover && preview != null && !loadPending && i != previewHover)
+            // ★호버 = 3D 프리뷰 전환 — 프리뷰 섬이 있는 맵만(씬 이름→프리뷰 인덱스 매핑)
+            int pv = PreviewIndex(arr[i].scene);
+            if (!showWip && hover && preview != null && !loadPending && pv >= 0 && pv != previewHover)
             {
-                int dir = (previewHover >= 0 && i < previewHover) ? -1 : 1;
-                preview.Show(i, dir);
-                previewHover = i;
+                int dir = (previewHover >= 0 && pv < previewHover) ? -1 : 1;
+                preview.Show(pv, dir);
+                previewHover = pv;
             }
 
             float grow = hover ? 4f : 0f;
@@ -320,7 +335,8 @@ public class LevelSelect : MonoBehaviour
             else
             {
                 Texture mini = null;
-                if (!showWip && miniatures != null) { miniatures.MarkVisible(); mini = miniatures.RT(i); }
+                int mi = PreviewIndex(arr[i].scene);
+                if (!showWip && miniatures != null && mi >= 0) { miniatures.MarkVisible(); mini = miniatures.RT(mi); }
                 if (mini != null) GUI.DrawTexture(thumbR, mini, ScaleMode.ScaleAndCrop);
                 else if (tex[i] != null) GUI.DrawTexture(thumbR, tex[i], ScaleMode.ScaleAndCrop);
                 else Rect2(thumbR, new Color(0.92f, 0.92f, 0.92f, 1f));
@@ -340,14 +356,15 @@ public class LevelSelect : MonoBehaviour
             // ★클릭 = 확정 연출(펄스→꺼짐) 후 기존 로드. 프리뷰 없으면 즉시 로드(폴백). 잠금 맵은 클릭 불가
             if (!locked && GUI.Button(rowR, GUIContent.none, GUIStyle.none) && !loadPending)
             {
-                if (!showWip && preview != null && !preview.Busy)
+                int cpv = PreviewIndex(arr[i].scene);
+                if (!showWip && preview != null && !preview.Busy && cpv >= 0)
                 {
                     loadPending = true;
                     var captured = arr[i];
-                    preview.Show(i, 1);               // 다른 타일 프리뷰 중이었어도 클릭한 맵으로
+                    preview.Show(cpv, 1);             // 다른 타일 프리뷰 중이었어도 클릭한 맵으로
                     preview.Confirm(() => { loadPending = false; LoadLocal(captured); });
                 }
-                else if (showWip || preview == null) LoadLocal(arr[i]);
+                else LoadLocal(arr[i]);
             }
             y += frame0.height + rowGap;
         }

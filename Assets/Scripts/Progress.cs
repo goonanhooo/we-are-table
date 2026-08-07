@@ -9,8 +9,8 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class Progress
 {
-    // 진행 체인(스테이지 선택 기본 목록 순서)
-    static readonly string[] Chain = { "Hallway", "Jungle", "IceMountain" };
+    // 진행 체인(스테이지 선택 기본 목록 순서) — ★2026-07-15 액자 맵(FrameHall)을 정글과 빙산 사이에 삽입
+    static readonly string[] Chain = { "Hallway", "Jungle", "FrameHall", "IceMountain" };
     static readonly string[] MenuScenes = { "StartScreen", "NewStartScreen" };
 
     static string prevScene;
