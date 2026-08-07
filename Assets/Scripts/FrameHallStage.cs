@@ -11,10 +11,11 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class FrameHallStage : MonoBehaviour
 {
-    [Header("퍼즐")]
-    [Tooltip("화분 위 트리거(다리 감지)")] public Collider potTrigger;
-    [Tooltip("성공에 필요한 상판 최소 높이(월드 y)")] public float minBoardY = 2.6f;
-    [Tooltip("자세 유지 시간(초)")] public float holdNeed = 1.2f;
+    [Header("퍼즐 — 그림 자세: 기린 모드 + 홈 속 다리만 길고 나머지는 제일 짧게")]
+    [Tooltip("화분 홈 트리거(다리 감지)")] public Collider potTrigger;
+    [Tooltip("홈 속 다리 최소 길이 배율(기본 길이 대비)")] public float longScale = 1.6f;
+    [Tooltip("나머지 다리 최대 배율(제일 짧게 = 1.0 근처)")] public float shortScale = 1.15f;
+    [Tooltip("자세 유지 시간(초)")] public float holdNeed = 1.0f;
 
     [Header("문(두 짝, 바깥쪽 경첩 피벗)")]
     public Transform doorL;
@@ -31,16 +32,42 @@ public class FrameHallStage : MonoBehaviour
     public string nextScene = "IceMountain";
     [Tooltip("문 뒤 출구 트리거")] public Collider exitTrigger;
 
+    static readonly string[] LegNames = { "Leg_FR", "Leg_FL", "Leg_BR", "Leg_BL" };
     Transform board;
+    GiraffeMode giraffe;
+    readonly Transform[] legs = new Transform[4];
+    readonly float[] baseScaleY = new float[4];
     float legInPotUntil;
+    string potLegName;
     float holdTimer;
     bool solved, transitioned;
     Color darkAmbient;
+
+    // ── 검증/디버그용 읽기 전용 상태(RunCommand 폴링) ──
+    public bool LegInPotNow => Time.time < legInPotUntil;
+    public string PotLegName => potLegName;
+    public float HoldTimerNow => holdTimer;
+    public bool Solved => solved;
+    public float BoardY => board != null ? board.position.y : -999f;
+    public string PoseDebug()
+    {
+        string s2 = "giraffe=" + (giraffe != null && giraffe.active) + " potLeg=" + potLegName + " inPot=" + LegInPotNow;
+        for (int i = 0; i < 4; i++)
+            if (legs[i] != null && baseScaleY[i] > 1e-4f)
+                s2 += " " + LegNames[i] + "=" + (legs[i].localScale.y / baseScaleY[i]).ToString("F2");
+        return s2;
+    }
 
     void Start()
     {
         var b = GameObject.Find("Table");
         if (b != null) board = b.transform;
+        giraffe = Object.FindAnyObjectByType<GiraffeMode>();
+        for (int i = 0; i < 4; i++)
+        {
+            var g = GameObject.Find(LegNames[i]);
+            if (g != null) { legs[i] = g.transform; baseScaleY[i] = g.transform.localScale.y; }
+        }
         darkAmbient = RenderSettings.ambientLight;
         if (hallLights != null)
             foreach (var l in hallLights) if (l != null) l.enabled = false;
@@ -48,6 +75,13 @@ public class FrameHallStage : MonoBehaviour
 
     void Update()
     {
+        // board 레이지 재탐색(스폰 타이밍에 따라 Start에서 못 잡는 경우 대비)
+        if (board == null)
+        {
+            var b = GameObject.Find("Table");
+            if (b != null) board = b.transform;
+        }
+
         // [테스트] 치트 ON + ` = 즉시 해결
         if (!solved && CheatMode.Active)
         {
@@ -55,16 +89,33 @@ public class FrameHallStage : MonoBehaviour
             if (kb != null && kb.backquoteKey.wasPressedThisFrame) Solve();
         }
 
-        if (solved || board == null) return;
+        if (solved) return;
 
-        // 그림 자세 판정(관대하게): 최근에 다리가 화분 안 + 상판이 충분히 높음 → 유지 시간 누적
-        bool posing = Time.time < legInPotUntil && board.position.y > minBoardY;
+        // 그림 자세 판정: ① 기린 모드 ② 홈 안에 다리 하나 ③ 그 다리는 길게(longScale 이상)
+        // ④ 나머지 세 다리는 제일 짧게(shortScale 이하) → 유지 시간 누적
+        bool posing = false;
+        if (giraffe != null && giraffe.active && Time.time < legInPotUntil && !string.IsNullOrEmpty(potLegName))
+        {
+            bool legOk = false, othersOk = true;
+            for (int i = 0; i < 4; i++)
+            {
+                if (legs[i] == null || baseScaleY[i] < 1e-4f) continue;
+                float k = legs[i].localScale.y / baseScaleY[i];
+                if (LegNames[i] == potLegName) legOk = k >= longScale;
+                else if (k > shortScale) othersOk = false;
+            }
+            posing = legOk && othersOk;
+        }
         holdTimer = posing ? holdTimer + Time.deltaTime : 0f;
         if (holdTimer >= holdNeed) Solve();
     }
 
-    /// <summary>화분 트리거(PotTriggerRelay)가 다리 체류를 알림.</summary>
-    public void NotifyLegInPot() => legInPotUntil = Time.time + 0.25f;
+    /// <summary>화분 홈 트리거(PotTriggerRelay)가 다리 체류를 알림(어느 다리인지 포함).</summary>
+    public void NotifyLegInPot(string legName)
+    {
+        legInPotUntil = Time.time + 0.25f;
+        potLegName = legName;
+    }
 
     public void Solve()
     {
@@ -130,9 +181,12 @@ public class PotTriggerRelay : MonoBehaviour
     void OnTriggerStay(Collider other)
     {
         if (stage == null) return;
-        var ab = other.attachedArticulationBody;
-        if (ab != null && ab.name.StartsWith("Leg_")) stage.NotifyLegInPot();
-        else if (ab != null && ab.transform.parent != null && ab.transform.parent.name.StartsWith("Leg_")) stage.NotifyLegInPot();
-        else if (other.transform.name.StartsWith("Leg_")) stage.NotifyLegInPot();
+        // 다리 메시 이름("Leg_FR" 등)으로 정규화 — 콜라이더는 다리 메시, AB는 피벗("Leg_FR_Pivot")
+        string n = other.transform.name;
+        if (!n.StartsWith("Leg_") && other.attachedArticulationBody != null)
+            n = other.attachedArticulationBody.name.Replace("_Pivot", "");
+        if (!n.StartsWith("Leg_")) return;
+        if (n.EndsWith("_Pivot")) n = n.Replace("_Pivot", "");
+        stage.NotifyLegInPot(n);
     }
 }
