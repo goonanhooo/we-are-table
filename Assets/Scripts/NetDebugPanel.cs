@@ -138,6 +138,13 @@ public class NetDebugPanel : MonoBehaviour
                 if (Preview != null) Preview.HideAll();
                 LeaveAll();
             }
+            // ★스팀 로비: 친구 초대 오버레이 / 방코드 복사
+            if (NM.IsHost && SteamLobby.InLobby)
+            {
+                if (R(0f, ActionY + 52f, 300f, 44f).Contains(gm)) SteamLobby.OpenInviteOverlay();
+                if (R(320f, ActionY + 52f, 150f, 44f).Contains(gm))
+                { GUIUtility.systemCopyBuffer = NetSession.JoinCode; status = "방코드 복사됨"; }
+            }
         }
         else
         {
@@ -241,7 +248,13 @@ public class NetDebugPanel : MonoBehaviour
             if (NM.IsHost) HandBtn(R(0f, ActionY, 300f, 48f), sel >= 0 ? L.T("게임 시작", "start game") : L.T("게임 시작 (맵 선택!)", "start (pick a map!)"), gm);
             else GUI.Label(R(0f, ActionY, 300f, 48f), L.T("호스트 대기 중…", "waiting for host…"), hBig);
             HandBtn(R(320f, ActionY, 150f, 48f), L.T("나가기", "leave"), gm);
-            if (!string.IsNullOrEmpty(status)) GUI.Label(R(0f, ActionY + 52f, panel.width, 24f), status, hSmall);
+            // ★스팀 로비(2026-08-09): 오버레이 친구 초대 + 긴 방코드 복사 버튼
+            if (NM.IsHost && SteamLobby.InLobby)
+            {
+                HandBtn(R(0f, ActionY + 52f, 300f, 44f), L.T("친구 초대 (스팀)", "invite friends (steam)"), gm);
+                HandBtn(R(320f, ActionY + 52f, 150f, 44f), L.T("코드 복사", "copy code"), gm);
+            }
+            if (!string.IsNullOrEmpty(status)) GUI.Label(R(0f, ActionY + 100f, panel.width, 24f), status, hSmall);
             return;
         }
         UiKit.Panel(panel, 0.97f);   // 인게임 미니 패널만 흰 배경 유지

@@ -148,10 +148,20 @@ public class LevelSelect : MonoBehaviour
         if (!Showing || step != 2 || busy) return;
         var kb = Keyboard.current;
         if (kb == null) return;
+        // 코드 길이: Unity Relay 6자리 / 스팀 로비 번호 ~18자리 — 최대 20자
         for (Key k = Key.A; k <= Key.Z; k++)
-            if (kb[k].wasPressedThisFrame && codeInput.Length < 8) codeInput += k.ToString();
+            if (kb[k].wasPressedThisFrame && codeInput.Length < 20) codeInput += k.ToString();
         for (Key k = Key.Digit1; k <= Key.Digit0; k++)
-            if (kb[k].wasPressedThisFrame && codeInput.Length < 8) codeInput += (k == Key.Digit0 ? "0" : ((int)k - (int)Key.Digit1 + 1).ToString());
+            if (kb[k].wasPressedThisFrame && codeInput.Length < 20) codeInput += (k == Key.Digit0 ? "0" : ((int)k - (int)Key.Digit1 + 1).ToString());
+        for (Key k = Key.Numpad0; k <= Key.Numpad9; k++)
+            if (kb[k].wasPressedThisFrame && codeInput.Length < 20) codeInput += ((int)k - (int)Key.Numpad0).ToString();
+        // 스팀 로비 번호는 길어서 붙여넣기 지원(Ctrl/Cmd+V) — 영숫자만 채택
+        if (kb.vKey.wasPressedThisFrame && (kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed || kb.leftCommandKey.isPressed || kb.rightCommandKey.isPressed))
+        {
+            string clip = GUIUtility.systemCopyBuffer ?? "";
+            foreach (char c in clip)
+                if (char.IsLetterOrDigit(c) && codeInput.Length < 20) codeInput += char.ToUpperInvariant(c);
+        }
         if (kb.backspaceKey.wasPressedThisFrame && codeInput.Length > 0) codeInput = codeInput.Substring(0, codeInput.Length - 1);
         if (kb.enterKey.wasPressedThisFrame && codeInput.Length >= 4) JoinRoom();
     }

@@ -17,8 +17,20 @@ public static class NetSession
 {
     public static string Status { get; private set; } = "";
     public static ISession Session { get; private set; }
-    public static string JoinCode => Session != null ? Session.Code : "";
+    public static string JoinCode => SteamLobby.InLobby ? SteamLobby.JoinCode : (Session != null ? Session.Code : "");
     public static bool Busy { get; private set; }
+
+    /// <summary>스팀 초대 수락 등 외부 플로우가 상태 문구를 갱신할 때(SteamLobby 전용).</summary>
+    internal static void SetStatus(string s) { Status = s; }
+
+    /// <summary>Unity Relay 경로 진입 전 트랜스포트를 UnityTransport로 복원(스팀 세션 후 재사용 대비).</summary>
+    static void EnsureUnityTransport()
+    {
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm == null) return;
+        var utp = nm.GetComponent<Unity.Netcode.Transports.UTP.UnityTransport>();
+        if (utp != null) nm.NetworkConfig.NetworkTransport = utp;
+    }
 
     /// <summary>서비스 초기화 + 익명 로그인(1회). Steam 출시 때 이 로그인만 Steam 연동으로 교체.</summary>
     public static async Task<bool> EnsureSignedInAsync()
@@ -46,6 +58,17 @@ public static class NetSession
         Busy = true;
         try
         {
+            // ★스팀 경로(2026-08-09): 스팀 클라이언트가 살아 있으면 스팀 로비 + SDR 릴레이(방코드 = 로비 번호)
+            if (SteamLobby.Available)
+            {
+                Status = "스팀 방 생성 중...";
+                bool sOk = await SteamLobby.HostAsync();
+                Status = sOk ? "방 생성됨 — 코드: " + SteamLobby.JoinCode : "스팀 방 생성 실패: " + SteamLobby.LastError;
+                Debug.Log("[NetSession] " + Status);
+                return sOk;
+            }
+
+            EnsureUnityTransport();
             Status = "로그인 중...";
             if (!await EnsureSignedInAsync()) return false;
             Status = "방 생성 중...";
@@ -72,6 +95,19 @@ public static class NetSession
         Busy = true;
         try
         {
+            // ★스팀 방코드(로비 번호 = 긴 숫자열) → 스팀 경로 / 6자리 영숫자 코드 → Unity Relay 경로
+            string trimmed = code.Trim();
+            if (trimmed.Length >= 15 && ulong.TryParse(trimmed, out _))
+            {
+                if (!SteamLobby.Available) { Status = "스팀 방코드 — 스팀 실행 필요"; return false; }
+                Status = "스팀 로비 참가 중...";
+                bool sOk = await SteamLobby.JoinByCodeAsync(trimmed);
+                Status = sOk ? "참가됨" : "참가 실패: " + SteamLobby.LastError;
+                Debug.Log("[NetSession] " + Status);
+                return sOk;
+            }
+
+            EnsureUnityTransport();
             Status = "로그인 중...";
             if (!await EnsureSignedInAsync()) return false;
             Status = "참가 중...";
@@ -92,6 +128,7 @@ public static class NetSession
     /// <summary>세션 잠금(호스트 전용) — 게임 시작 후 방코드 참가 차단(중간 난입 방지).</summary>
     public static async Task LockAsync()
     {
+        if (SteamLobby.InLobby) { SteamLobby.Lock(); Debug.Log("[NetSession] 스팀 로비 잠금(난입 차단)"); return; }
         if (Session == null) return;
         try
         {
@@ -106,6 +143,7 @@ public static class NetSession
     /// <summary>세션 떠나기(호스트가 떠나면 세션 종료 → 게스트들은 연결 해제됨 = 설계대로).</summary>
     public static async Task LeaveAsync()
     {
+        if (SteamLobby.InLobby) { SteamLobby.Leave(); Status = "세션 종료"; }
         if (Session == null) return;
         try { await Session.LeaveAsync(); }
         catch (System.Exception e) { Debug.LogWarning("[NetSession] Leave: " + e.Message); }
