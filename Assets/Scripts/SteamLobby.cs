@@ -61,8 +61,9 @@ public static class SteamLobby
         var tp = Transport();
         if (nm == null || tp == null) { LastError = "NetworkManager 없음"; return false; }
 
+        Debug.Log("[SteamLobby] IsSubscribed(앱 라이선스)=" + SteamApps.IsSubscribed + " LoggedOn=" + SteamClient.IsLoggedOn);
         var made = await SteamMatchmaking.CreateLobbyAsync(4);
-        if (!made.HasValue) { LastError = "스팀 로비 생성 실패"; return false; }
+        if (!made.HasValue) { LastError = "스팀 로비 생성 실패" + (SteamApps.IsSubscribed ? "" : " (앱 라이선스 없음 — Spacewar 미소유?)"); return false; }
         var lobby = made.Value;
         lobby.SetFriendsOnly();   // 친구 목록에서 '게임 참가' 가능 + 목록 비공개(방코드/초대로만)
         lobby.SetData("wat_host", SteamClient.SteamId.Value.ToString());
