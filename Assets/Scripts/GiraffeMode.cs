@@ -50,6 +50,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     // ★ 멀티 대비: 신축 입력도 TableInput 경유(각 다리 주인의 키셋 소유). legSets[i]=그 다리의 키셋.
     TableInput tableInput;
     LegControlSet[] legSets;
+    TennisMode tennisRef;   // ★2026-08-17 테니스 공존: 붙은 다리 신축 차단
 
     // ★ 멀티 게스트 모드: 입력/물리(신축·관성·무게중심)는 전부 끄고, NetVisualSync가 주는
     //   시각 상태(다리 길이·스킨)만 NetApplyVisual로 반영한다. (물리는 호스트 전용)
@@ -134,6 +135,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
 
         // ★ 입력 허브 + 다리별 키셋 파악(신축 입력을 그 다리 주인의 LegInput에서 읽기 위함)
         tableInput = TableInput.Of(this);
+        tennisRef = transform.root.GetComponentInChildren<TennisMode>(true);   // 테니스 공존 게이트용
         legSets = new LegControlSet[n];
         for (int i = 0; i < n; i++)
         {
@@ -486,8 +488,14 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
                 // 신축 입력 = 그 다리 주인의 LegInput(TableInput 경유 — 로컬 키보드/네트워크 동일 경로)
                 LegInput li = tableInput != null && legSets != null ? tableInput.Get(legSets[i])
                               : new LegInput { longer = kb[Longer[i]].isPressed, shorter = kb[Shorter[i]].isPressed };
-                if (allUp   || li.longer)  target += speed * dt;
-                if (allDown || li.shorter) target -= speed * dt;
+                // ★2026-08-17 테니스 공존(액자 맵): 공이 붙어 있는 다리는 신축 금지 — 조인트가 발끝을 잡은 채
+                //   길어지면 바닥/벽을 뚫는 문제 방지
+                bool stuck = tennisRef != null && tennisRef.active && tennisRef.IsStuck(legSets[i]);
+                if (!stuck)
+                {
+                    if (allUp   || li.longer)  target += speed * dt;
+                    if (allDown || li.shorter) target -= speed * dt;
+                }
             }
             else
             {

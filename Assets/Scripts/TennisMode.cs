@@ -27,6 +27,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     public Material grabMat;
 
     TableInput ti;
+    GiraffeMode gir;   // ★2026-08-17 기린 공존: 기린 모드 중엔 새로 붙기 금지(신축 키 공유 — 액자 맵)
     ArtLegController[] legs;
     ArticulationBody[] legAbs;
     Transform[] meshes;
@@ -39,9 +40,19 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
 
     public void CheatUnlock() { unlocked = true; }
 
+    /// <summary>이 키셋 다리의 공이 어딘가에 붙어 있는가(GiraffeMode가 신축 차단 판단에 사용).</summary>
+    public bool IsStuck(LegControlSet set)
+    {
+        if (legs == null || joints == null) return false;
+        for (int i = 0; i < legs.Length; i++)
+            if (legs[i] != null && legs[i].controlSet == set) return joints[i] != null;
+        return false;
+    }
+
     void Start()
     {
         ti = TableInput.Of(this);
+        gir = transform.root.GetComponentInChildren<GiraffeMode>(true);
         legs = transform.root.GetComponentsInChildren<ArtLegController>(true);
         int n = legs.Length;
         legAbs = new ArticulationBody[n];
@@ -90,7 +101,8 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             balls[i].SetPositionAndRotation(Tip(i), meshes[i].rotation);
 
             var inp = ti != null ? ti.Get(legs[i].controlSet) : default;
-            if (inp.longer && !prevLonger[i] && joints[i] == null) TryGrab(i);
+            // 기린 모드 중엔 신축 키가 다리 늘이기로 쓰이므로 새로 붙지 않음(떼기는 허용)
+            if (inp.longer && !prevLonger[i] && joints[i] == null && !(gir != null && gir.active)) TryGrab(i);
             if (inp.shorter && !prevShorter[i]) Release(i);
             prevLonger[i] = inp.longer;
             prevShorter[i] = inp.shorter;

@@ -2422,11 +2422,13 @@ MonoBehaviour:
   shaftZ: -22.5
   waveEvery: 7
   guideTex: {fileID: 2800000, guid: 3a545ec96322a446fa6614baf0d9bfb1, type: 3}
+  bubble1: {fileID: 2800000, guid: 99a391a4c2a824873a812adea469c2f1, type: 3}
+  bubble2: {fileID: 2800000, guid: 34247d62b14e841e5a17eb0b3e7cb0fe, type: 3}
   emergeSeconds: 2.2
   talkSeconds: 2.8
   lightSeconds: 2.2
   glowSeconds: 2.2
-  exitWatchSeconds: 3.2
+  exitWatchSeconds: 6.5
 --- !u!4 &590099537
 Transform:
   m_ObjectHideFlags: 0
