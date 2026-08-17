@@ -203,7 +203,6 @@ public class FrameHallClimb : MonoBehaviour
             float u = Mathf.SmoothStep(0f, 1f, t / lightSeconds);
             orb.transform.position = Vector3.Lerp(from, to, u);
             orb.transform.localScale = Vector3.one * Mathf.Lerp(0.5f, 0.12f, u);
-            WiggleChainStep();
             SetCam(camW, lookW); yield return null;
         }
         Object.Destroy(orb);
@@ -265,7 +264,6 @@ public class FrameHallClimb : MonoBehaviour
                 { m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
                 r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", emi); r.SetPropertyBlock(mpb);
             }
-            WiggleChainStep();
             SetCam(cp, cl); yield return null;
         }
         foreach (var r in rends)
@@ -307,8 +305,6 @@ public class FrameHallClimb : MonoBehaviour
         return pts[pts.Length - 1];
     }
 
-    Vector3[] lastPath; float lastHeadS;
-
     IEnumerator MoveChain(Vector3[] path, float dur, Vector3 cp, Vector3 cl)
     {
         float total = 0f;
@@ -321,7 +317,6 @@ public class FrameHallClimb : MonoBehaviour
             SetCam(cp, cl); yield return null;
         }
         PoseChain(path, endS);
-        lastPath = path; lastHeadS = endS;
     }
 
     void PoseChain(Vector3[] path, float headS)
@@ -336,11 +331,6 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
-    void WiggleChainStep() { if (chain != null && lastPath != null) PoseChain(lastPath, lastHeadS); }
-
-    IEnumerator Wiggle(float dur, Vector3 cp, Vector3 cl)
-    { for (float t = 0; t < dur; t += Time.deltaTime) { WiggleChainStep(); SetCam(cp, cl); yield return null; } }
-
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
     { for (float t = 0; t < dur; t += Time.deltaTime) { SetCam(cp, cl); yield return null; } }
 
@@ -351,7 +341,6 @@ public class FrameHallClimb : MonoBehaviour
         {
             float u = Mathf.SmoothStep(0f, 1f, t / dur);
             if (cam != null) { cam.position = Vector3.Lerp(p0, p1, u); cam.rotation = Quaternion.Slerp(r0, r1, u); }
-            WiggleChainStep();
             yield return null;
         }
     }
