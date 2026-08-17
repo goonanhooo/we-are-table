@@ -22,6 +22,8 @@ public class PauseMenu : MonoBehaviour
     public Texture2D controlsGiraffe;
     [Tooltip("우주오징어 조작 이미지 — SquidMode.Unlocked 일 때만 표시")]
     public Texture2D controlsSquid;
+    [Tooltip("테니스공의 힘 조작 이미지 — TennisMode.Unlocked 일 때만 표시")]
+    public Texture2D controlsTennis;
 
     LegColorXray xray;
     bool paused;
@@ -64,6 +66,7 @@ public class PauseMenu : MonoBehaviour
         if (controlsMove != null) { texs.Add(controlsMove); nms.Add(L.T("기본 조작", "basic moves")); }
         if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add(L.T("기린의 힘", "giraffe power")); }
         if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "space squid")); }
+        if (TennisMode.Unlocked && controlsTennis != null) { texs.Add(controlsTennis); nms.Add(L.T("테니스공의 힘", "tennis power")); }
         names = nms.ToArray(); return texs.ToArray();
     }
 

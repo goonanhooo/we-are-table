@@ -1,44 +1,61 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// ★2026-08-17 액자 맵 도입부(v2 — 컷씬판): 샤프트 바닥의 테니스공 무더기에 다가가면
-/// 애벌레가 무더기에서 나와 **기린 컷씬과 같은 '힘 주는 컷씬'**으로 테니스공의 힘을 전달한다:
-/// 테이블 동결 + 카메라 직접 제어 → 애벌레 등장 → 대사 → 빛 구슬 전달 + 테이블 발광(공 생성) →
-/// "이제 나는 갈게~" → 애벌레가 벽을 타고 올라가며 퇴장(길 안내) → 조작 복귀.
-/// 이후: 홀 진입 시 테니스 회수+기린 해금, 샤프트로 떨어지면 재부여. 대사는 손글씨(로비 테마) 말풍선.
+/// ★2026-08-17 액자 맵 도입부(v3 — 공 수집판, 사용자 요청): 밝은 샤프트 바닥에 테니스공 4개가 흩어져 있고,
+/// **공이 없는 다리 발끝이 공에 닿으면(후한 판정) 그 공이 발끝에 붙는다.** 네 다리 모두 붙으면
+/// 반대편 벽 쥐구멍에서 애벌레가 나와 기린 컷씬 문법으로 "잘했어... / 나의 힘을 줄게..." →
+/// 초록 빛 전달 + 테이블 발광 → TennisMode 부여 → 조작 설명 이미지(ControlsTennis) 표시 →
+/// 애벌레는 등반벽을 타고 퇴장(길 안내). 벽 위 애벌레는 표면에서 공 반지름만큼 띄워 파묻힘 방지.
+/// 홀 진입 시 테니스 회수+기린 해금, 샤프트로 떨어지면 재부여(v2와 동일).
 /// </summary>
 public class FrameHallClimb : MonoBehaviour
 {
     [Header("배치(씬 값)")]
-    public Vector3 pilePos = new Vector3(7f, -12.35f, -33f);   // 애벌레 무더기(샤프트 바닥 구석)
-    public float meetRadius = 5f;                               // 이 거리 안이면 컷씬 발동
-    public float hallZ = -21f;                                  // 이 z를 넘으면 홀(테니스 회수+기린 해금)
-    public float shaftZ = -22.5f;                               // 이 z보다 뒤면 샤프트(테니스 재부여)
-    public float waveEvery = 9f;                                // (컷씬 후) 애벌레 시범 등반 간격
+    public Vector3 holePos = new Vector3(14.99f, -12f, -31f);   // 쥐구멍(오른쪽 벽 바닥)
+    public float grabRadius = 0.7f;                              // 공 줍기 판정(후하게)
+    public float hallZ = -21f;
+    public float shaftZ = -22.5f;
+    public float waveEvery = 9f;
+    public Texture2D guideTex;                                   // ControlsTennis.png(씬에서 할당)
 
     [Header("컷씬 타이밍(초)")]
-    public float emergeSeconds = 2.2f;
-    public float talkSeconds = 2.8f;
-    public float lightSeconds = 2.2f;
+    public float emergeSeconds = 2.0f;
+    public float talkSeconds = 2.6f;
+    public float lightSeconds = 2.0f;
     public float glowSeconds = 2.2f;
-    public float exitWatchSeconds = 3.2f;
+    public float exitWatchSeconds = 3.0f;
+
+    // 흩뿌린 공 4개(샤프트 바닥, 반지름 0.17 → y = -12 + 0.17)
+    static readonly Vector3[] BallSpots =
+    {
+        new Vector3(-9f, -11.83f, -26.5f),
+        new Vector3( 8f, -11.83f, -25.5f),
+        new Vector3(-5f, -11.83f, -36.5f),
+        new Vector3(10f, -11.83f, -37f),
+    };
+    const float BallR = 0.17f;
+    const float WallZ = -22.75f;    // 등반면 표면(-22.5)에서 공 반지름+여유만큼 앞 — 파묻힘 방지
 
     Transform table, tableTop, cam;
     Behaviour cameraFollow;
     TennisMode tennis;
     GiraffeMode giraffe;
-    bool met, inHall, cutsceneDone;
-    float hintUntil, hint2Until;
-    string bubbleText;          // 애벌레 머리 위 손글씨 말풍선
-    Vector3 bubbleAnchor;
-    Transform[] chain;          // 컷씬용 수동 애벌레(공 8개)
+    ArtLegController[] legs;        // 발끝 계산용(TennisMode.Tip과 동일 규칙)
+    Transform[] legMesh;
+    Transform[] carried;            // 다리별 붙은 공(없으면 null)
+    Transform[] loose;              // 바닥의 공
+    bool cutsceneStarted, cutsceneDone, inHall;
+    bool showGuide; float guideShownAt;
+    float hint2Until;
+    string bubbleText; Vector3 bubbleAnchor;
+    Transform[] chain;
     GUIStyle txt;
 
     const int ChainN = 8;
     const float Spacing = 0.30f;
-    const float BallR = 0.17f;
 
     void Start()
     {
@@ -50,49 +67,68 @@ public class FrameHallClimb : MonoBehaviour
         tennis = Object.FindAnyObjectByType<TennisMode>();
         giraffe = Object.FindAnyObjectByType<GiraffeMode>();
         if (giraffe != null) giraffe.locked = true;   // 샤프트 구간: 기린 잠금(붙기 키와 충돌)
-        BuildPile();
-    }
 
-    Material BallMat() => tennis != null ? tennis.ballMat : null;
+        if (table != null)
+        {
+            legs = table.root.GetComponentsInChildren<ArtLegController>(true);
+            legMesh = new Transform[legs.Length];
+            carried = new Transform[legs.Length];
+            for (int i = 0; i < legs.Length; i++)
+                legMesh[i] = legs[i].transform.childCount > 0 ? legs[i].transform.GetChild(0) : legs[i].transform;
+        }
 
-    /// <summary>무더기: 테니스공 언덕(시각 전용) — 애벌레들이 사는 곳.</summary>
-    void BuildPile()
-    {
-        var root = new GameObject("BallPile");
-        root.transform.position = pilePos;
-        Random.InitState(20260817);
-        for (int i = 0; i < 14; i++)
+        // 공 4개 흩뿌리기(시각 전용 — 판정은 거리 검사)
+        var mat = tennis != null ? tennis.ballMat : null;
+        loose = new Transform[BallSpots.Length];
+        for (int i = 0; i < BallSpots.Length; i++)
         {
             var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Object.Destroy(s.GetComponent<Collider>());
-            s.name = "PileBall_" + i;
-            s.transform.SetParent(root.transform, false);
-            Vector2 c = Random.insideUnitCircle * 0.75f;
-            s.transform.localPosition = new Vector3(c.x, 0.17f + (i / 7) * 0.26f, c.y);
-            s.transform.localScale = Vector3.one * 0.34f;
-            var r = s.GetComponent<MeshRenderer>();
-            if (BallMat() != null) r.sharedMaterial = BallMat();
+            s.name = "LooseBall_" + i;
+            s.transform.position = BallSpots[i];
+            s.transform.localScale = Vector3.one * (BallR * 2f);
+            if (mat != null) s.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            loose[i] = s.transform;
         }
     }
 
+    Vector3 Tip(int i) => legMesh[i].TransformPoint(0f, -0.5f, 0f);
+    Material BallMat() => tennis != null ? tennis.ballMat : null;
+
     void Update()
     {
-        if (table == null)
+        if (table == null || legs == null) return;
+
+        // ── 공 줍기: 빈 다리 발끝이 바닥 공에 닿으면 부착 ──
+        if (!cutsceneStarted)
         {
-            var b = GameObject.Find("Table");
-            if (b != null) table = b.transform;
-            return;
+            for (int i = 0; i < legs.Length; i++)
+            {
+                if (carried[i] != null) continue;
+                Vector3 tip = Tip(i);
+                for (int k = 0; k < loose.Length; k++)
+                {
+                    if (loose[k] == null) continue;
+                    if ((loose[k].position - tip).sqrMagnitude < grabRadius * grabRadius)
+                    {
+                        carried[i] = loose[k];
+                        loose[k] = null;
+                        break;
+                    }
+                }
+            }
+            int have = 0;
+            for (int i = 0; i < carried.Length; i++) if (carried[i] != null) have++;
+            if (have >= 4) { cutsceneStarted = true; StartCoroutine(GrantCutscene()); }
         }
 
-        // ① 무더기 접근 → 힘 주는 컷씬
-        if (!met && (table.position - pilePos).sqrMagnitude < meetRadius * meetRadius)
-        {
-            met = true;
-            StartCoroutine(GrantCutscene());
-        }
+        // 붙은 공은 발끝 추종(테니스 모드와 같은 위치)
+        for (int i = 0; i < carried.Length; i++)
+            if (carried[i] != null) carried[i].SetPositionAndRotation(Tip(i), legMesh[i].rotation);
+
         if (!cutsceneDone) return;
 
-        // ② 홀 진입 = 테니스 회수+기린 해금 / 샤프트로 떨어지면 다시 테니스
+        // ── 홀 진입 = 테니스 회수+기린 해금 / 샤프트로 떨어지면 재부여 ──
         bool nowHall = table.position.z > hallZ && table.position.y > -1.5f;
         bool nowShaft = table.position.z < shaftZ;
         if (nowHall && !inHall)
@@ -110,7 +146,18 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
-    // ───────────────────────── 컷씬 ─────────────────────────
+    /// <summary>[치트/검증용] 남은 공을 강제로 전부 부착.</summary>
+    public void DebugCollectAll()
+    {
+        for (int i = 0; i < carried.Length; i++)
+        {
+            if (carried[i] != null) continue;
+            for (int k = 0; k < loose.Length; k++)
+                if (loose[k] != null) { carried[i] = loose[k]; loose[k] = null; break; }
+        }
+    }
+
+    // ───────────────────────── 컷씬: 쥐구멍 애벌레의 힘 전달 ─────────────────────────
 
     IEnumerator GrantCutscene()
     {
@@ -118,32 +165,33 @@ public class FrameHallClimb : MonoBehaviour
         if (cameraFollow != null) cameraFollow.enabled = false;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
 
-        // 카메라: 테이블 어깨 너머로 무더기를 봄
-        Vector3 toTable = table.position - pilePos; toTable.y = 0f;
-        Vector3 dir = toTable.sqrMagnitude > 0.01f ? toTable.normalized : Vector3.forward;
-        Vector3 camP = pilePos + dir * 5.5f + Vector3.up * 2.4f;
-        Vector3 lookP = pilePos + Vector3.up * 0.6f;
+        // 카메라: 쥐구멍을 비스듬히 봄
+        Vector3 camP = holePos + new Vector3(-5.5f, 2.6f, 1.5f);
+        Vector3 lookP = holePos + Vector3.up * 0.4f;
         SetCam(camP, lookP);
+        yield return Hold(0.5f, camP, lookP);
 
-        // 1) 애벌레 등장: 무더기 속 → 테이블 앞 1.8m 지점
-        Vector3 stop = pilePos + dir * Mathf.Min(2.6f, toTable.magnitude - 1.8f);
-        stop.y = pilePos.y;
+        // 1) 애벌레가 쥐구멍에서 나옴
+        Vector3 stop = holePos + new Vector3(-3.2f, 0.17f, 0f);
         var path = new Vector3[]
         {
-            pilePos + Vector3.down * 0.3f,
-            pilePos + Vector3.up * BallR,
-            Vector3.Lerp(pilePos, stop, 0.5f) + Vector3.up * BallR,
-            stop + Vector3.up * BallR,
+            holePos + new Vector3(0.6f, 0.17f, 0f),      // 구멍 안
+            holePos + new Vector3(-0.4f, 0.17f, 0f),
+            Vector3.Lerp(holePos, stop, 0.55f) + Vector3.up * 0.17f,
+            stop,
         };
-        chain = SpawnChain();
+        chain = SpawnChain(path[0]);
         yield return MoveChain(path, emergeSeconds, camP, lookP);
 
-        // 2) 대사 1 + 힘 전달(빛 구슬 + 테이블 발광, 도중 공 생성=active)
+        // 2) 대사 2줄(기린 컷씬 문법)
         bubbleAnchor = stop + Vector3.up * 0.5f;
-        bubbleText = L.T("테이블아! 테니스공의 힘을 나눠줄게", "hey table! let me share the tennis-ball power");
+        bubbleText = L.T("잘했어...", "well done...");
+        yield return Wiggle(talkSeconds, camP, lookP);
+        bubbleText = L.T("나의 힘을 줄게...", "take my power...");
         yield return Wiggle(talkSeconds, camP, lookP);
         bubbleText = null;
 
+        // 3) 초록 빛 구슬 전달 + 테이블 발광(도중 TennisMode ON — 모은 공 4개가 '진짜 힘'이 됨)
         var orb = MakeOrb();
         Vector3 from = stop + Vector3.up * 0.4f;
         Vector3 to = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
@@ -157,46 +205,77 @@ public class FrameHallClimb : MonoBehaviour
         }
         Object.Destroy(orb);
         if (tennis != null) tennis.unlocked = true;
-        yield return FlashTable(camP, lookP);   // 발광 도중 tennis.active=true → 다리 끝 공 등장
+        yield return FlashTable(camP, lookP);
 
-        // 3) 대사 2 + 벽 타고 퇴장(길 안내)
-        bubbleText = L.T("붙었다 뗐다 하며 올라오면 돼 — 이제 나는 갈게~", "stick and release to climb up — off I go now~");
-        yield return Wiggle(talkSeconds, camP, lookP);
-        bubbleText = null;
-
+        // 4) 애벌레 퇴장 — 등반벽을 타고 올라 홀 개구부 너머로(길 안내)
         foreach (var c in chain) if (c != null) Object.Destroy(c.gameObject);
         chain = null;
-        float wallZ = -22.45f;
         var exitPath = new Vector3[]
         {
-            stop + Vector3.up * BallR,
-            new Vector3(stop.x * 0.4f, pilePos.y + 0.5f, wallZ),
-            new Vector3(0f, -6f, wallZ),
-            new Vector3(0f, 0.5f, wallZ),
-            new Vector3(0f, 0.35f, -20f),
-            new Vector3(0f, 0.35f, -17f),
+            stop,
+            new Vector3(stop.x * 0.5f, -11.8f, -25f),
+            new Vector3(2f, -11.7f, WallZ),
+            new Vector3(1f, -6f, WallZ),
+            new Vector3(0.5f, 0.5f, WallZ),
+            new Vector3(0.4f, 0.35f, -20f),
+            new Vector3(0.4f, 0.35f, -17f),
         };
         var go = new GameObject("GoodbyeCaterpillar");
         go.transform.position = exitPath[0];
         var cat = go.AddComponent<TennisCaterpillar>();
-        cat.BuildAndGo(exitPath, BallMat(), 3.2f, TennisCaterpillar.Gait.Wave);
+        cat.BuildAndGo(exitPath, BallMat(), 3.4f, TennisCaterpillar.Gait.Wave);
 
-        // 카메라가 벽 등반을 올려다보며 배웅
-        Vector3 camW = new Vector3(stop.x * 0.5f, pilePos.y + 3.5f, -29f);
+        Vector3 camW = new Vector3(4f, -8f, -30f);
         Vector3 lookW = new Vector3(0f, -4f, -22.5f);
         yield return CamLerp(camP, lookP, camW, lookW, 1.2f);
         yield return Hold(exitWatchSeconds, camW, lookW);
 
-        // 4) 복귀 + 조작 힌트
+        // 5) 복귀 + 조작 설명 이미지
         if (cameraFollow != null) cameraFollow.enabled = true;
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         FreezeTable(false);
-        hintUntil = Time.time + 10f;
         cutsceneDone = true;
+        if (guideTex != null) { showGuide = true; guideShownAt = Time.time; }
         StartCoroutine(WaveLoop());
     }
 
-    /// <summary>(컷씬 후) 애벌레들이 이따금 무더기에서 나와 벽을 타고 올라감 — 길 안내 앰비언트.</summary>
+    /// <summary>발광 도중(40%) TennisMode ON — 모은 공 제거(모드 공으로 교체됨).</summary>
+    IEnumerator FlashTable(Vector3 cp, Vector3 cl)
+    {
+        var rends = table != null ? table.root.GetComponentsInChildren<MeshRenderer>() : new MeshRenderer[0];
+        var mpb = new MaterialPropertyBlock();
+        bool swapped = false;
+        for (float t = 0; t < glowSeconds; t += Time.deltaTime)
+        {
+            float u = t / glowSeconds;
+            float k = Mathf.Pow(Mathf.Clamp01(u / 0.18f) * Mathf.Clamp01((1f - u) / 0.28f), 0.6f);
+            if (!swapped && tennis != null && u >= 0.4f)
+            {
+                tennis.active = true;
+                for (int i = 0; i < carried.Length; i++)
+                    if (carried[i] != null) { Object.Destroy(carried[i].gameObject); carried[i] = null; }
+                swapped = true;
+            }
+            Color emi = new Color(1.1f, 1.5f, 0.7f) * (k * 3.2f);
+            foreach (var r in rends)
+            {
+                if (r == null) continue;
+                var m = r.sharedMaterial;
+                if (m != null && !m.IsKeywordEnabled("_EMISSION"))
+                { m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
+                r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", emi); r.SetPropertyBlock(mpb);
+            }
+            WiggleChainStep();
+            SetCam(cp, cl); yield return null;
+        }
+        foreach (var r in rends)
+        {
+            if (r == null) continue;
+            r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb);
+        }
+    }
+
+    /// <summary>(컷씬 후) 애벌레들이 이따금 쥐구멍에서 나와 벽을 타고 올라감 — 표면에서 띄워 파묻힘 방지.</summary>
     IEnumerator WaveLoop()
     {
         var wait = new WaitForSeconds(waveEvery);
@@ -204,16 +283,15 @@ public class FrameHallClimb : MonoBehaviour
         {
             yield return wait;
             if (inHall) continue;
-            float wallZ = -22.45f;
             float lat = Random.Range(-3f, 3f);
             var path = new Vector3[]
             {
-                pilePos + Vector3.down * 0.3f,
-                pilePos + Vector3.up * BallR,
-                new Vector3(lat, pilePos.y + 0.5f, -25f),
-                new Vector3(lat, pilePos.y + 0.6f, wallZ),
-                new Vector3(lat * 0.4f, -6f, wallZ),
-                new Vector3(lat * 0.15f, 0.5f, wallZ),
+                holePos + new Vector3(0.6f, 0.17f, 0f),
+                holePos + new Vector3(-1.5f, 0.17f, 0f),
+                new Vector3(lat, -11.7f, -26f),
+                new Vector3(lat, -11.6f, WallZ),
+                new Vector3(lat * 0.4f, -6f, WallZ),
+                new Vector3(lat * 0.15f, 0.5f, WallZ),
                 new Vector3(lat * 0.15f, 0.35f, -20f),
                 new Vector3(lat * 0.15f, 0.35f, -17f),
             };
@@ -224,9 +302,9 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
-    // ── 컷씬용 수동 애벌레(등장·대사 동안 제자리 꿈틀 — TennisCaterpillar는 도착 시 자멸이라 직접 제어) ──
+    // ── 컷씬용 수동 애벌레 ──
 
-    Transform[] SpawnChain()
+    Transform[] SpawnChain(Vector3 at)
     {
         var arr = new Transform[ChainN];
         for (int i = 0; i < ChainN; i++)
@@ -235,9 +313,8 @@ public class FrameHallClimb : MonoBehaviour
             Object.Destroy(s.GetComponent<Collider>());
             s.name = "CutsceneCat_" + i;
             s.transform.localScale = Vector3.one * (BallR * 2f);
-            var r = s.GetComponent<MeshRenderer>();
-            if (BallMat() != null) r.sharedMaterial = BallMat();
-            s.transform.position = pilePos + Vector3.down * 0.3f;
+            if (BallMat() != null) s.GetComponent<MeshRenderer>().sharedMaterial = BallMat();
+            s.transform.position = at;
             arr[i] = s.transform;
         }
         return arr;
@@ -256,6 +333,8 @@ public class FrameHallClimb : MonoBehaviour
         return pts[pts.Length - 1];
     }
 
+    Vector3[] lastPath; float lastHeadS;
+
     IEnumerator MoveChain(Vector3[] path, float dur, Vector3 cp, Vector3 cl)
     {
         float total = 0f;
@@ -270,8 +349,6 @@ public class FrameHallClimb : MonoBehaviour
         PoseChain(path, endS);
         lastPath = path; lastHeadS = endS;
     }
-
-    Vector3[] lastPath; float lastHeadS;
 
     void PoseChain(Vector3[] path, float headS)
     {
@@ -301,36 +378,6 @@ public class FrameHallClimb : MonoBehaviour
             float u = Mathf.SmoothStep(0f, 1f, t / dur);
             if (cam != null) { cam.position = Vector3.Lerp(p0, p1, u); cam.rotation = Quaternion.Slerp(r0, r1, u); }
             yield return null;
-        }
-    }
-
-    // 테이블 발광 — 도중(40%)에 테니스공 생성(GiraffeCutscene.FlashTable 축약판)
-    IEnumerator FlashTable(Vector3 cp, Vector3 cl)
-    {
-        var rends = table != null ? table.root.GetComponentsInChildren<MeshRenderer>() : new MeshRenderer[0];
-        var mpb = new MaterialPropertyBlock();
-        bool swapped = false;
-        for (float t = 0; t < glowSeconds; t += Time.deltaTime)
-        {
-            float u = t / glowSeconds;
-            float k = Mathf.Pow(Mathf.Clamp01(u / 0.18f) * Mathf.Clamp01((1f - u) / 0.28f), 0.6f);
-            if (!swapped && tennis != null && u >= 0.4f) { tennis.active = true; swapped = true; }
-            Color emi = new Color(1.1f, 1.5f, 0.7f) * (k * 3.2f);   // 테니스 연두빛
-            foreach (var r in rends)
-            {
-                if (r == null) continue;
-                var m = r.sharedMaterial;
-                if (m != null && !m.IsKeywordEnabled("_EMISSION"))
-                { m.EnableKeyword("_EMISSION"); m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive; }
-                r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", emi); r.SetPropertyBlock(mpb);
-            }
-            WiggleChainStep();
-            SetCam(cp, cl); yield return null;
-        }
-        foreach (var r in rends)
-        {
-            if (r == null) continue;
-            r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb);
         }
     }
 
@@ -364,7 +411,7 @@ public class FrameHallClimb : MonoBehaviour
             if (ab != null && ab.isRoot) { ab.immovable = freeze; if (freeze) { ab.linearVelocity = Vector3.zero; ab.angularVelocity = Vector3.zero; } }
     }
 
-    // ───────────────────────── 손글씨 말풍선/힌트(로비 테마) ─────────────────────────
+    // ───────────────────────── 손글씨 말풍선 + 설명 이미지 오버레이 ─────────────────────────
 
     void OnGUI()
     {
@@ -372,7 +419,24 @@ public class FrameHallClimb : MonoBehaviour
         UiKit.ApplyKoreanFont();
         if (txt == null) txt = HandUI.Style(26, HandUI.Ink, TextAnchor.MiddleCenter);
 
-        // 컷씬 말풍선: 애벌레 머리 위(월드 앵커 → 스크린)
+        // 조작 설명 이미지(흰 화면 + 16:9 맞춤 — ControlsGuide 룩, 클릭/이동키로 닫기)
+        if (showGuide)
+        {
+            UiKit.Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
+            float top = 24f, bottom = Screen.height - 60f;
+            float availH = bottom - top, availW = Screen.width - 48f;
+            float ar = 16f / 9f;
+            float w = availW, h = w / ar;
+            if (h > availH) { h = availH; w = h * ar; }
+            GUI.DrawTexture(new Rect((Screen.width - w) * 0.5f, top + (availH - h) * 0.5f, w, h), guideTex, ScaleMode.ScaleToFit, true);
+            GUI.Label(new Rect(0f, Screen.height - 52f, Screen.width, 30f),
+                L.T("클릭하면 시작!", "click to start!"), txt);
+            if (Time.time - guideShownAt > 0.6f && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
+                showGuide = false;
+            return;
+        }
+
+        // 컷씬 말풍선(애벌레 머리 위)
         if (bubbleText != null && Camera.main != null)
         {
             Vector3 sp = Camera.main.WorldToScreenPoint(bubbleAnchor);
@@ -386,25 +450,16 @@ public class FrameHallClimb : MonoBehaviour
             }
         }
 
-        // 컷씬 후 조작 힌트 / 홀 진입 힌트(하단 중앙)
-        string s = null; float until = 0f;
-        if (Time.time < hintUntil)
+        // 홀 진입 힌트
+        if (Time.time < hint2Until)
         {
-            s = L.T("신축 키(E·Y·O·])로 공을 벽에 붙이고, 반대 키(Q·R·U·P)로 떼요\n다리를 번갈아 붙이며 벽을 올라가세요!",
-                    "stick a ball to the wall with E·Y·O·], release with Q·R·U·P\nclimb by sticking one leg at a time!");
-            until = hintUntil;
+            string s = L.T("테니스공의 힘은 여기까지 — 이제 기린의 힘(2)을 쓸 수 있어요",
+                           "the tennis power stays behind — the giraffe power (2) is yours now");
+            float a = Mathf.Clamp01(hint2Until - Time.time);
+            var sz2 = Measure(s);
+            var r2 = new Rect((Screen.width - sz2.x) * 0.5f, Screen.height - sz2.y - 46f, sz2.x, sz2.y);
+            DrawHand(r2, s, a * 0.55f, a);
         }
-        else if (Time.time < hint2Until)
-        {
-            s = L.T("테니스공의 힘은 여기까지 — 이제 기린의 힘(2)을 쓸 수 있어요",
-                    "the tennis power stays behind — the giraffe power (2) is yours now");
-            until = hint2Until;
-        }
-        if (s == null) return;
-        float a = Mathf.Clamp01(until - Time.time);
-        var sz2 = Measure(s);
-        var r2 = new Rect((Screen.width - sz2.x) * 0.5f, Screen.height - sz2.y - 46f, sz2.x, sz2.y);
-        DrawHand(r2, s, a * 0.55f, a);
     }
 
     Vector2 Measure(string text)

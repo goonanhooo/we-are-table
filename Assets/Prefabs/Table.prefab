@@ -1551,6 +1551,7 @@ MonoBehaviour:
   controlsMove: {fileID: 2800000, guid: 0c7bdf465bf554735abedbadd22f55f8, type: 3}
   controlsGiraffe: {fileID: 2800000, guid: 4c51681d1c52e4eac9edc7904868d36c, type: 3}
   controlsSquid: {fileID: 2800000, guid: 2f6dcd7a1b74741bd84b925f9b5695df, type: 3}
+  controlsTennis: {fileID: 2800000, guid: 3a545ec96322a446fa6614baf0d9bfb1, type: 3}
 --- !u!114 &9100000020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1680,7 +1681,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 0
+  GlobalObjectIdHash: 270732669
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
