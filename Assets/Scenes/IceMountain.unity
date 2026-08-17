@@ -17660,7 +17660,8 @@ MonoBehaviour:
   head: {fileID: 61295690}
   assembledPos: {x: 0, y: 0, z: 0}
   assembledHeadOffsetY: 2.4
-  triggerRange: 3.2
+  triggerRange: 0.9
+  triggerMinY: 1.8
   assembleSeconds: 1.5
   talkSeconds: 2.6
   panSeconds: 1.6

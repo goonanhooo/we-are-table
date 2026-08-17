@@ -16,8 +16,9 @@ public class SnowmanCutscene : MonoBehaviour
     public Vector3 assembledPos;
     public float assembledHeadOffsetY = 2.96f;   // body.y 위로 머리중심이 갈 높이
 
-    [Header("발동")]
-    public float triggerRange = 3.2f;   // 머리-몸통 XZ 거리 이내면 조립 시작
+    [Header("발동 — ★2026-08-17 퍼즐 재설계: 근처 자동 조립 폐지, 머리를 몸통 '바로 위'에 직접 올려야 성공")]
+    [Tooltip("머리-몸통 XZ 거리(아주 가깝게)")] public float triggerRange = 0.9f;
+    [Tooltip("머리 중심이 몸통 기준 이 높이 이상이어야 발동(= 몸통 위에 올린 상태)")] public float triggerMinY = 1.8f;
 
     [Header("타이밍(초)")]
     public float assembleSeconds = 1.5f;
@@ -57,6 +58,9 @@ public class SnowmanCutscene : MonoBehaviour
     {
         if (body == null) { var b = GameObject.Find("SnowmanBody"); if (b) body = b.transform; }
         if (head == null) { var h = GameObject.Find("SnowmanHead"); if (h) head = h.transform; }
+        // ★2026-08-17: 이 퍼즐은 테니스공(붙잡기)+기린(높이)으로 머리를 옮기는 설계 — 씬 입장 시 테니스 부여
+        var tn = Object.FindAnyObjectByType<TennisMode>();
+        if (tn != null) { tn.unlocked = true; tn.active = true; }
         if (head != null) headRb = head.GetComponent<Rigidbody>();
         var tgo = GameObject.Find("Table"); if (tgo) table = tgo.transform;
         var ttgo = GameObject.Find("TableTop"); if (ttgo) tableTop = ttgo.transform;
@@ -72,7 +76,8 @@ public class SnowmanCutscene : MonoBehaviour
         if (started || finished || netRemoteDriven || head == null || body == null) return;
         var a = new Vector2(head.position.x, head.position.z);
         var b = new Vector2(body.position.x, body.position.z);
-        if (Vector2.Distance(a, b) < triggerRange) Play();
+        // ★기린+테니스공으로 머리를 붙잡아 몸통 위에 '직접 올려야' 성공(근접 자동 조립 아님)
+        if (Vector2.Distance(a, b) < triggerRange && head.position.y > body.position.y + triggerMinY) Play();
     }
 
     public void Play()
