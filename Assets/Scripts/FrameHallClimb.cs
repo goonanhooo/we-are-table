@@ -183,12 +183,12 @@ public class FrameHallClimb : MonoBehaviour
         chain = SpawnChain(path[0]);
         yield return MoveChain(path, emergeSeconds, camP, lookP);
 
-        // 2) 대사 2줄 — 기린 컷씬과 동일 형식의 이미지 말풍선
+        // 2) 대사 2줄 — 기린 컷씬과 동일 형식의 이미지 말풍선(말하는 동안 몸은 정지)
         bubbleAnchor = head + Vector3.up * 0.45f;
         currentBubble = bubble1;
-        yield return Wiggle(talkSeconds, camP, lookP);
+        yield return Hold(talkSeconds, camP, lookP);
         currentBubble = bubble2;
-        yield return Wiggle(talkSeconds, camP, lookP);
+        yield return Hold(talkSeconds, camP, lookP);
         currentBubble = null;
 
         // 3) CCTV 하이앵글로 전환(공간 전체) — 그 앵글에서 빛 전달 + 테이블 발광
