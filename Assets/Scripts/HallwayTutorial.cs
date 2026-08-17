@@ -89,29 +89,47 @@ public class HallwayTutorial : MonoBehaviour
         GUI.color = new Color(1f, 1f, 1f, a);
 
         if (step == 1)
-            Hint(BottomRect(2), L.T(
+        {
+            string s = L.T(
                 "네 다리에는 각자 키가 있어요 — WASD · TFGH · IJKL · 방향키\n위아래 = 앞뒤로 휘두르기, 좌우 = 다리 돌리기. 걸어보세요!",
-                "each leg has its own keys — WASD · TFGH · IJKL · arrows\nup/down = swing, left/right = spin. try walking!"));
+                "each leg has its own keys — WASD · TFGH · IJKL · arrows\nup/down = swing, left/right = spin. try walking!");
+            Hint(BottomRect(s), s);
+        }
         else if (step == 2)
         {
-            // 우상단 파이(지름 ~91px, y14~105) 바로 아래
-            float w = 470f;
-            Hint(new Rect(Screen.width - w - 14f, 112f, w, 76f), L.T(
+            string s = L.T(
                 "오른쪽 위 파이 = 바로서기\n뒤집히면 1 키로 자세를 다시 잡아요 — 맵마다 3번뿐!",
-                "the pie up here = pose fixes\npress 1 to stand back up — only 3 per map!"));
+                "the pie up here = pose fixes\npress 1 to stand back up — only 3 per map!");
+            // 우상단 파이(지름 ~91px, y14~105) 바로 아래 — 크기는 텍스트 실측(잘림 방지)
+            var sz = Measure(s);
+            Hint(new Rect(Screen.width - sz.x - 14f, 112f, sz.x, sz.y), s);
         }
         else if (step == 3)
-            Hint(BottomRect(2), L.T(
+        {
+            string s = L.T(
                 "어느 다리가 어느 키인지 헷갈리면\nESC 설정에서 '다리 색 표시'를 켜보세요",
-                "not sure which leg is which?\nturn on 'leg colors' in the ESC options"));
+                "not sure which leg is which?\nturn on 'leg colors' in the ESC options");
+            Hint(BottomRect(s), s);
+        }
 
         GUI.color = pc;
     }
 
-    static Rect BottomRect(int lines)
+    /// <summary>텍스트 실측 크기(+여백) — 줄별 최대 폭 × 전체 높이.</summary>
+    Vector2 Measure(string text)
     {
-        float w = 720f, h = 34f + lines * 30f;
-        return new Rect((Screen.width - w) * 0.5f, Screen.height - h - 46f, w, h);
+        float w = 0f;
+        foreach (var line in text.Split('\n'))
+            w = Mathf.Max(w, txt.CalcSize(new GUIContent(line)).x);
+        w += 44f;
+        float h = txt.CalcHeight(new GUIContent(text), w) + 20f;
+        return new Vector2(w, h);
+    }
+
+    Rect BottomRect(string text)
+    {
+        var sz = Measure(text);
+        return new Rect((Screen.width - sz.x) * 0.5f, Screen.height - sz.y - 46f, sz.x, sz.y);
     }
 
     // ★로비 손글씨 테마(사용자 요청): 배경 박스 없이 맨 손글씨 + 손그림 밑줄(HandUI.Underline)
