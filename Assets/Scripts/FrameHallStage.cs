@@ -69,8 +69,7 @@ public class FrameHallStage : MonoBehaviour
             if (g != null) { legs[i] = g.transform; baseScaleY[i] = g.transform.localScale.y; }
         }
         darkAmbient = RenderSettings.ambientLight;
-        if (hallLights != null)
-            foreach (var l in hallLights) if (l != null) l.enabled = false;
+        // ★2026-08-17 홀은 처음부터 밝게(사용자 요청) — 점등 연출 폐지, 보상은 문 개방만
     }
 
     void Update()
@@ -126,21 +125,8 @@ public class FrameHallStage : MonoBehaviour
 
     IEnumerator SolveCutscene()
     {
-        // 1) 방이 환해짐 — 홀 라이트 점등 + 앰비언트 상승
-        if (hallLights != null)
-            foreach (var l in hallLights) if (l != null) { l.enabled = true; l.intensity = 0f; }
-        float targetI = 2.6f;
-        for (float t = 0f; t < lightSeconds; t += Time.deltaTime)
-        {
-            float u = Mathf.SmoothStep(0f, 1f, t / lightSeconds);
-            RenderSettings.ambientLight = Color.Lerp(darkAmbient, litAmbient, u);
-            if (hallLights != null)
-                foreach (var l in hallLights) if (l != null) l.intensity = targetI * u;
-            yield return null;
-        }
-        RenderSettings.ambientLight = litAmbient;
-
-        yield return new WaitForSeconds(0.3f);
+        // ★2026-08-17 홀이 처음부터 밝아서 점등 연출 없음 — 짧은 여운 뒤 바로 문 개방
+        yield return new WaitForSeconds(0.5f);
 
         // 2) 문 두 짝이 경첩으로 열림
         Quaternion l0 = doorL != null ? doorL.localRotation : Quaternion.identity;
