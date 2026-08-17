@@ -18,7 +18,6 @@ public class FrameHallClimb : MonoBehaviour
     public float grabRadius = 0.7f;                              // 공 줍기 판정(후하게)
     public float hallZ = -21f;
     public float shaftZ = -22.5f;
-    public float waveEvery = 9f;
     public Texture2D guideTex;                                   // ControlsTennis.png(씬에서 할당)
     public Texture2D bubble1;                                    // CatBubble1.png "잘했어..."(기린 말풍선 형식)
     public Texture2D bubble2;                                    // CatBubble2.png "나의 힘을 줄게..."
@@ -227,6 +226,8 @@ public class FrameHallClimb : MonoBehaviour
         var go = new GameObject("GoodbyeCaterpillar");
         go.transform.position = exitPath[0];
         var cat = go.AddComponent<TennisCaterpillar>();
+        cat.bunchAmp = 0f;   // 수축 진동 제거
+        cat.liftAmp = 0f;    // 위아래 들썩임 제거 — 가로 S웨이브만 남아 뱀처럼 미끄러짐
         cat.BuildAndGo(exitPath, BallMat(), 4.5f, TennisCaterpillar.Gait.Wave);
         yield return Hold(exitWatchSeconds, camW, lookW);
 
@@ -236,7 +237,6 @@ public class FrameHallClimb : MonoBehaviour
         FreezeTable(false);
         cutsceneDone = true;
         if (guideTex != null) { showGuide = true; guideShownAt = Time.time; }
-        StartCoroutine(WaveLoop());
     }
 
     /// <summary>발광 도중(40%) TennisMode ON — 모은 공 제거(모드 공으로 교체됨).</summary>
@@ -275,32 +275,6 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
-    /// <summary>(컷씬 후) 애벌레들이 이따금 쥐구멍에서 나와 벽을 타고 올라감 — 표면에서 띄워 파묻힘 방지.</summary>
-    IEnumerator WaveLoop()
-    {
-        var wait = new WaitForSeconds(waveEvery);
-        while (true)
-        {
-            yield return wait;
-            if (inHall) continue;
-            float lat = Random.Range(-3f, 3f);
-            var path = new Vector3[]
-            {
-                holePos + new Vector3(0.6f, 0.17f, 0f),
-                holePos + new Vector3(-1.5f, 0.17f, 0f),
-                new Vector3(lat, -11.7f, -26f),
-                new Vector3(lat, -11.6f, WallZ),
-                new Vector3(lat * 0.4f, -6f, WallZ),
-                new Vector3(lat * 0.15f, 0.5f, WallZ),
-                new Vector3(lat * 0.15f, 0.35f, -20f),
-                new Vector3(lat * 0.15f, 0.35f, -17f),
-            };
-            var go = new GameObject("ClimbCaterpillar");
-            go.transform.position = path[0];
-            var cat = go.AddComponent<TennisCaterpillar>();
-            cat.BuildAndGo(path, BallMat(), Random.Range(1.1f, 1.6f), TennisCaterpillar.Gait.Wave);
-        }
-    }
 
     // ── 컷씬용 수동 애벌레 ──
 
