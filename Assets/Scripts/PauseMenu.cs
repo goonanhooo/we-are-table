@@ -37,8 +37,9 @@ public class PauseMenu : MonoBehaviour
     // ★2026-07-14 시작 화면(StartScreenMenu 존재)에선 가운데 창 대신 왼쪽 손글씨 메뉴 계층으로(사용자 요청)
     bool handMode;
 
-    const float PanelW = 420f, PanelH = 664f;
-    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
+    // ★2026-08-17 언어/화면 모드 2행 추가로 664→772 (box_panel은 wobbly 손그림이라 ~16% 세로 스트레치 무해)
+    const float PanelW = 420f, PanelH = 772f;
+    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
     Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
 
@@ -60,9 +61,9 @@ public class PauseMenu : MonoBehaviour
     {
         var texs = new System.Collections.Generic.List<Texture2D>();
         var nms = new System.Collections.Generic.List<string>();
-        if (controlsMove != null) { texs.Add(controlsMove); nms.Add("기본 조작"); }
-        if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add("기린의 힘"); }
-        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add("우주오징어"); }
+        if (controlsMove != null) { texs.Add(controlsMove); nms.Add(L.T("기본 조작", "basic moves")); }
+        if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add(L.T("기린의 힘", "giraffe power")); }
+        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "space squid")); }
         names = nms.ToArray(); return texs.ToArray();
     }
 
@@ -88,6 +89,8 @@ public class PauseMenu : MonoBehaviour
         sfxSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
         colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 54f;
         controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        langBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
+        displayBtn  = new Rect(ix, cy, iw, 46f);   cy += 54f;
         restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 54f;
         menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
         quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
@@ -112,6 +115,8 @@ public class PauseMenu : MonoBehaviour
         sfxSlider  = new Rect(lx, cy, sw, 24f);    cy += 48f;
         colorBtn   = new Rect(lx, cy, 420f, 50f);  cy += 58f;
         controlsBtn = new Rect(lx, cy, 420f, 50f); cy += 58f;
+        langBtn    = new Rect(lx, cy, 420f, 50f);  cy += 58f;
+        displayBtn = new Rect(lx, cy, 420f, 50f);  cy += 58f;
         resumeBtn  = new Rect(lx, cy, 150f, 50f);  cy += 58f;   // = 뒤로(닫기)
         cheatBtn   = new Rect(lx, cy, 420f, 44f);               // 숨은 치트(호버 시만 표시)
         restartBtn = Off; menuBtn = Off; quitBtn = Off;          // 시작 화면에선 의미 없음
@@ -198,6 +203,8 @@ public class PauseMenu : MonoBehaviour
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
+            else if (langBtn.Contains(gm)) { L.Korean = !L.Korean; }
+            else if (displayBtn.Contains(gm)) { DisplayMode.Toggle(); }
             else if (restartBtn.Contains(gm))
             {
                 Time.timeScale = 1f;
@@ -285,6 +292,8 @@ public class PauseMenu : MonoBehaviour
         bool on = xray != null && xray.IsOn;
         HandItem(colorBtn, L.T("다리 색 표시: ", "leg colors: ") + (on ? L.T("켜짐", "on") : L.T("꺼짐", "off")), gm);
         HandItem(controlsBtn, L.T("조작법", "controls"), gm);
+        HandItem(langBtn, L.T("언어: 한국어", "language: English"), gm);
+        HandItem(displayBtn, DisplayMode.Label(), gm);
 
         if (!handMode)
         {

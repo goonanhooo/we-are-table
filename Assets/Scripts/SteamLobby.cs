@@ -59,11 +59,11 @@ public static class SteamLobby
         LastError = "";
         var nm = NetworkManager.Singleton;
         var tp = Transport();
-        if (nm == null || tp == null) { LastError = "NetworkManager 없음"; return false; }
+        if (nm == null || tp == null) { LastError = L.T("NetworkManager 없음", "no NetworkManager"); return false; }
 
         Debug.Log("[SteamLobby] IsSubscribed(앱 라이선스)=" + SteamApps.IsSubscribed + " LoggedOn=" + SteamClient.IsLoggedOn);
         var made = await SteamMatchmaking.CreateLobbyAsync(4);
-        if (!made.HasValue) { LastError = "스팀 로비 생성 실패" + (SteamApps.IsSubscribed ? "" : " (앱 라이선스 없음 — Spacewar 미소유?)"); return false; }
+        if (!made.HasValue) { LastError = L.T("스팀 로비 생성 실패", "steam lobby creation failed") + (SteamApps.IsSubscribed ? "" : L.T(" (앱 라이선스 없음)", " (no app license)")); return false; }
         var lobby = made.Value;
         lobby.SetFriendsOnly();   // 친구 목록에서 '게임 참가' 가능 + 목록 비공개(방코드/초대로만)
         lobby.SetData("wat_host", SteamClient.SteamId.Value.ToString());
@@ -71,7 +71,7 @@ public static class SteamLobby
         current = lobby;
 
         nm.NetworkConfig.NetworkTransport = tp;
-        if (!nm.StartHost()) { Leave(); LastError = "NGO 호스트 시작 실패"; return false; }
+        if (!nm.StartHost()) { Leave(); LastError = L.T("호스트 시작 실패", "failed to start host"); return false; }
         Debug.Log("[SteamLobby] 방 생성 — 로비 " + lobby.Id.Value);
         return true;
     }
@@ -81,9 +81,9 @@ public static class SteamLobby
     {
         Hook();
         LastError = "";
-        if (!ulong.TryParse(code.Trim(), out ulong id)) { LastError = "잘못된 방코드"; return false; }
+        if (!ulong.TryParse(code.Trim(), out ulong id)) { LastError = L.T("잘못된 방코드", "invalid room code"); return false; }
         var joined = await SteamMatchmaking.JoinLobbyAsync(id);
-        if (!joined.HasValue) { LastError = "로비 참가 실패(코드 확인)"; return false; }
+        if (!joined.HasValue) { LastError = L.T("로비 참가 실패(코드 확인)", "lobby join failed (check the code)"); return false; }
         return ConnectAsClient(joined.Value);
     }
 
@@ -92,17 +92,17 @@ public static class SteamLobby
     {
         var nm = NetworkManager.Singleton;
         if (nm != null && nm.IsListening) return;   // 이미 세션 중이면 무시
-        NetSession.SetStatus("초대 수락 — 참가 중...");
+        NetSession.SetStatus(L.T("초대 수락 — 참가 중...", "invite accepted — joining..."));
         var r = await lobby.Join();
-        if (r != RoomEnter.Success) { NetSession.SetStatus("초대 참가 실패: " + r); return; }
-        NetSession.SetStatus(ConnectAsClient(lobby) ? "참가됨" : "참가 실패: " + LastError);
+        if (r != RoomEnter.Success) { NetSession.SetStatus(L.T("초대 참가 실패: ", "invite join failed: ") + r); return; }
+        NetSession.SetStatus(ConnectAsClient(lobby) ? L.T("참가됨", "joined") : L.T("참가 실패: ", "join failed: ") + LastError);
     }
 
     static bool ConnectAsClient(Lobby lobby)
     {
         var nm = NetworkManager.Singleton;
         var tp = Transport();
-        if (nm == null || tp == null) { LastError = "NetworkManager 없음"; return false; }
+        if (nm == null || tp == null) { LastError = L.T("NetworkManager 없음", "no NetworkManager"); return false; }
 
         ulong host = 0;
         ulong.TryParse(lobby.GetData("wat_host"), out host);
@@ -111,7 +111,7 @@ public static class SteamLobby
 
         tp.targetSteamId = host;
         nm.NetworkConfig.NetworkTransport = tp;
-        if (!nm.StartClient()) { Leave(); LastError = "NGO 클라이언트 시작 실패"; return false; }
+        if (!nm.StartClient()) { Leave(); LastError = L.T("클라이언트 시작 실패", "failed to start client"); return false; }
         return true;
     }
 
@@ -147,9 +147,9 @@ public static class SteamLobby
         ulong id = pendingInvite;
         pendingInvite = 0;
         if (nm.IsListening) return;
-        NetSession.SetStatus("초대 수락 — 참가 중...");
+        NetSession.SetStatus(L.T("초대 수락 — 참가 중...", "invite accepted — joining..."));
         _ = JoinByCodeAsync(id.ToString()).ContinueWith(t =>
-            NetSession.SetStatus(t.Status == TaskStatus.RanToCompletion && t.Result ? "참가됨" : "참가 실패: " + LastError),
+            NetSession.SetStatus(t.Status == TaskStatus.RanToCompletion && t.Result ? L.T("참가됨", "joined") : L.T("참가 실패: ", "join failed: ") + LastError),
             TaskScheduler.FromCurrentSynchronizationContext());
     }
 #else

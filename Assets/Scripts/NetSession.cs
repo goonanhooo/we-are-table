@@ -45,7 +45,7 @@ public static class NetSession
         }
         catch (System.Exception e)
         {
-            Status = "로그인 실패: " + e.Message;
+            Status = L.T("로그인 실패: ", "sign-in failed: ") + e.Message;
             Debug.LogError("[NetSession] " + Status);
             return false;
         }
@@ -61,27 +61,27 @@ public static class NetSession
             // ★스팀 경로(2026-08-09): 스팀 클라이언트가 살아 있으면 스팀 로비 + SDR 릴레이(방코드 = 로비 번호)
             if (SteamLobby.Available)
             {
-                Status = "스팀 방 생성 중...";
+                Status = L.T("스팀 방 생성 중...", "creating steam room...");
                 bool sOk = await SteamLobby.HostAsync();
-                Status = sOk ? "방 생성됨 — 코드: " + SteamLobby.JoinCode : "스팀 방 생성 실패: " + SteamLobby.LastError;
+                Status = sOk ? L.T("방 생성됨 — 코드: ", "room created — code: ") + SteamLobby.JoinCode : L.T("스팀 방 생성 실패: ", "steam room failed: ") + SteamLobby.LastError;
                 Debug.Log("[NetSession] " + Status);
                 return sOk;
             }
 
             EnsureUnityTransport();
-            Status = "로그인 중...";
+            Status = L.T("로그인 중...", "signing in...");
             if (!await EnsureSignedInAsync()) return false;
-            Status = "방 생성 중...";
+            Status = L.T("방 생성 중...", "creating room...");
             var options = new SessionOptions { MaxPlayers = 4, IsPrivate = true, IsLocked = false }
                 .WithRelayNetwork();   // Relay 할당 + NGO 호스트 자동 시작
             Session = await MultiplayerService.Instance.CreateSessionAsync(options);
-            Status = "방 생성됨 — 코드: " + Session.Code;
+            Status = L.T("방 생성됨 — 코드: ", "room created — code: ") + Session.Code;
             Debug.Log("[NetSession] " + Status);
             return true;
         }
         catch (System.Exception e)
         {
-            Status = "방 생성 실패: " + e.Message;
+            Status = L.T("방 생성 실패: ", "room creation failed: ") + e.Message;
             Debug.LogError("[NetSession] " + Status);
             return false;
         }
@@ -99,26 +99,26 @@ public static class NetSession
             string trimmed = code.Trim();
             if (trimmed.Length >= 15 && ulong.TryParse(trimmed, out _))
             {
-                if (!SteamLobby.Available) { Status = "스팀 방코드 — 스팀 실행 필요"; return false; }
-                Status = "스팀 로비 참가 중...";
+                if (!SteamLobby.Available) { Status = L.T("스팀 방코드 — 스팀 실행 필요", "steam room code — steam must be running"); return false; }
+                Status = L.T("스팀 로비 참가 중...", "joining steam lobby...");
                 bool sOk = await SteamLobby.JoinByCodeAsync(trimmed);
-                Status = sOk ? "참가됨" : "참가 실패: " + SteamLobby.LastError;
+                Status = sOk ? L.T("참가됨", "joined") : L.T("참가 실패: ", "join failed: ") + SteamLobby.LastError;
                 Debug.Log("[NetSession] " + Status);
                 return sOk;
             }
 
             EnsureUnityTransport();
-            Status = "로그인 중...";
+            Status = L.T("로그인 중...", "signing in...");
             if (!await EnsureSignedInAsync()) return false;
-            Status = "참가 중...";
+            Status = L.T("참가 중...", "joining...");
             Session = await MultiplayerService.Instance.JoinSessionByCodeAsync(code.Trim().ToUpperInvariant());
-            Status = "참가됨";
+            Status = L.T("참가됨", "joined");
             Debug.Log("[NetSession] " + Status);
             return true;
         }
         catch (System.Exception e)
         {
-            Status = "참가 실패: " + e.Message;
+            Status = L.T("참가 실패: ", "join failed: ") + e.Message;
             Debug.LogError("[NetSession] " + Status);
             return false;
         }
@@ -143,11 +143,11 @@ public static class NetSession
     /// <summary>세션 떠나기(호스트가 떠나면 세션 종료 → 게스트들은 연결 해제됨 = 설계대로).</summary>
     public static async Task LeaveAsync()
     {
-        if (SteamLobby.InLobby) { SteamLobby.Leave(); Status = "세션 종료"; }
+        if (SteamLobby.InLobby) { SteamLobby.Leave(); Status = L.T("세션 종료", "session ended"); }
         if (Session == null) return;
         try { await Session.LeaveAsync(); }
         catch (System.Exception e) { Debug.LogWarning("[NetSession] Leave: " + e.Message); }
         Session = null;
-        Status = "세션 종료";
+        Status = L.T("세션 종료", "session ended");
     }
 }

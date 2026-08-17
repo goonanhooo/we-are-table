@@ -119,26 +119,26 @@ public class SoccerStage : NetworkBehaviour
         // 스코어보드
         var r = UiKit.Chip(Screen.width * 0.5f, 12f, 340f, 40f);
         int t = timeLeft.Value;
-        GUI.Label(r, "파랑  " + blueScore.Value + "  :  " + redScore.Value + "  빨강     " + (t / 60) + ":" + (t % 60).ToString("00"), UiKit.Btn);
+        GUI.Label(r, L.T("파랑  ", "blue  ") + blueScore.Value + "  :  " + redScore.Value + L.T("  빨강     ", "  red     ") + (t / 60) + ":" + (t % 60).ToString("00"), UiKit.Btn);
 
         if (phase.Value == 1)
         {
             var g = UiKit.Chip(Screen.width * 0.5f, Screen.height * 0.28f, 380f, 76f);
-            GUI.Label(g, "GOAL!  " + (lastScorer.Value == 0 ? "파랑" : "빨강") + " 득점!", UiKit.Title);
+            GUI.Label(g, "GOAL!  " + (lastScorer.Value == 0 ? L.T("파랑 득점!", "blue scores!") : L.T("빨강 득점!", "red scores!")), UiKit.Title);
         }
         else if (phase.Value == 2)
         {
-            string msg = blueScore.Value == redScore.Value ? "무승부!"
-                : (blueScore.Value > redScore.Value ? "파랑 승리!" : "빨강 승리!");
+            string msg = blueScore.Value == redScore.Value ? L.T("무승부!", "draw!")
+                : (blueScore.Value > redScore.Value ? L.T("파랑 승리!", "blue wins!") : L.T("빨강 승리!", "red wins!"));
             var g = UiKit.Chip(Screen.width * 0.5f, Screen.height * 0.28f, 420f, 76f);
-            GUI.Label(g, "경기 종료 — " + msg + "  (곧 재경기)", UiKit.Title);
+            GUI.Label(g, L.T("경기 종료 — ", "full time — ") + msg + L.T("  (곧 재경기)", "  (rematch soon)"), UiKit.Title);
         }
         // 내 팀 표시
         int my = mode != null ? mode.MySlot : -1;
         if (my >= 0)
         {
             var mr = UiKit.Chip(Screen.width * 0.5f, 56f, 150f, 28f);
-            GUI.Label(mr, "내 팀: " + (my % 2 == 0 ? "파랑" : "빨강"), UiKit.Small);
+            GUI.Label(mr, L.T("내 팀: ", "my team: ") + (my % 2 == 0 ? L.T("파랑", "blue") : L.T("빨강", "red")), UiKit.Small);
         }
     }
 }

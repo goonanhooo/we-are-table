@@ -261,17 +261,17 @@ public class ArtSceneReset : MonoBehaviour
         if (flippedTime < flipPromptDelay) return;
         var r = BannerRect();
         UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
-        GUI.Label(new Rect(r.x, r.y + 6f, r.width, 34f), "뒤집혔어요!", bannerStyle);
+        GUI.Label(new Rect(r.x, r.y + 6f, r.width, 34f), L.T("뒤집혔어요!", "flipped over!"), bannerStyle);
 
         var btn = RestartBtnRect();
         bool hover = btn.Contains(Event.current.mousePosition);
         UiKit.Panel(btn);
         if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
-        GUI.Label(btn, "다시 시작 (F1)", btnLabel);
+        GUI.Label(btn, L.T("다시 시작 (F1)", "restart (F1)"), btnLabel);
 
         string hint = (cheat || poseResetsLeft > 0)
-            ? "또는 1 키 — 자세 다시 잡기 (" + (cheat ? "치트: 무제한" : "남은 횟수 " + poseResetsLeft) + ")"
-            : "자세 다시 잡기를 모두 썼어요";
+            ? L.T("또는 1 키 — 자세 다시 잡기 (", "or press 1 — fix pose (") + (cheat ? L.T("치트: 무제한", "cheat: unlimited") : L.T("남은 횟수 ", "left: ") + poseResetsLeft) + ")"
+            : L.T("자세 다시 잡기를 모두 썼어요", "no pose fixes left");
         GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), hint, bannerSub);
     }
 

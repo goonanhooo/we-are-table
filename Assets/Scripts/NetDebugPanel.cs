@@ -60,6 +60,11 @@ public class NetDebugPanel : MonoBehaviour
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
     static readonly string[] MapNames = { "시작", "정글", "액자", "눈 덮인 산", "우주", "트랙", "달", "모험", "등반", "경주 (대전)", "축구 (대전)" };
+    // ★2026-08-17 영어 지원 — LevelSelect.MapLabel의 영문명과 일치
+    static readonly string[] LegNamesEn = { "front left (WASD)", "front right (TFGH)", "back left (IJKL)", "back right (arrows)" };
+    static readonly string[] MapNamesEn = { "start", "jungle", "gallery", "iceberg", "space", "track", "moon", "adventure", "climb", "race (vs)", "soccer (vs)" };
+    static string LegName(int i) => L.Korean ? LegNames[i] : LegNamesEn[i];
+    static string MapName(int i) => L.Korean ? MapNames[i] : MapNamesEn[i];
     static readonly string[] MapScenes = { "Hallway", "Jungle", "FrameHall", "IceMountain", "Space", "Track", "Moon", "Adventure", "Climb", "Race", "Soccer" };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
@@ -70,7 +75,7 @@ public class NetDebugPanel : MonoBehaviour
         if (NM == null) return;
         if (!NM.IsServer && clientId == NM.LocalClientId)
         {
-            status = "호스트 연결 종료 — 세션 끝";
+            status = L.T("호스트 연결 종료 — 세션 끝", "host left — session over");
             _ = NetSession.LeaveAsync();
             NM.Shutdown();
             SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
@@ -120,7 +125,7 @@ public class NetDebugPanel : MonoBehaviour
             if (NM.IsHost && R(0f, ActionY, 300f, 48f).Contains(gm))
             {
                 // 게임 시작 = 다리/세션 잠금 + 전원 선택 맵으로 이동(로비는 시작 화면에 있으므로 여기서 로드)
-                if (link.MapIndex < 0) { status = "맵을 먼저 선택하세요"; return; }
+                if (link.MapIndex < 0) { status = L.T("맵을 먼저 선택하세요", "pick a map first"); return; }
                 if (startPending) return;
                 var pv = Preview;
                 if (pv != null)
@@ -143,7 +148,7 @@ public class NetDebugPanel : MonoBehaviour
             {
                 if (R(0f, ActionY + 52f, 300f, 44f).Contains(gm)) SteamLobby.OpenInviteOverlay();
                 if (R(320f, ActionY + 52f, 150f, 44f).Contains(gm))
-                { GUIUtility.systemCopyBuffer = NetSession.JoinCode; status = "방코드 복사됨"; }
+                { GUIUtility.systemCopyBuffer = NetSession.JoinCode; status = L.T("방코드 복사됨", "room code copied"); }
             }
         }
         else
@@ -165,7 +170,7 @@ public class NetDebugPanel : MonoBehaviour
         NetLegLink.ResetSessionCache();
         _ = NetSession.LeaveAsync();
         if (NM != null) NM.Shutdown();
-        status = "세션 종료";
+        status = L.T("세션 종료", "session ended");
         SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
     }
 
@@ -211,23 +216,23 @@ public class NetDebugPanel : MonoBehaviour
                 UiKit.Fill(new Rect(r.x, r.y, 10f, r.height), col);   // 왼쪽 진한 색 띠
                 string nick = LegPalette.NickOf(owner);
                 string who = mine ? "★ " + L.T("나", "me") + " (" + nick + ")" : owner == -2 ? L.T("빈 자리", "open") : nick;
-                GUI.Label(new Rect(r.x + 14f, r.y + 8f, r.width - 14f, 30f), LegNames[i], tileName);
+                GUI.Label(new Rect(r.x + 14f, r.y + 8f, r.width - 14f, 30f), LegName(i), tileName);
                 GUI.Label(new Rect(r.x + 14f, r.y + 42f, r.width - 14f, 26f), who, tileSub);
             }
 
             // 맵 선택(호스트=클릭, 게스트=표시만) — 손글씨 목록, 선택 = 밑줄
             int sel = link != null ? link.MapIndex : -1;
             GUI.Label(R(0f, MapRowY - 30f, panel.width, 26f),
-                NM.IsHost ? L.T("맵 선택", "choose a map") : L.T("맵 (호스트가 선택): ", "map (host picks): ") + (sel >= 0 ? MapNames[sel] : L.T("선택 중…", "picking…")), hSmall);
+                NM.IsHost ? L.T("맵 선택", "choose a map") : L.T("맵 (호스트가 선택): ", "map (host picks): ") + (sel >= 0 ? MapName(sel) : L.T("선택 중…", "picking…")), hSmall);
             for (int i = 0; i < MapNames.Length; i++)
             {
                 var r = MapBtn(i);
                 bool hov = NM.IsHost && r.Contains(gm);
-                GUI.Label(r, MapNames[i], mapItem);
+                GUI.Label(r, MapName(i), mapItem);
                 // 선택된 맵 = 밑줄 고정, 호스트 호버 = 밑줄 미리보기(색 변화 없음)
                 if ((sel == i || hov) && HandUI.Underline != null)
                 {
-                    float tw = Mathf.Min(mapItem.CalcSize(new GUIContent(MapNames[i])).x + 8f, r.width);
+                    float tw = Mathf.Min(mapItem.CalcSize(new GUIContent(MapName(i))).x + 8f, r.width);
                     GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw, 12f), HandUI.Underline, ScaleMode.StretchToFill);
                 }
                 // ★호스트: 호버 = 3D 프리뷰 전환(방향 = 인덱스 증감)
@@ -264,10 +269,10 @@ public class NetDebugPanel : MonoBehaviour
         string mine2 = "";
         if (lk != null)
             for (int i = 0; i < 4; i++)
-                if (lk.IsMine(i)) mine2 += (mine2.Length > 0 ? ", " : "") + LegNames[i];
-        if (mine2.Length == 0) mine2 = NM.IsHost ? "(빈 다리 전부)" : "(없음)";
-        GUI.Label(R(12f, 6f, 228f, 48f), (NM.IsHost ? "호스트" : "게스트") + " · " + NM.ConnectedClientsList.Count + "명 (F9 숨김)\n내 다리: " + mine2 + " " + status, small);
-        Button(R(12f, 56f, 228f, 30f), "나가기", gm);
+                if (lk.IsMine(i)) mine2 += (mine2.Length > 0 ? ", " : "") + LegName(i);
+        if (mine2.Length == 0) mine2 = NM.IsHost ? L.T("(빈 다리 전부)", "(all unclaimed legs)") : L.T("(없음)", "(none)");
+        GUI.Label(R(12f, 6f, 228f, 48f), (NM.IsHost ? L.T("호스트", "host") : L.T("게스트", "guest")) + " · " + NM.ConnectedClientsList.Count + L.T("명 (F9 숨김)", " players (F9 hides)") + L.T("\n내 다리: ", "\nmy legs: ") + mine2 + " " + status, small);
+        Button(R(12f, 56f, 228f, 30f), L.T("나가기", "leave"), gm);
     }
 
     void Button(Rect r, string text, Vector2 gm) => UiKit.Button(r, text, r.Contains(gm));

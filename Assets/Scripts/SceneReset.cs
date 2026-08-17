@@ -318,8 +318,8 @@ public class SceneReset : MonoBehaviour
         GUI.DrawTexture(new Rect(x, y, w, 4f), flipTex);                 // 상단 강조선
         GUI.color = prev;
 
-        GUI.Label(new Rect(x, y + 10f, w, 40f), "F1 — 다시 시작", flipBig);
-        GUI.Label(new Rect(x, y + 48f, w, 24f), "테이블이 뒤집혔어요", flipSmall);
+        GUI.Label(new Rect(x, y + 10f, w, 40f), L.T("F1 — 다시 시작", "F1 — restart"), flipBig);
+        GUI.Label(new Rect(x, y + 48f, w, 24f), L.T("테이블이 뒤집혔어요", "the table flipped over"), flipSmall);
     }
 
     void EnsureFlipStyles()
