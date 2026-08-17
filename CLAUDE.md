@@ -308,6 +308,7 @@
   - ⚠️ MCP revoked 상태에서 **프리팹 파일 직접 편집**으로 부착함(컴포넌트 9100000050 + m_Component 등록). Unity 포커스 시 리임포트되어 전 씬 반영. Samplescene 전용으로 옮기려면 MCP 켜고 인스턴스 added-component로 이동.
 
 ## ★ 세션 인계 가이드 (새 대화에서 먼저 읽기)
+- ⚠️★**MCP 릴레이는 프로젝트를 안 가린다(2026-08-17 실증)**: relay_mac_arm64는 cwd 라우팅 없이 **지금 살아있는 에디터의 브리지에 그냥 붙는다**(codextable만 열렸을 때 claude 릴레이가 그쪽에 연결·승인된 기록 확인). → **유니티 에디터는 한 번에 하나만** 열 것(다른 프로젝트 에디터가 열려 있으면 내 명령이 그쪽에서 실행될 수 있음). 작업 전 `Application.dataPath`로 대상 확인이 안전. 사용자는 codextable(코덱스 프로토타입) 프로젝트를 병행 중.
 - ⚠️★**MCP "Connection revoked" 반복 시 정답**(2026-07-08 재확인): 설정 승인 토글로는 안 풀림 — **`pkill -f relay_mac_arm64`로 릴레이 재시작**(낡은 릴레이 프로세스가 옛 거부 상태를 캐시). 그래도 안 되면 `Library/AI.MCP/connections-v2.asset` 삭제 → 재승인. 상세는 아래 "MCP 연결 삽질 일지". ★**2026-07-14 케이스 추가**: 릴레이 재시작 '후'의 revoked는 반대로 **새 연결이 승인 대기인데 승인 팝업이 안 뜬 것**일 수 있음 — `connections-v2.asset`에서 현재 relay PID 항목이 `Status: 1, DialogShown: 0`이면 이 상태(설정 토글·릴레이 재재시작 무효). **정답 = 에디터 재시작**: kill <에디터PID> → `open -na .../Unity.app --args -projectPath` → 새 파이프(/tmp/unity-mcp-*-<새PID>) 확인 → 옛 파이프 rm + `pkill -f relay_mac_arm64` → 즉시 연결됨(재승인 팝업 없이).
 ### 작업 규칙 (중요)
 - 변경은 **에이전트가 파일을 직접 편집** → 사용자가 Unity에서 **저장 말고 reload(Don't Save)** 로 반영. (에디터에서 저장하면 파일 편집이 덮어써질 수 있음)
