@@ -2,13 +2,13 @@ using UnityEngine;
 
 /// <summary>
 /// ★ 테니스공 모드(2026-07-08) — 켜지면 네 다리 끝에 테니스공이 생긴다.
-/// 다리 신축 키(longer: FL=E/FR=Y/BL=O/BR=])를 누르면 공이 닿아 있는 벽/오브젝트에 '끈끈이'처럼 딱 붙고,
-/// 반대 키(shorter: FL=Q/FR=R/BL=U/BR=P)를 누르면 놓는다. 다리별 독립 — 번갈아 붙이며 벽을 오르는 조작.
+/// 붙이기 키(FL=C/FR=N/BL=./BR=오른쪽Shift)를 누르면 공이 닿아 있는 벽/오브젝트에 '끈끈이'처럼 딱 붙고,
+/// 떼기 키(FL=Z/FR=V/BL=M/BR=/)를 누르면 놓는다. (★2026-08-17 기린 신축 키와 분리 — 아랫줄 전용 키) 다리별 독립 — 번갈아 붙이며 벽을 오르는 조작.
 /// 붙기 구현: FixedJoint.connectedArticulationBody(2020.2+).
 ///  - 정적 벽: 발끝 위치에 키네마틱 Rigidbody 앵커 GO를 만들어 벽 transform에 붙이고(움직이는 발판도 추종) 조인트.
 ///  - 동적 오브젝트: 그 Rigidbody에 조인트를 직접 부착(물건을 다리로 붙잡아 끌 수 있음).
 /// 공은 시각 전용(콜라이더 없음 — 보행 물리 불변). 붙은 다리 공은 주황으로 바뀜.
-/// 테이블 기능 패턴: Table.prefab 루트, 평소 active=false. ⚠️기린 모드와 키가 겹치므로 씬이 GiraffeMode.locked 처리(TennisStage).
+/// 테이블 기능 패턴: Table.prefab 루트, 평소 active=false. 전용 키라 기린 모드와 동시 사용 가능(붙은 다리는 GiraffeMode가 신축 차단).
 /// </summary>
 public class TennisMode : MonoBehaviour, ICheatUnlockable
 {
@@ -26,8 +26,15 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("붙은 상태 재질(주황).")]
     public Material grabMat;
 
+    // ★2026-08-17 전용 키(사용자 요청): 기린 신축 키와 안 겹치게 키보드 아랫줄 사용.
+    //   붙이기: WASD(앞왼)=C, TFGH(앞오)=N, IJKL(뒤왼)=., Arrows(뒤오)=오른쪽Shift
+    //   떼기:   WASD=Z, TFGH=V, IJKL=M, Arrows=/  — 각 키셋의 왼→오 배치와 일치
+    static readonly UnityEngine.InputSystem.Key[] GrabKeys =
+    { UnityEngine.InputSystem.Key.C, UnityEngine.InputSystem.Key.N, UnityEngine.InputSystem.Key.Period, UnityEngine.InputSystem.Key.RightShift };
+    static readonly UnityEngine.InputSystem.Key[] ReleaseKeys =
+    { UnityEngine.InputSystem.Key.Z, UnityEngine.InputSystem.Key.V, UnityEngine.InputSystem.Key.M, UnityEngine.InputSystem.Key.Slash };
+
     TableInput ti;
-    GiraffeMode gir;   // ★2026-08-17 기린 공존: 기린 모드 중엔 새로 붙기 금지(신축 키 공유 — 액자 맵)
     ArtLegController[] legs;
     ArticulationBody[] legAbs;
     Transform[] meshes;
@@ -52,7 +59,6 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     void Start()
     {
         ti = TableInput.Of(this);
-        gir = transform.root.GetComponentInChildren<GiraffeMode>(true);
         legs = transform.root.GetComponentsInChildren<ArtLegController>(true);
         int n = legs.Length;
         legAbs = new ArticulationBody[n];
@@ -100,12 +106,14 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             if (!balls[i].gameObject.activeSelf) balls[i].gameObject.SetActive(true);
             balls[i].SetPositionAndRotation(Tip(i), meshes[i].rotation);
 
-            var inp = ti != null ? ti.Get(legs[i].controlSet) : default;
-            // 기린 모드 중엔 신축 키가 다리 늘이기로 쓰이므로 새로 붙지 않음(떼기는 허용)
-            if (inp.longer && !prevLonger[i] && joints[i] == null && !(gir != null && gir.active)) TryGrab(i);
-            if (inp.shorter && !prevShorter[i]) Release(i);
-            prevLonger[i] = inp.longer;
-            prevShorter[i] = inp.shorter;
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            int ks = (int)legs[i].controlSet;
+            bool grabNow = kb != null && ks >= 0 && ks < 4 && kb[GrabKeys[ks]].isPressed;
+            bool relNow = kb != null && ks >= 0 && ks < 4 && kb[ReleaseKeys[ks]].isPressed;
+            if (grabNow && !prevLonger[i] && joints[i] == null) TryGrab(i);
+            if (relNow && !prevShorter[i]) Release(i);
+            prevLonger[i] = grabNow;
+            prevShorter[i] = relNow;
 
             // 조인트가 외부 요인으로 파괴됐으면(씬 오브젝트 삭제 등) 상태 정리
             if (joints[i] == null && anchors[i] != null) { Destroy(anchors[i]); anchors[i] = null; }
