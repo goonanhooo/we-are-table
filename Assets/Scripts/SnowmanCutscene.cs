@@ -34,6 +34,8 @@ public class SnowmanCutscene : MonoBehaviour
 
     [Header("음성(선택)")]
     public AudioClip voice1, voice2;
+    [Tooltip("머리 얹기 성공음 — 컷씬 발동 순간 재생(VARCO Sound 생성)")]
+    public AudioClip successClip;
     AudioSource voiceSrc;
 
     Transform table, tableTop, cam;
@@ -89,6 +91,7 @@ public class SnowmanCutscene : MonoBehaviour
 
     IEnumerator Run()
     {
+        PlaySuccessSfx();   // 머리 얹기 성공음(발동 순간)
         FreezeTable(true);
         if (headRb != null) { headRb.linearVelocity = Vector3.zero; headRb.angularVelocity = Vector3.zero; headRb.isKinematic = true; }
         if (cameraFollow != null) cameraFollow.enabled = false;
@@ -198,6 +201,13 @@ public class SnowmanCutscene : MonoBehaviour
 
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
     { for (float t = 0; t < dur; t += Time.deltaTime) { SetCam(cp, cl); yield return null; } }
+
+    void PlaySuccessSfx()
+    {
+        if (successClip == null) return;
+        if (voiceSrc == null) { voiceSrc = GetComponent<AudioSource>(); if (voiceSrc == null) voiceSrc = gameObject.AddComponent<AudioSource>(); voiceSrc.playOnAwake = false; voiceSrc.spatialBlend = 0f; }
+        voiceSrc.PlayOneShot(successClip, Sfx.Volume);
+    }
 
     void PlayVoice(AudioClip c)
     {

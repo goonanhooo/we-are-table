@@ -17671,6 +17671,7 @@ MonoBehaviour:
   bubble2: {fileID: 2800000, guid: 866a460bbf782446c8f8aac5bf33e859, type: 3}
   voice1: {fileID: 0}
   voice2: {fileID: 0}
+  successClip: {fileID: 8300000, guid: d3eb8a0bd8ea542299752617a3a87ed7, type: 3}
   netRemoteDriven: 0
 --- !u!4 &757295131
 Transform:
