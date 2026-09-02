@@ -362,7 +362,7 @@
 
 
 ## 액자 홀 — 75° 등반 경사면 + 버튼 하우징 + 컷씬 카메라 연출 (2026-09-03)
-- **등반벽 → 경사면**: `ClimbShaft/ClimbSlope`(Cube 44×12.42×1, `LookRotation(n, d)`; d=(0,sin75,cos75), n=(0,cos75,-sin75)), 윗변 (y0,z-22.5) 고정·아랫변 z-25.7. 옛 ClimbWall/Face 삭제. 퇴장 경로 E2/E3는 경사면 표면+법선 0.25, LooseBall_0/1은 z-28대로 이동(경사면에 묻히지 않게). 경사 각도를 바꾸려면 슬로프 회전·길이·E2/E3·공 위치를 같이.
+- **등반벽 → 경사면(현재 60°, 사용자 조정)**: `ClimbShaft/ClimbSlope`(Cube 44×13.86×1, `LookRotation(n, d)`; d=(0,sinθ,cosθ), n=(0,cosθ,-sinθ)), 윗변 (y0,z-22.5) 고정·아랫변 z = -22.5 - 12/tanθ(60°→-29.4). 옛 ClimbWall/Face 삭제. 퇴장 경로 E1은 경사면 아래 앞, E2/E3는 경사면 표면+법선 0.25, LooseBall_0/1은 z-32대(경사면에 묻히지 않게). 각도를 바꾸려면 슬로프 회전·길이·위치, E1/E2/E3, 공 위치를 같이 갱신.
 - **버튼 하우징**: `PotPuzzle/RingBase`(어두운 고리 r0.72~3.05, y0.08), `RingLip`(바깥 턱 r3.05~3.3, 높이 0.22), `RingBolts`(8개), `InnerBase`(어두운 원판). 초록 캡 `RingButton` y0.18, 빨간 캡 `InnerButton` y0.2. 메시 `RingBaseMesh/RingLipMesh.asset`, 재질 `BtnBase/BtnBolt.mat`.
 - **컷씬 카메라(FrameHallClimb)**: 진입은 컷 대신 `CamMoveTo`(현재 시점→클로즈업 1.6s). 힘 전달은 테이블 기준 오프셋 클로즈업(`glowCamBack/Side/Up`, 거리≈4 — CamWide 마커 삭제). 퇴장은 `WatchFromShoulder`: 테이블 어깨 너머 고정 위치(`shoulderBack/Side/Up`)에서 시선만 `TennisCaterpillar.HeadPosition`을 Slerp 추적. `exitWatchSeconds` 8.5(애벌레가 구멍 너머로 사라질 때까지). 복귀는 `CameraFollow.BlendFrom(1.2f)` 후 enable(스냅 없음) — FrameHallStage 뚜껑 컷씬도 동일.
 - 검증: EditorApplication.update 샘플러로 카메라 위치/forward를 파일에 기록해 확인(카메라는 게임뷰 캡처가 안 되므로 이 방식이 표준).
