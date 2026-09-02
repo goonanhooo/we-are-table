@@ -366,3 +366,9 @@
 - **버튼 하우징**: `PotPuzzle/RingBase`(어두운 고리 r0.72~3.05, y0.08), `RingLip`(바깥 턱 r3.05~3.3, 높이 0.22), `RingBolts`(8개), `InnerBase`(어두운 원판). 초록 캡 `RingButton` y0.18, 빨간 캡 `InnerButton` y0.2. 메시 `RingBaseMesh/RingLipMesh.asset`, 재질 `BtnBase/BtnBolt.mat`.
 - **컷씬 카메라(FrameHallClimb)**: 진입은 컷 대신 `CamMoveTo`(현재 시점→클로즈업 1.6s). 힘 전달은 테이블 기준 오프셋 클로즈업(`glowCamBack/Side/Up`, 거리≈4 — CamWide 마커 삭제). 퇴장은 `WatchFromShoulder`: 테이블 어깨 너머 고정 위치(`shoulderBack/Side/Up`)에서 시선만 `TennisCaterpillar.HeadPosition`을 Slerp 추적. `exitWatchSeconds` 8.5(애벌레가 구멍 너머로 사라질 때까지). 복귀는 `CameraFollow.BlendFrom(1.2f)` 후 enable(스냅 없음) — FrameHallStage 뚜껑 컷씬도 동일.
 - 검증: EditorApplication.update 샘플러로 카메라 위치/forward를 파일에 기록해 확인(카메라는 게임뷰 캡처가 안 되므로 이 방식이 표준).
+
+
+## 테니스공 = 실제 콜라이더 (2026-09-03, 사용자 요청 "벽을 통과해 물리 버그처럼 느껴짐")
+- `TennisMode.Start`: 공은 다리 피벗(ArticulationBody, 스케일 1)의 **자식** SphereCollider(반지름 0.17) — 메시 자식이면 기린 신축 스케일에 찌그러지므로 피벗 자식 + `KeepBallAtTip`으로 발끝 로컬 위치만 갱신(발끝이 움직일 때만). 켜지면 테이블이 공 반지름(0.17)만큼 떠서 서고 벽/바닥을 뚫지 않는다.
+- 붙기 앵커: 벽 최근접점 `surface`에 **공 표면점**(`tip + (surface-tip).normalized × ballRadius`)을 connectedAnchor로 고정 → 공이 벽에 딱 닿은 채 고정(검증: tip→ballPt 0.170, gap 0.000). 동적 물체 붙기는 `enableCollision=false`(공 콜라이더와 물건이 서로 밀며 떨지 않게).
+- 플레이 도중 스크립트를 고치면 기존 세션의 공은 옛 코드가 만든 루트 오브젝트로 남는다(도메인 리로드가 Start를 다시 안 돌림) — 반드시 새 플레이 세션에서 검증.

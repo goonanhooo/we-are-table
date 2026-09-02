@@ -94,10 +94,15 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         {
             legAbs[i] = legs[i].GetComponent<ArticulationBody>();
             meshes[i] = legs[i].transform.childCount > 0 ? legs[i].transform.GetChild(0) : legs[i].transform;
+            // ★2026-09-03 실제 공(사용자 요청): 다리 AB의 자식으로 붙인 SphereCollider — 벽/바닥을 뚫지 않고 진짜 공처럼 닿는다.
+            //   피벗(스케일 1) 자식으로 두고 발끝 로컬 위치만 맞춤 — 메시 자식이면 기린 신축 스케일에 찌그러짐.
             var b = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(b.GetComponent<Collider>());
             b.name = "TennisBall_" + i;
+            b.layer = legs[i].gameObject.layer;
+            b.transform.SetParent(legs[i].transform, false);
             b.transform.localScale = Vector3.one * (ballRadius * 2f);
+            b.transform.localPosition = legs[i].transform.InverseTransformPoint(Tip(i));
+            b.transform.localRotation = Quaternion.Inverse(legs[i].transform.rotation) * meshes[i].rotation;
             ballRs[i] = b.GetComponent<MeshRenderer>();
             if (ballMat != null) ballRs[i].sharedMaterial = ballMat;
             b.SetActive(false);
@@ -106,6 +111,13 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     }
 
     Vector3 Tip(int i) => meshes[i].TransformPoint(0f, -0.5f, 0f);
+
+    /// <summary>공(콜라이더)을 발끝에 유지 — 기린 신축으로 발끝이 움직일 때만 로컬 위치 갱신(매 프레임 물리 형상 이동 방지).</summary>
+    void KeepBallAtTip(int i)
+    {
+        Vector3 lp = legs[i].transform.InverseTransformPoint(Tip(i));
+        if ((balls[i].localPosition - lp).sqrMagnitude > 1e-6f) balls[i].localPosition = lp;
+    }
 
     void Update()
     {
@@ -125,7 +137,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         {
             if (balls[i] == null) continue;
             if (!balls[i].gameObject.activeSelf) balls[i].gameObject.SetActive(true);
-            balls[i].SetPositionAndRotation(Tip(i), meshes[i].rotation);
+            KeepBallAtTip(i);
 
             if (netVisualOnly)
             {
@@ -170,14 +182,16 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         {
             var j = best.attachedRigidbody.gameObject.AddComponent<FixedJoint>();
             j.connectedArticulationBody = legAbs[i];
-            j.enableCollision = true;
+            j.enableCollision = false;   // 공 콜라이더와 물건이 서로 밀며 떨지 않게(조인트가 고정)
             joints[i] = j;
         }
         else
         {
-            // ★2026-08-20 밀착: 앵커를 발끝이 아니라 '벽 표면의 최근접점'에 두고, 발끝(다리 로컬)을 그 점에
-            //   맞추도록 connectedAnchor를 명시 — 조인트가 발끝을 표면까지 끌어당겨 이격 없이 딱 붙는다.
+            // ★2026-08-20 밀착: 앵커를 '벽 표면의 최근접점'에 두고, ★2026-09-03 공 표면(발끝에서 벽 쪽으로 반지름만큼)을
+            //   그 점에 맞추도록 connectedAnchor를 명시 — 실제 공 콜라이더가 벽에 딱 닿은 상태로 고정된다.
             Vector3 surface = best.ClosestPoint(tip);
+            Vector3 toWall = surface - tip;
+            Vector3 ballPt = toWall.sqrMagnitude > 1e-6f ? tip + toWall.normalized * ballRadius : tip;
             var a = new GameObject("TennisAnchor_" + i);
             a.transform.position = surface;
             a.transform.SetParent(best.transform, true);   // 움직이는 벽/발판도 추종
@@ -187,7 +201,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             j.autoConfigureConnectedAnchor = false;
             j.anchor = Vector3.zero;
             j.connectedArticulationBody = legAbs[i];
-            j.connectedAnchor = legAbs[i].transform.InverseTransformPoint(tip);
+            j.connectedAnchor = legAbs[i].transform.InverseTransformPoint(ballPt);
             joints[i] = j;
             anchors[i] = a;
         }
