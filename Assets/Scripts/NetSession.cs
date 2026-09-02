@@ -32,15 +32,29 @@ public static class NetSession
         if (utp != null) nm.NetworkConfig.NetworkTransport = utp;
     }
 
+    // ★2026-08-20 출시 안전망: 서비스 호출이 무한 대기하지 않게 타임아웃(과거 InitializeAsync 무한 대기 사례)
+    static async Task<T> WithTimeout<T>(Task<T> t, float seconds, string what)
+    {
+        var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
+        if (done != t) throw new System.TimeoutException(what + " 시간 초과(" + seconds + "s)");
+        return await t;
+    }
+    static async Task WithTimeout(Task t, float seconds, string what)
+    {
+        var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
+        if (done != t) throw new System.TimeoutException(what + " 시간 초과(" + seconds + "s)");
+        await t;
+    }
+
     /// <summary>서비스 초기화 + 익명 로그인(1회). Steam 출시 때 이 로그인만 Steam 연동으로 교체.</summary>
     public static async Task<bool> EnsureSignedInAsync()
     {
         try
         {
             if (UnityServices.State != ServicesInitializationState.Initialized)
-                await UnityServices.InitializeAsync();
+                await WithTimeout(UnityServices.InitializeAsync(), 20f, "서비스 초기화");
             if (!AuthenticationService.Instance.IsSignedIn)
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                await WithTimeout(AuthenticationService.Instance.SignInAnonymouslyAsync(), 20f, "로그인");
             return true;
         }
         catch (System.Exception e)
@@ -74,7 +88,7 @@ public static class NetSession
             Status = L.T("방 생성 중...", "creating room...");
             var options = new SessionOptions { MaxPlayers = 4, IsPrivate = true, IsLocked = false }
                 .WithRelayNetwork();   // Relay 할당 + NGO 호스트 자동 시작
-            Session = await MultiplayerService.Instance.CreateSessionAsync(options);
+            Session = await WithTimeout(MultiplayerService.Instance.CreateSessionAsync(options), 30f, "방 생성");
             Status = L.T("방 생성됨 — 코드: ", "room created — code: ") + Session.Code;
             Debug.Log("[NetSession] " + Status);
             return true;
@@ -111,7 +125,7 @@ public static class NetSession
             Status = L.T("로그인 중...", "signing in...");
             if (!await EnsureSignedInAsync()) return false;
             Status = L.T("참가 중...", "joining...");
-            Session = await MultiplayerService.Instance.JoinSessionByCodeAsync(code.Trim().ToUpperInvariant());
+            Session = await WithTimeout(MultiplayerService.Instance.JoinSessionByCodeAsync(code.Trim().ToUpperInvariant()), 30f, "참가");
             Status = L.T("참가됨", "joined");
             Debug.Log("[NetSession] " + Status);
             return true;

@@ -12,15 +12,16 @@ public class NetVisualSync : NetworkBehaviour
 {
     public struct VState : INetworkSerializable, System.IEquatable<VState>
     {
-        public bool giraffe, ice;
+        public bool giraffe, ice, tennis;
+        public byte stuck;   // ★2026-08-20 테니스공 붙은 다리 비트마스크
         public float l0, l1, l2, l3;
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
-            s.SerializeValue(ref giraffe); s.SerializeValue(ref ice);
+            s.SerializeValue(ref giraffe); s.SerializeValue(ref ice); s.SerializeValue(ref tennis); s.SerializeValue(ref stuck);
             s.SerializeValue(ref l0); s.SerializeValue(ref l1); s.SerializeValue(ref l2); s.SerializeValue(ref l3);
         }
         public bool Equals(VState o) =>
-            giraffe == o.giraffe && ice == o.ice
+            giraffe == o.giraffe && ice == o.ice && tennis == o.tennis && stuck == o.stuck
             && Mathf.Abs(l0 - o.l0) < 1e-4f && Mathf.Abs(l1 - o.l1) < 1e-4f
             && Mathf.Abs(l2 - o.l2) < 1e-4f && Mathf.Abs(l3 - o.l3) < 1e-4f;
     }
@@ -30,11 +31,13 @@ public class NetVisualSync : NetworkBehaviour
 
     GiraffeMode gm;
     IcePower ip;
+    TennisMode tm;
 
     public override void OnNetworkSpawn()
     {
         gm = transform.root.GetComponentInChildren<GiraffeMode>(true);
         ip = transform.root.GetComponentInChildren<IcePower>(true);
+        tm = transform.root.GetComponentInChildren<TennisMode>(true);
     }
 
     void Update()
@@ -46,6 +49,8 @@ public class NetVisualSync : NetworkBehaviour
             {
                 giraffe = gm != null && gm.active,
                 ice = ip != null && ip.active,
+                tennis = tm != null && tm.active,
+                stuck = (byte)(tm != null ? tm.StuckMask : 0),
                 l0 = gm != null ? gm.GetLen(0) : 0f,
                 l1 = gm != null ? gm.GetLen(1) : 0f,
                 l2 = gm != null ? gm.GetLen(2) : 0f,
@@ -58,6 +63,7 @@ public class NetVisualSync : NetworkBehaviour
             var s = state.Value;
             if (gm != null) gm.NetApplyVisual(s.giraffe, s.l0, s.l1, s.l2, s.l3);
             if (ip != null) ip.NetSetIceVisual(s.ice);
+            if (tm != null) tm.NetApplyVisual(s.tennis, s.stuck);
         }
     }
 }

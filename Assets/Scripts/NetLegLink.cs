@@ -200,9 +200,9 @@ public class NetLegLink : NetworkBehaviour
         tableInput.SetExternal((LegControlSet)leg, Unpack(packed));
     }
 
-    static byte Pack(LegInput i) => (byte)((i.up ? 1 : 0) | (i.down ? 2 : 0) | (i.left ? 4 : 0) | (i.right ? 8 : 0) | (i.longer ? 16 : 0) | (i.shorter ? 32 : 0));
+    static byte Pack(LegInput i) => (byte)((i.up ? 1 : 0) | (i.down ? 2 : 0) | (i.left ? 4 : 0) | (i.right ? 8 : 0) | (i.longer ? 16 : 0) | (i.shorter ? 32 : 0) | (i.grab ? 64 : 0) | (i.release ? 128 : 0));
     static LegInput Unpack(byte b) => new LegInput
-    { up = (b & 1) != 0, down = (b & 2) != 0, left = (b & 4) != 0, right = (b & 8) != 0, longer = (b & 16) != 0, shorter = (b & 32) != 0 };
+    { up = (b & 1) != 0, down = (b & 2) != 0, left = (b & 4) != 0, right = (b & 8) != 0, longer = (b & 16) != 0, shorter = (b & 32) != 0, grab = (b & 64) != 0, release = (b & 128) != 0 };
 
     // ── 게스트 모드: 물리/치트 스크립트는 호스트 전용 — 게스트에선 끔(포즈는 NetworkTransform 수신).
     //    GiraffeMode/IcePower는 끄지 않고 netVisualOnly — NetVisualSync가 시각(길이·스킨·재질)만 반영. ──
@@ -220,6 +220,7 @@ public class NetLegLink : NetworkBehaviour
         Toggle<SquidMode>(root, false);       // 우주오징어 추진도 호스트 물리 전용(분사 이펙트 동기화는 TODO)
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
         foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;
+        foreach (var t in root.GetComponentsInChildren<TennisMode>(true)) t.netVisualOnly = true;   // ★테니스공: 시각만(붙기 물리는 호스트)
         // 씬 레벨 스크립트: 추락 리스폰도 호스트 물리 기준(게스트에서 이중 리셋 방지)
         var fr = Object.FindAnyObjectByType<FallRespawn>();
         if (fr != null) fr.enabled = false;

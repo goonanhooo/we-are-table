@@ -17660,8 +17660,7 @@ MonoBehaviour:
   head: {fileID: 61295690}
   assembledPos: {x: 0, y: 0, z: 0}
   assembledHeadOffsetY: 2.4
-  triggerRange: 0.9
-  triggerMinY: 1.8
+  attachRadius: 2
   assembleSeconds: 1.5
   talkSeconds: 2.6
   panSeconds: 1.6
@@ -37989,11 +37988,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 84856c32d3d5549c984a774ae191ac7f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -10
+      value: -7.67
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 84856c32d3d5549c984a774ae191ac7f, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.5
+      value: 2.68
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 84856c32d3d5549c984a774ae191ac7f, type: 3}
       propertyPath: m_LocalPosition.z

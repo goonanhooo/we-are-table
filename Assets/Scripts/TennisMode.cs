@@ -34,6 +34,19 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     static readonly UnityEngine.InputSystem.Key[] ReleaseKeys =
     { UnityEngine.InputSystem.Key.Z, UnityEngine.InputSystem.Key.V, UnityEngine.InputSystem.Key.M, UnityEngine.InputSystem.Key.Slash };
 
+    /// <summary>★멀티 게스트: 붙기 물리 없이 공 표시만(NetVisualSync가 NetApplyVisual로 상태 반영).</summary>
+    [HideInInspector] public bool netVisualOnly;
+    int netStuckMask;
+
+    /// <summary>다리별 붙음 상태 비트마스크(legs 순서) — 호스트가 NetVisualSync로 발행.</summary>
+    public int StuckMask
+    {
+        get { int m = 0; if (joints != null) for (int i = 0; i < joints.Length; i++) if (joints[i] != null) m |= 1 << i; return m; }
+    }
+
+    /// <summary>게스트 시각 적용: 공 표시 on/off + 붙은 다리 주황(멱등, 매 프레임 호출 무해).</summary>
+    public void NetApplyVisual(bool on, int stuckMask) { active = on; netStuckMask = stuckMask; }
+
     TableInput ti;
     ArtLegController[] legs;
     ArticulationBody[] legAbs;
@@ -114,10 +127,17 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             if (!balls[i].gameObject.activeSelf) balls[i].gameObject.SetActive(true);
             balls[i].SetPositionAndRotation(Tip(i), meshes[i].rotation);
 
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            int ks = (int)legs[i].controlSet;
-            bool grabNow = kb != null && ks >= 0 && ks < 4 && kb[GrabKeys[ks]].isPressed;
-            bool relNow = kb != null && ks >= 0 && ks < 4 && kb[ReleaseKeys[ks]].isPressed;
+            if (netVisualOnly)
+            {
+                // 게스트: 붙기 물리 없음 — 호스트가 보낸 붙음 마스크로 색만
+                var wantG = (netStuckMask & (1 << i)) != 0 ? grabMat : ballMat;
+                if (wantG != null && ballRs[i].sharedMaterial != wantG) ballRs[i].sharedMaterial = wantG;
+                continue;
+            }
+            // ★2026-08-20 입력은 TableInput 경유(로컬 키보드=PollKeyset, 게스트=입력 RPC) — 멀티에서 게스트도 붙기 가능
+            var inp = ti != null ? ti.Get(legs[i].controlSet) : default;
+            bool grabNow = inp.grab;
+            bool relNow = inp.release;
             if (grabNow && !prevLonger[i] && joints[i] == null) TryGrab(i);
             if (relNow && !prevShorter[i]) Release(i);
             prevLonger[i] = grabNow;

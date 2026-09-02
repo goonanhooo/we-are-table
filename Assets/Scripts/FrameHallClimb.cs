@@ -49,6 +49,32 @@ public class FrameHallClimb : MonoBehaviour
     Transform[] carried;            // 다리별 붙은 공(없으면 null)
     Transform[] loose;              // 바닥의 공
     bool cutsceneStarted, cutsceneDone, inHall;
+    /// <summary>★멀티 게스트: 판정/부여 없이 시각만(NetStageSync가 구동).</summary>
+    [HideInInspector] public bool netGuest;
+    public bool CutsceneStarted => cutsceneStarted;
+    /// <summary>다리별 공 부착 비트마스크(legs 순서) — 호스트가 발행.</summary>
+    public int CarriedMask
+    {
+        get { int m = 0; if (carried != null) for (int i = 0; i < carried.Length; i++) if (carried[i] != null) m |= 1 << i; return m; }
+    }
+    /// <summary>게스트: 호스트가 발행한 부착 마스크대로 바닥 공을 다리에 붙여 보이게(멱등).</summary>
+    public void NetApplyCarried(int mask)
+    {
+        if (carried == null || loose == null) return;
+        for (int i = 0; i < carried.Length; i++)
+        {
+            if ((mask & (1 << i)) == 0 || carried[i] != null) continue;
+            for (int k = 0; k < loose.Length; k++)
+                if (loose[k] != null) { carried[i] = loose[k]; loose[k] = null; break; }
+        }
+    }
+    /// <summary>게스트: 호스트 컷씬 시작에 맞춰 로컬 재생(카메라/애벌레/말풍선 — 힘 부여 물리는 없음).</summary>
+    public void PlayRemote()
+    {
+        if (cutsceneStarted) return;
+        cutsceneStarted = true;
+        StartCoroutine(GrantCutscene());
+    }
     bool showGuide; float guideShownAt;
     float hint2Until;
     Texture2D currentBubble; Vector3 bubbleAnchor;
@@ -99,8 +125,8 @@ public class FrameHallClimb : MonoBehaviour
     {
         if (table == null || legs == null) return;
 
-        // ── 공 줍기: 빈 다리 발끝이 바닥 공에 닿으면 부착 ──
-        if (!cutsceneStarted)
+        // ── 공 줍기: 빈 다리 발끝이 바닥 공에 닿으면 부착 (게스트는 호스트 마스크만 반영) ──
+        if (!cutsceneStarted && !netGuest)
         {
             for (int i = 0; i < legs.Length; i++)
             {
@@ -126,7 +152,7 @@ public class FrameHallClimb : MonoBehaviour
         for (int i = 0; i < carried.Length; i++)
             if (carried[i] != null) carried[i].SetPositionAndRotation(Tip(i), legMesh[i].rotation);
 
-        if (!cutsceneDone) return;
+        if (!cutsceneDone || netGuest) return;   // 게스트: 테니스 on/off는 NetVisualSync가 반영
 
         // ── 홀 진입 = 테니스 회수+기린 해금 / 샤프트로 떨어지면 재부여 ──
         bool nowHall = table.position.z > hallZ && table.position.y > -1.5f;
@@ -206,7 +232,7 @@ public class FrameHallClimb : MonoBehaviour
             SetCam(camW, lookW); yield return null;
         }
         Object.Destroy(orb);
-        if (tennis != null) tennis.unlocked = true;
+        if (tennis != null && !netGuest) tennis.unlocked = true;
         yield return FlashTable(camW, lookW);
 
         // 4) 같은 CCTV 앵글 — 애벌레가 마저 나와 벽을 타고 '벽 위 구멍'으로 꾸물꾸물 퇴장
@@ -250,7 +276,7 @@ public class FrameHallClimb : MonoBehaviour
             float k = Mathf.Pow(Mathf.Clamp01(u / 0.18f) * Mathf.Clamp01((1f - u) / 0.28f), 0.6f);
             if (!swapped && tennis != null && u >= 0.4f)
             {
-                tennis.active = true;
+                if (!netGuest) tennis.active = true;   // 게스트는 NetVisualSync가 켬
                 for (int i = 0; i < carried.Length; i++)
                     if (carried[i] != null) { Object.Destroy(carried[i].gameObject); carried[i] = null; }
                 swapped = true;

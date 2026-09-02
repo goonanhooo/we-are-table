@@ -6,7 +6,8 @@ public struct LegInput
 {
     public bool up, down, left, right;   // 앞뒤 스윙 / 긴축 회전
     public bool longer, shorter;         // 기린 모드 다리 신축
-    public bool Any => up || down || left || right || longer || shorter;
+    public bool grab, release;           // ★2026-08-20 테니스공 붙이기/떼기(멀티 RPC 경유용)
+    public bool Any => up || down || left || right || longer || shorter || grab || release;
 }
 
 /// <summary>
@@ -102,11 +103,16 @@ public class TableInput : MonoBehaviour
     }
 
     /// <summary>키셋 하나의 로컬 키보드 상태(보조키 제외) — 게스트가 자기 다리 입력을 읽어 서버로 보낼 때도 사용.</summary>
+    // ★2026-08-20 테니스 붙이기/떼기 키(아랫줄) — 키셋 순서 WASD/TFGH/IJKL/Arrows
+    static readonly Key[] GrabKeys = { Key.C, Key.N, Key.Period, Key.RightShift };
+    static readonly Key[] ReleaseKeys = { Key.Z, Key.V, Key.M, Key.Slash };
+
     public static LegInput PollKeyset(LegControlSet set)
     {
         var kb = Keyboard.current;
         if (kb == null) return default;
         var m = Map[(int)set];
+        int k = (int)set;
         return new LegInput
         {
             up      = kb[m[0]].isPressed,
@@ -115,6 +121,8 @@ public class TableInput : MonoBehaviour
             right   = kb[m[3]].isPressed,
             longer  = kb[m[4]].isPressed,
             shorter = kb[m[5]].isPressed,
+            grab    = k >= 0 && k < 4 && kb[GrabKeys[k]].isPressed,
+            release = k >= 0 && k < 4 && kb[ReleaseKeys[k]].isPressed,
         };
     }
 

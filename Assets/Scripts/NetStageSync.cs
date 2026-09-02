@@ -20,6 +20,13 @@ public class NetStageSync : NetworkBehaviour
     // 이번 세션에서 주운 편지(비트마스크 — letterId 정렬 인덱스). 과거 수집분은 발행 안 함(입장 즉시 팝업 방지).
     readonly NetworkVariable<int> letterBits = new(0,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-08-20 액자 맵: 화분 퍼즐 해결(문 개방) / 공 수집 마스크 / 애벌레 컷씬 시작
+    readonly NetworkVariable<bool> frameSolved = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<int> carriedMask = new(0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<bool> climbCutscene = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -27,6 +34,9 @@ public class NetStageSync : NetworkBehaviour
     CageButton cage;
     GiraffeGate gate;
     SnowmanCutscene snowman;
+    FrameHallStage frame;
+    FrameHallClimb climb;
+    bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
     bool[] letterWasActive;
@@ -38,6 +48,8 @@ public class NetStageSync : NetworkBehaviour
         cage = FindAnyObjectByType<CageButton>();
         gate = FindAnyObjectByType<GiraffeGate>();
         snowman = FindAnyObjectByType<SnowmanCutscene>();
+        frame = FindAnyObjectByType<FrameHallStage>();
+        climb = FindAnyObjectByType<FrameHallClimb>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -52,6 +64,7 @@ public class NetStageSync : NetworkBehaviour
             // 게스트: 머리는 호스트 포즈 수신 전용 + 컷씬 근접 자동발동 차단(NetStageSync가 발동)
             if (headRb != null) headRb.isKinematic = true;
             if (snowman != null) snowman.netRemoteDriven = true;
+            if (climb != null) climb.netGuest = true;
         }
     }
 
@@ -63,6 +76,13 @@ public class NetStageSync : NetworkBehaviour
             if (cage != null && cage.PressedState && !cagePressed.Value) cagePressed.Value = true;
             if (gate != null && gate.Opened && !gateOpened.Value) gateOpened.Value = true;
             if (snowman != null && snowman.Started && !snowmanPlayed.Value) snowmanPlayed.Value = true;
+            if (frame != null && frame.Solved && !frameSolved.Value) frameSolved.Value = true;
+            if (climb != null)
+            {
+                int cm = climb.CarriedMask;
+                if (cm != carriedMask.Value) carriedMask.Value = cm;
+                if (climb.CutsceneStarted && !climbCutscene.Value) climbCutscene.Value = true;
+            }
             // 편지: 세션 시작 시 활성이던 봉투가 비활성되면(=이번 세션에 주움) 발행
             for (int i = 0; i < letters.Length && i < 32; i++)
                 if (letterWasActive[i] && letters[i] != null && !letters[i].gameObject.activeSelf
@@ -74,6 +94,12 @@ public class NetStageSync : NetworkBehaviour
             if (cagePressed.Value && !guestCage) { guestCage = true; if (cage != null) cage.PlayRemote(); }
             if (gateOpened.Value && !guestGate) { guestGate = true; if (gate != null && !gate.Opened) gate.ForceOpen(); }
             if (snowmanPlayed.Value && !guestSnowman) { guestSnowman = true; if (snowman != null) snowman.PlayRemote(); }
+            if (frameSolved.Value && !guestFrame) { guestFrame = true; if (frame != null) frame.Solve(); }
+            if (climb != null)
+            {
+                climb.NetApplyCarried(carriedMask.Value);
+                if (climbCutscene.Value && !guestClimb) { guestClimb = true; climb.PlayRemote(); }
+            }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

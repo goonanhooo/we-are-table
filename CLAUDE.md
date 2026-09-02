@@ -336,3 +336,11 @@
 
 ### fileID 대역 관습(씬 내)
 - 1500000xxx=Ground, 1600000xxx=Table/다리, 1600009xxx=Table 루트의 PauseMenu(9010)/LegColorXray(9020), 1700000xxx=플랫폼/램프, 1800000xxx=버튼, 1900000xxx=ClearChecker, 1950000xxx=StartMenu, 2000000xxx=Canvas/UI.
+
+
+## 멀티 출시 대비 — 테니스/액자 동기 + 타임아웃 (2026-08-20)
+- **테니스 입력은 TableInput 경유**: `LegInput.grab/release`(NetLegLink Pack 비트 64/128) — `TableInput.PollKeyset`이 키셋별 붙이기(C/N/./RShift)·떼기(Z/V/M//) 키를 읽고, `TennisMode.Update`는 `ti.Get(controlSet).grab/release`만 본다(Keyboard 직접 읽기 제거). 덕분에 게스트 입력 RPC로도 호스트에서 붙기/떼기 물리가 돈다. 검증: `SetSource(set, External)+SetExternal(grab)` → 다음 프레임 `IsStuck=true`, `release` → false.
+- **게스트 시각**: `NetLegLink.ApplyGuestMode`가 `TennisMode.netVisualOnly=true` → Update에서 물리 없이 공 표시+주황만. 상태는 `NetVisualSync.VState.tennis/stuck(byte 마스크)`로 호스트가 발행, 게스트 `TennisMode.NetApplyVisual(on, mask)`(매 프레임 적용이라 SnowmanCutscene.Start의 로컬 tennis on도 호스트 값으로 덮임).
+- **액자 맵 동기**: `NetStageSync`에 `frameSolved/carriedMask/climbCutscene` 추가. 호스트는 `FrameHallStage.Solved`, `FrameHallClimb.CarriedMask/CutsceneStarted` 감시; 게스트는 `FrameHallStage.Solve()`, `FrameHallClimb.NetApplyCarried(mask)`(바닥 공을 다리로 옮겨 붙임), `PlayRemote()`(컷씬 시각만 — `netGuest`면 tennis.active/unlocked 안 건드림, 홀/샤프트 on/off 로직 skip). FrameHall.unity에 `NetStageSync` GO(NetworkObject+NetStageSync) 심음 — 신규 맵에 스테이지 이벤트 넣으면 이 GO도 같이 넣을 것.
+- **NetSession 타임아웃**: `WithTimeout(task, sec, what)` — 서비스 초기화/로그인 20s, 방 생성/참가 30s. 무한 "로그인 중..." 방지.
+- **Windows 빌드**: 사용자 지시 — **빌드는 사용자가 직접 한다(에이전트가 빌드하지 말 것)**. 참고: 맥에서 Windows 빌드는 Mono 백엔드만 가능(IL2CPP는 Windows+VS 필요, 현재 Mono). 2026-08-20 임시 테스트 빌드 1회 성공(errors 0, 14씬, Mono, steam_api64.dll 포함 확인) 후 결과물·스크립트 삭제함. RunCommand에서 BuildPipeline 직접 호출은 MCP가 'user interaction' 사유로 거부.
