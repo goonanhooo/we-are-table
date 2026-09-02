@@ -1775,7 +1775,7 @@ MonoBehaviour:
   active: 0
   unlocked: 0
   ballRadius: 0.17
-  grabRadius: 0.35
+  grabRadius: 0.5
   ballMat: {fileID: 2100000, guid: c00dbdf190804491eab65895f71ca3d5, type: 2}
   grabMat: {fileID: 2100000, guid: adc1ebf3658ef43878a7b55ff96439da, type: 2}
 --- !u!114 &6754129793693855038

@@ -191,8 +191,8 @@ public class FrameHallClimb : MonoBehaviour
         currentBubble = null;
 
         // 3) CCTV 하이앵글로 전환(공간 전체) — 그 앵글에서 빛 전달 + 테이블 발광
-        Vector3 camW = new Vector3(-11.5f, 1.5f, -38.5f);
-        Vector3 lookW = new Vector3(3f, -9f, -28f);
+        Vector3 camW = new Vector3(-16f, 2.5f, -44f);   // 확장된 홀 전체가 보이는 코너
+        Vector3 lookW = new Vector3(4f, -9f, -30f);
         yield return CamLerp(camP, lookP, camW, lookW, 1.4f);
 
         var orb = MakeOrb();

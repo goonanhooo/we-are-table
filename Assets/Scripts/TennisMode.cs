@@ -20,7 +20,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("공 반지름(시각).")]
     public float ballRadius = 0.17f;
     [Tooltip("붙기 탐지 반경(발끝 기준) — 공이 '닿아 있다'로 치는 거리.")]
-    public float grabRadius = 0.35f;
+    public float grabRadius = 0.5f;   // 0.35→0.5(2026-08-20 벽타기 후하게)
     [Tooltip("테니스공 재질(연두).")]
     public Material ballMat;
     [Tooltip("붙은 상태 재질(주황).")]
@@ -46,6 +46,14 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     readonly Collider[] overlap = new Collider[16];
 
     public void CheatUnlock() { unlocked = true; }
+
+    /// <summary>[검증용] 지정 다리로 즉시 붙기 시도 — 성공 여부 반환.</summary>
+    public bool DebugGrab(int i)
+    {
+        if (joints == null || i < 0 || i >= joints.Length || joints[i] != null) return false;
+        TryGrab(i);
+        return joints[i] != null;
+    }
 
     /// <summary>이 키셋 다리의 공이 어딘가에 붙어 있는가(GiraffeMode가 신축 차단 판단에 사용).</summary>
     public bool IsStuck(LegControlSet set)
@@ -147,13 +155,19 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         }
         else
         {
+            // ★2026-08-20 밀착: 앵커를 발끝이 아니라 '벽 표면의 최근접점'에 두고, 발끝(다리 로컬)을 그 점에
+            //   맞추도록 connectedAnchor를 명시 — 조인트가 발끝을 표면까지 끌어당겨 이격 없이 딱 붙는다.
+            Vector3 surface = best.ClosestPoint(tip);
             var a = new GameObject("TennisAnchor_" + i);
-            a.transform.position = tip;
+            a.transform.position = surface;
             a.transform.SetParent(best.transform, true);   // 움직이는 벽/발판도 추종
             var rb = a.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             var j = a.AddComponent<FixedJoint>();
+            j.autoConfigureConnectedAnchor = false;
+            j.anchor = Vector3.zero;
             j.connectedArticulationBody = legAbs[i];
+            j.connectedAnchor = legAbs[i].transform.InverseTransformPoint(tip);
             joints[i] = j;
             anchors[i] = a;
         }

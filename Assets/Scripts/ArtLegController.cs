@@ -199,6 +199,13 @@ public class ArtLegController : MonoBehaviour
                 rampedV = 0f;
                 frozen = true;
             }
+            else
+            {
+                // ★붙음/뗌 전환 시 홀드 힘 재적용(붙은 다리 2배 보강이 이미 홀드 중인 다리에도 걸리게)
+                bool st = StuckMul() > 1f;
+                if (st != lastStuck) { DriveHold(angle); }
+            }
+            lastStuck = StuckMul() > 1f;
         }
         else
         {
@@ -213,16 +220,17 @@ public class ArtLegController : MonoBehaviour
             }
 
             // 한계각 근처 감속(stopMargin) + 램프(motorAccel)
+            // ★2026-08-20 벽타기: 감속 하한 30% — 하중이 걸려도 하드리밋(±swingLimit=수평)까지 밀어붙여 정확히 90° 도달
             float dir = (inp.down ? 1f : 0f) - (inp.up ? 1f : 0f);
             float v = dir * swingVelocity * lenScale;
-            if (v > 0f) v *= Mathf.Clamp01((swingLimit - angle) / stopMargin);
-            if (v < 0f) v *= Mathf.Clamp01((angle + swingLimit) / stopMargin);
+            if (v > 0f) v *= Mathf.Max(0.3f, Mathf.Clamp01((swingLimit - angle) / stopMargin));
+            if (v < 0f) v *= Mathf.Max(0.3f, Mathf.Clamp01((angle + swingLimit) / stopMargin));
             rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.deltaTime);
 
             var xd = ab.xDrive;
             xd.stiffness = 0f;
             xd.damping = driveDamping;
-            xd.forceLimit = motorForce * forceMultiplier;
+            xd.forceLimit = motorForce * forceMultiplier * StuckMul();
             xd.targetVelocity = rampedV;   // ⚠️ArticulationDrive target/targetVelocity는 '도' 단위(jointPosition만 라디안)
             ab.xDrive = xd;
         }
@@ -246,12 +254,23 @@ public class ArtLegController : MonoBehaviour
         }
     }
 
+    // ★2026-08-20 벽타기: 테니스공으로 벽에 붙은 다리는 몸무게를 버텨야 하므로 힘 2배
+    TennisMode tennisRef; bool tennisLooked; bool lastStuck;
+    float StuckMul()
+    {
+        if (!tennisLooked) { tennisLooked = true; tennisRef = transform.root.GetComponentInChildren<TennisMode>(true); }
+        return (tennisRef != null && tennisRef.active && tennisRef.IsStuck(controlSet)) ? 2f : 1f;
+    }
+
     void DriveHold(float angleDeg)
     {
+        // 한계 근처(4° 이내)에서 놓으면 정확히 ±swingLimit(=상판과 수평)에 스냅 — '쫙 펴진' 상태 보장
+        if (Mathf.Abs(angleDeg) > swingLimit - 4f) angleDeg = Mathf.Sign(angleDeg) * swingLimit;
+        float sm = StuckMul();
         var xd = ab.xDrive;
-        xd.stiffness = holdStiffness;
+        xd.stiffness = holdStiffness * sm;
         xd.damping = holdDamping;
-        xd.forceLimit = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f);
+        xd.forceLimit = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f) * sm;
         xd.target = angleDeg;   // 도 단위
         xd.targetVelocity = 0f;
         ab.xDrive = xd;
