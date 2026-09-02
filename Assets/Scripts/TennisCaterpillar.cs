@@ -24,6 +24,8 @@ public class TennisCaterpillar : MonoBehaviour
     public float sideAmp = 0.16f;
     public float waveHz = 2.2f;
     public float phaseStep = 0.95f;
+    [Tooltip("경로 끝 도달 시 파괴(런타임 생성용). 씬 배치 애벌레는 false → 비활성화만(재사용/편집 가능).")]
+    public bool destroyOnFinish = true;
 
     [Header("자벌레(Inchworm) — 몸을 아치로 굽혔다 쫙 펴며 전진")]
     public float inchCycle = 1.2f;     // 한 걸음(굽힘+펴기) 시간
@@ -38,7 +40,10 @@ public class TennisCaterpillar : MonoBehaviour
     float headS;
     float t;
 
-    /// <summary>경로/재질을 받아 공 8개를 만들고 출발.</summary>
+    /// <summary>★씬 배치용(2026-09-02): 자식 구(에디터에서 편집)를 그대로 몸통으로 써서 이 컴포넌트의 속도/걸음새로 출발.</summary>
+    public void Go(Vector3[] path) => BuildAndGo(path, null, speed, gait);
+
+    /// <summary>경로/재질을 받아 공 8개를 만들고 출발. 자식이 이미 있으면(씬 배치) 그 자식들을 몸통으로 사용.</summary>
     public void BuildAndGo(Vector3[] path, Material mat, float moveSpeed, Gait g = Gait.Wave)
     {
         pts = path;
@@ -51,6 +56,16 @@ public class TennisCaterpillar : MonoBehaviour
         {
             segLen[i] = Vector3.Distance(pts[i], pts[i + 1]);
             totalLen += segLen[i];
+        }
+        if (transform.childCount > 0)
+        {
+            // 씬에 배치된 자식 = 몸통(개수·크기·재질은 에디터에서 편집)
+            ballCount = transform.childCount;
+            balls = new Transform[ballCount];
+            for (int i = 0; i < ballCount; i++) { balls[i] = transform.GetChild(i); balls[i].gameObject.SetActive(true); }
+            headS = 0f; t = 0f;
+            enabled = true;
+            return;
         }
         balls = new Transform[ballCount];
         for (int i = 0; i < ballCount; i++)
@@ -80,6 +95,13 @@ public class TennisCaterpillar : MonoBehaviour
         return pts[pts.Length - 1];
     }
 
+    void Finish()
+    {
+        if (destroyOnFinish) { Destroy(gameObject); return; }
+        balls = null;
+        gameObject.SetActive(false);   // 씬 배치: 숨기기만(다음 재생 때 Go로 재사용)
+    }
+
     void Update()
     {
         if (balls == null) return;
@@ -93,7 +115,7 @@ public class TennisCaterpillar : MonoBehaviour
     {
         headS += speed * Time.deltaTime;
         float tailS = headS - (ballCount - 1) * spacing;
-        if (tailS > totalLen + 0.3f) { Destroy(gameObject); return; }
+        if (tailS > totalLen + 0.3f) { Finish(); return; }
 
         for (int i = 0; i < ballCount; i++)
         {
@@ -135,7 +157,7 @@ public class TennisCaterpillar : MonoBehaviour
             curLen = Mathf.Lerp(archLen, extLen, k);
         }
         float tailS = headS - curLen;
-        if (tailS > totalLen + 0.3f) { Destroy(gameObject); return; }
+        if (tailS > totalLen + 0.3f) { Finish(); return; }
 
         float arch = (extLen - curLen) / Mathf.Max(stride, 0.01f);   // 0=쫙 폄, 1=최대 굽힘
         for (int i = 0; i < ballCount; i++)

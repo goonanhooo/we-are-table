@@ -10,10 +10,36 @@ using UnityEngine.Rendering;
 /// 초록 빛 전달 + 테이블 발광 → TennisMode 부여 → 조작 설명 이미지(ControlsTennis) 표시 →
 /// 애벌레는 등반벽을 타고 퇴장(길 안내). 벽 위 애벌레는 표면에서 공 반지름만큼 띄워 파묻힘 방지.
 /// 홀 진입 시 테니스 회수+기린 해금, 샤프트로 떨어지면 재부여(v2와 동일).
+///
+/// ★2026-09-02 에디터 편집형(사용자 요청 "런타임 말고 편집할 수 있게"): 바닥 공·쥐구멍·등장/퇴장 경로·
+/// 카메라 샷·컷씬 애벌레·퇴장 애벌레·빛 구슬이 전부 **씬 오브젝트**이고 아래 필드로 참조한다.
+/// 씬에서 위치/재질/파라미터를 직접 옮기면 그대로 반영. 참조가 비어 있을 때만 예전 런타임 생성으로 폴백.
 /// </summary>
 public class FrameHallClimb : MonoBehaviour
 {
-    [Header("배치(씬 값)")]
+    [Header("씬 오브젝트(에디터에서 직접 편집)")]
+    [Tooltip("바닥에 흩어진 공 4개(시각 전용, 콜라이더 없음). 위치를 옮기면 그대로 반영.")]
+    public Transform[] looseBalls;
+    [Tooltip("쥐구멍 위치(애벌레 등장 기준점). 비어 있으면 holePos 숫자 사용.")]
+    public Transform holeAnchor;
+    [Tooltip("애벌레 등장 경로(순서대로, 첫 점=벽 속, 마지막 점=머리 정지점).")]
+    public Transform[] emergePath;
+    [Tooltip("말풍선 앵커(비어 있으면 머리 위 0.45).")]
+    public Transform bubblePoint;
+    [Tooltip("클로즈업 카메라 위치 / 바라볼 점")]
+    public Transform camCloseup, camCloseupLook;
+    [Tooltip("CCTV 하이앵글 카메라 위치 / 바라볼 점")]
+    public Transform camWide, camWideLook;
+    [Tooltip("컷씬 애벌레(자식 구 8개 = 몸통, 평소 비활성). 크기/재질은 자식에서 편집.")]
+    public Transform cutsceneChain;
+    [Tooltip("퇴장 경로(순서대로 — 마지막은 벽 위 구멍 너머).")]
+    public Transform[] exitPath;
+    [Tooltip("퇴장 애벌레(씬 배치, 평소 비활성). 속도/걸음새/진폭은 이 컴포넌트에서 편집.")]
+    public TennisCaterpillar goodbyeCat;
+    [Tooltip("힘 전달 빛 구슬(씬 배치, 평소 비활성). 재질/라이트는 오브젝트에서 편집.")]
+    public GameObject orb;
+
+    [Header("배치(숫자 폴백 — 위 씬 오브젝트가 비어 있을 때만)")]
     public Vector3 holePos = new Vector3(14.99f, -12f, -31f);   // 쥐구멍(오른쪽 벽 바닥)
     public float grabRadius = 0.7f;                              // 공 줍기 판정(후하게)
     public float hallZ = -21f;
@@ -28,8 +54,10 @@ public class FrameHallClimb : MonoBehaviour
     public float lightSeconds = 2.0f;
     public float glowSeconds = 2.2f;
     public float exitWatchSeconds = 6.5f;
+    [Tooltip("빛 구슬 크기(출발→도착)")]
+    public float orbStartScale = 0.5f, orbEndScale = 0.12f;
 
-    // 흩뿌린 공 4개(샤프트 바닥, 반지름 0.17 → y = -12 + 0.17)
+    // 폴백: 흩뿌린 공 4개(샤프트 바닥, 반지름 0.17 → y = -12 + 0.17)
     static readonly Vector3[] BallSpots =
     {
         new Vector3(-9f, -11.83f, -26.5f),
@@ -79,10 +107,13 @@ public class FrameHallClimb : MonoBehaviour
     float hint2Until;
     Texture2D currentBubble; Vector3 bubbleAnchor;
     Transform[] chain;
+    bool chainIsScene;
     GUIStyle txt;
 
     const int ChainN = 8;
     const float Spacing = 0.30f;
+
+    Vector3 HolePos => holeAnchor != null ? holeAnchor.position : holePos;
 
     void Start()
     {
@@ -103,19 +134,36 @@ public class FrameHallClimb : MonoBehaviour
                 legMesh[i] = legs[i].transform.childCount > 0 ? legs[i].transform.GetChild(0) : legs[i].transform;
         }
 
-        // 공 4개 흩뿌리기(시각 전용 — 판정은 거리 검사)
-        var mat = tennis != null ? tennis.ballMat : null;
-        loose = new Transform[BallSpots.Length];
-        for (int i = 0; i < BallSpots.Length; i++)
+        // 바닥 공: 씬에 배치된 것을 사용(에디터 편집) — 비어 있으면 폴백으로 생성
+        int nScene = 0;
+        if (looseBalls != null) foreach (var t in looseBalls) if (t != null) nScene++;
+        if (nScene > 0)
         {
-            var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Object.Destroy(s.GetComponent<Collider>());
-            s.name = "LooseBall_" + i;
-            s.transform.position = BallSpots[i];
-            s.transform.localScale = Vector3.one * (BallR * 2f);
-            if (mat != null) s.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            loose[i] = s.transform;
+            loose = new Transform[nScene];
+            int k = 0;
+            foreach (var t in looseBalls) if (t != null) { t.gameObject.SetActive(true); loose[k++] = t; }
         }
+        else
+        {
+            Debug.LogWarning("[FrameHallClimb] looseBalls 미할당 — 런타임 생성 폴백(씬에 배치하면 편집 가능)");
+            var mat = tennis != null ? tennis.ballMat : null;
+            loose = new Transform[BallSpots.Length];
+            for (int i = 0; i < BallSpots.Length; i++)
+            {
+                var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                Object.Destroy(s.GetComponent<Collider>());
+                s.name = "LooseBall_" + i;
+                s.transform.position = BallSpots[i];
+                s.transform.localScale = Vector3.one * (BallR * 2f);
+                if (mat != null) s.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                loose[i] = s.transform;
+            }
+        }
+
+        // 컷씬 소품은 평소 숨김(씬에서 켜 둔 채 저장해도 안전)
+        if (cutsceneChain != null) cutsceneChain.gameObject.SetActive(false);
+        if (goodbyeCat != null) goodbyeCat.gameObject.SetActive(false);
+        if (orb != null) orb.SetActive(false);
     }
 
     Vector3 Tip(int i) => legMesh[i].TransformPoint(0f, -0.5f, 0f);
@@ -181,64 +229,35 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
-    // ───────────────────────── 컷씬: 쥐구멍 애벌레의 힘 전달 ─────────────────────────
+    // ───────────────────────── 씬 경로/샷 읽기(폴백 포함) ─────────────────────────
 
-    IEnumerator GrantCutscene()
+    static Vector3[] Pts(Transform[] arr, Vector3[] fallback)
     {
-        FreezeTable(true);
-        if (cameraFollow != null) cameraFollow.enabled = false;
-        Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
+        int n = 0;
+        if (arr != null) foreach (var t in arr) if (t != null) n++;
+        if (n < 2) return fallback;
+        var r = new Vector3[n];
+        int k = 0;
+        foreach (var t in arr) if (t != null) r[k++] = t.position;
+        return r;
+    }
 
-        // 카메라: 쥐구멍을 비스듬히 봄
-        Vector3 camP = holePos + new Vector3(-5.5f, 2.6f, 1.5f);
-        Vector3 lookP = holePos + Vector3.up * 0.4f;
-        SetCam(camP, lookP);
-        yield return Hold(0.5f, camP, lookP);
-
-        // 1) 애벌레가 쥐구멍에서 S자로 반쯤만 나옴(몸 절반은 구멍 속 — 겹침 없음)
-        Vector3 head = holePos + new Vector3(-1.05f, 0.17f, 0.1f);
-        var path = new Vector3[]
+    Vector3[] EmergePathPts()
+    {
+        Vector3 hp = HolePos;
+        return Pts(emergePath, new Vector3[]
         {
-            holePos + new Vector3(2.5f, 0.17f, 0f),       // 구멍 깊숙이(벽 속 — 안 보임)
-            holePos + new Vector3(0.3f, 0.17f, 0f),
-            holePos + new Vector3(-0.35f, 0.17f, 0.35f),  // S 곡선
-            holePos + new Vector3(-0.75f, 0.17f, -0.25f),
-            head,
-        };
-        chain = SpawnChain(path[0]);
-        yield return MoveChain(path, emergeSeconds, camP, lookP);
+            hp + new Vector3(2.5f, 0.17f, 0f),       // 구멍 깊숙이(벽 속 — 안 보임)
+            hp + new Vector3(0.3f, 0.17f, 0f),
+            hp + new Vector3(-0.35f, 0.17f, 0.35f),  // S 곡선
+            hp + new Vector3(-0.75f, 0.17f, -0.25f),
+            hp + new Vector3(-1.05f, 0.17f, 0.1f),   // 머리 정지점
+        });
+    }
 
-        // 2) 대사 2줄 — 기린 컷씬과 동일 형식의 이미지 말풍선(말하는 동안 몸은 정지)
-        bubbleAnchor = head + Vector3.up * 0.45f;
-        currentBubble = bubble1;
-        yield return Hold(talkSeconds, camP, lookP);
-        currentBubble = bubble2;
-        yield return Hold(talkSeconds, camP, lookP);
-        currentBubble = null;
-
-        // 3) CCTV 하이앵글로 전환(공간 전체) — 그 앵글에서 빛 전달 + 테이블 발광
-        Vector3 camW = new Vector3(-16f, 2.5f, -44f);   // 확장된 홀 전체가 보이는 코너
-        Vector3 lookW = new Vector3(4f, -9f, -30f);
-        yield return CamLerp(camP, lookP, camW, lookW, 1.4f);
-
-        var orb = MakeOrb();
-        Vector3 from = head + Vector3.up * 0.35f;
-        Vector3 to = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
-        for (float t = 0; t < lightSeconds; t += Time.deltaTime)
-        {
-            float u = Mathf.SmoothStep(0f, 1f, t / lightSeconds);
-            orb.transform.position = Vector3.Lerp(from, to, u);
-            orb.transform.localScale = Vector3.one * Mathf.Lerp(0.5f, 0.12f, u);
-            SetCam(camW, lookW); yield return null;
-        }
-        Object.Destroy(orb);
-        if (tennis != null && !netGuest) tennis.unlocked = true;
-        yield return FlashTable(camW, lookW);
-
-        // 4) 같은 CCTV 앵글 — 애벌레가 마저 나와 벽을 타고 '벽 위 구멍'으로 꾸물꾸물 퇴장
-        foreach (var c in chain) if (c != null) Object.Destroy(c.gameObject);
-        chain = null;
-        var exitPath = new Vector3[]
+    Vector3[] ExitPathPts(Vector3 head)
+    {
+        return Pts(exitPath, new Vector3[]
         {
             head,
             new Vector3(6f, -11.7f, -26.5f),
@@ -247,13 +266,79 @@ public class FrameHallClimb : MonoBehaviour
             new Vector3(0.6f, 0.5f, WallZ),
             new Vector3(0.5f, 0.35f, -20f),
             new Vector3(0.5f, 0.35f, -16f),
-        };
-        var go = new GameObject("GoodbyeCaterpillar");
-        go.transform.position = exitPath[0];
-        var cat = go.AddComponent<TennisCaterpillar>();
-        cat.bunchAmp = 0f;   // 수축 진동 제거
-        cat.liftAmp = 0f;    // 위아래 들썩임 제거 — 가로 S웨이브만 남아 뱀처럼 미끄러짐
-        cat.BuildAndGo(exitPath, BallMat(), 4.5f, TennisCaterpillar.Gait.Wave);
+        });
+    }
+
+    // ───────────────────────── 컷씬: 쥐구멍 애벌레의 힘 전달 ─────────────────────────
+
+    IEnumerator GrantCutscene()
+    {
+        FreezeTable(true);
+        if (cameraFollow != null) cameraFollow.enabled = false;
+        Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
+
+        // 카메라: 쥐구멍을 비스듬히 봄(씬의 카메라 샷 오브젝트 우선)
+        Vector3 hp = HolePos;
+        Vector3 camP = camCloseup != null ? camCloseup.position : hp + new Vector3(-5.5f, 2.6f, 1.5f);
+        Vector3 lookP = camCloseupLook != null ? camCloseupLook.position : hp + Vector3.up * 0.4f;
+        SetCam(camP, lookP);
+        yield return Hold(0.5f, camP, lookP);
+
+        // 1) 애벌레가 쥐구멍에서 S자로 반쯤만 나옴(몸 절반은 구멍 속 — 겹침 없음)
+        var path = EmergePathPts();
+        Vector3 head = path[path.Length - 1];
+        chain = AcquireChain(path[0]);
+        yield return MoveChain(path, emergeSeconds, camP, lookP);
+
+        // 2) 대사 2줄 — 기린 컷씬과 동일 형식의 이미지 말풍선(말하는 동안 몸은 정지)
+        bubbleAnchor = bubblePoint != null ? bubblePoint.position : head + Vector3.up * 0.45f;
+        currentBubble = bubble1;
+        yield return Hold(talkSeconds, camP, lookP);
+        currentBubble = bubble2;
+        yield return Hold(talkSeconds, camP, lookP);
+        currentBubble = null;
+
+        // 3) CCTV 하이앵글로 전환(공간 전체) — 그 앵글에서 빛 전달 + 테이블 발광
+        Vector3 camW = camWide != null ? camWide.position : new Vector3(-16f, 2.5f, -44f);   // 확장된 홀 전체가 보이는 코너
+        Vector3 lookW = camWideLook != null ? camWideLook.position : new Vector3(4f, -9f, -30f);
+        yield return CamLerp(camP, lookP, camW, lookW, 1.4f);
+
+        bool orbIsScene = orb != null;
+        var orbGo = orbIsScene ? orb : MakeOrb();
+        orbGo.SetActive(true);
+        Vector3 from = head + Vector3.up * 0.35f;
+        Vector3 to = (tableTop != null ? tableTop.position : table.position) + Vector3.up * 0.2f;
+        for (float t = 0; t < lightSeconds; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0f, 1f, t / lightSeconds);
+            orbGo.transform.position = Vector3.Lerp(from, to, u);
+            orbGo.transform.localScale = Vector3.one * Mathf.Lerp(orbStartScale, orbEndScale, u);
+            SetCam(camW, lookW); yield return null;
+        }
+        if (orbIsScene) orbGo.SetActive(false); else Object.Destroy(orbGo);
+        if (tennis != null && !netGuest) tennis.unlocked = true;
+        yield return FlashTable(camW, lookW);
+
+        // 4) 같은 CCTV 앵글 — 애벌레가 마저 나와 벽을 타고 '벽 위 구멍'으로 꾸물꾸물 퇴장
+        ReleaseChain();
+        var exitPts = ExitPathPts(head);
+        if (goodbyeCat != null)
+        {
+            // 씬 배치 애벌레: 속도/걸음새/진폭은 컴포넌트 값 그대로(에디터 편집)
+            goodbyeCat.destroyOnFinish = false;
+            goodbyeCat.gameObject.SetActive(true);
+            goodbyeCat.transform.position = exitPts[0];
+            goodbyeCat.Go(exitPts);
+        }
+        else
+        {
+            var go = new GameObject("GoodbyeCaterpillar");
+            go.transform.position = exitPts[0];
+            var cat = go.AddComponent<TennisCaterpillar>();
+            cat.bunchAmp = 0f;   // 수축 진동 제거
+            cat.liftAmp = 0f;    // 위아래 들썩임 제거 — 가로 S웨이브만 남아 뱀처럼 미끄러짐
+            cat.BuildAndGo(exitPts, BallMat(), 4.5f, TennisCaterpillar.Gait.Wave);
+        }
         yield return Hold(exitWatchSeconds, camW, lookW);
 
         // 5) 복귀 + 조작 설명 이미지
@@ -278,7 +363,7 @@ public class FrameHallClimb : MonoBehaviour
             {
                 if (!netGuest) tennis.active = true;   // 게스트는 NetVisualSync가 켬
                 for (int i = 0; i < carried.Length; i++)
-                    if (carried[i] != null) { Object.Destroy(carried[i].gameObject); carried[i] = null; }
+                    if (carried[i] != null) { carried[i].gameObject.SetActive(false); carried[i] = null; }   // 씬 공은 숨김(재생 시 다시 켬)
                 swapped = true;
             }
             Color emi = new Color(1.1f, 1.5f, 0.7f) * (k * 3.2f);
@@ -300,11 +385,21 @@ public class FrameHallClimb : MonoBehaviour
     }
 
 
-    // ── 컷씬용 수동 애벌레 ──
+    // ── 컷씬용 수동 애벌레(씬 배치 자식 8개 우선, 없으면 생성) ──
 
-    Transform[] SpawnChain(Vector3 at)
+    Transform[] AcquireChain(Vector3 at)
     {
-        var arr = new Transform[ChainN];
+        if (cutsceneChain != null && cutsceneChain.childCount > 0)
+        {
+            chainIsScene = true;
+            cutsceneChain.gameObject.SetActive(true);
+            int n = cutsceneChain.childCount;
+            var arr = new Transform[n];
+            for (int i = 0; i < n; i++) { arr[i] = cutsceneChain.GetChild(i); arr[i].position = at; }
+            return arr;
+        }
+        chainIsScene = false;
+        var made = new Transform[ChainN];
         for (int i = 0; i < ChainN; i++)
         {
             var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -313,9 +408,17 @@ public class FrameHallClimb : MonoBehaviour
             s.transform.localScale = Vector3.one * (BallR * 2f);
             if (BallMat() != null) s.GetComponent<MeshRenderer>().sharedMaterial = BallMat();
             s.transform.position = at;
-            arr[i] = s.transform;
+            made[i] = s.transform;
         }
-        return arr;
+        return made;
+    }
+
+    void ReleaseChain()
+    {
+        if (chain == null) return;
+        if (chainIsScene) { if (cutsceneChain != null) cutsceneChain.gameObject.SetActive(false); }
+        else foreach (var c in chain) if (c != null) Object.Destroy(c.gameObject);
+        chain = null;
     }
 
     static Vector3 Sample(Vector3[] pts, float s)
@@ -348,7 +451,7 @@ public class FrameHallClimb : MonoBehaviour
     void PoseChain(Vector3[] path, float headS)
     {
         float t = Time.time;
-        for (int i = 0; i < ChainN; i++)
+        for (int i = 0; i < chain.Length; i++)
         {
             float phase = t * 2.2f * Mathf.PI * 2f - i * 0.95f;
             Vector3 p = Sample(path, headS - i * Spacing + Mathf.Sin(phase) * 0.07f);
@@ -371,6 +474,7 @@ public class FrameHallClimb : MonoBehaviour
         }
     }
 
+    /// <summary>폴백(씬 orb 미할당 시): 발광 구슬 + 포인트라이트 생성.</summary>
     GameObject MakeOrb()
     {
         var s = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -391,6 +495,40 @@ public class FrameHallClimb : MonoBehaviour
 
     void SetCam(Vector3 pos, Vector3 look)
     { if (cam != null) { cam.position = pos; cam.rotation = Quaternion.LookRotation((look - pos).normalized, Vector3.up); } }
+
+    // ───────────────────────── 에디터 기즈모(선택 시): 경로/카메라 샷 시각화 ─────────────────────────
+#if UNITY_EDITOR
+    void OnDrawGizmosSelected()
+    {
+        void Poly(Transform[] arr, Color c)
+        {
+            if (arr == null) return;
+            Gizmos.color = c;
+            Transform prev = null;
+            foreach (var t in arr)
+            {
+                if (t == null) continue;
+                Gizmos.DrawSphere(t.position, 0.12f);
+                if (prev != null) Gizmos.DrawLine(prev.position, t.position);
+                prev = t;
+            }
+        }
+        Poly(emergePath, new Color(1f, 0.9f, 0.2f));      // 등장 경로: 노랑
+        Poly(exitPath, new Color(0.3f, 0.9f, 1f));        // 퇴장 경로: 하늘
+        if (holeAnchor != null) { Gizmos.color = Color.red; Gizmos.DrawWireSphere(holeAnchor.position, 0.3f); }
+        if (bubblePoint != null) { Gizmos.color = Color.white; Gizmos.DrawWireCube(bubblePoint.position, Vector3.one * 0.2f); }
+        void Shot(Transform p, Transform look, Color c)
+        {
+            if (p == null) return;
+            Gizmos.color = c;
+            Gizmos.DrawWireCube(p.position, Vector3.one * 0.35f);
+            if (look != null) { Gizmos.DrawLine(p.position, look.position); Gizmos.DrawWireSphere(look.position, 0.2f); }
+        }
+        Shot(camCloseup, camCloseupLook, Color.magenta);
+        Shot(camWide, camWideLook, new Color(1f, 0.5f, 1f));
+        if (looseBalls != null) { Gizmos.color = Color.green; foreach (var t in looseBalls) if (t != null) Gizmos.DrawWireSphere(t.position, grabRadius); }
+    }
+#endif
 
     void FreezeTable(bool freeze)
     {

@@ -344,3 +344,10 @@
 - **액자 맵 동기**: `NetStageSync`에 `frameSolved/carriedMask/climbCutscene` 추가. 호스트는 `FrameHallStage.Solved`, `FrameHallClimb.CarriedMask/CutsceneStarted` 감시; 게스트는 `FrameHallStage.Solve()`, `FrameHallClimb.NetApplyCarried(mask)`(바닥 공을 다리로 옮겨 붙임), `PlayRemote()`(컷씬 시각만 — `netGuest`면 tennis.active/unlocked 안 건드림, 홀/샤프트 on/off 로직 skip). FrameHall.unity에 `NetStageSync` GO(NetworkObject+NetStageSync) 심음 — 신규 맵에 스테이지 이벤트 넣으면 이 GO도 같이 넣을 것.
 - **NetSession 타임아웃**: `WithTimeout(task, sec, what)` — 서비스 초기화/로그인 20s, 방 생성/참가 30s. 무한 "로그인 중..." 방지.
 - **Windows 빌드**: 사용자 지시 — **빌드는 사용자가 직접 한다(에이전트가 빌드하지 말 것)**. 참고: 맥에서 Windows 빌드는 Mono 백엔드만 가능(IL2CPP는 Windows+VS 필요, 현재 Mono). 2026-08-20 임시 테스트 빌드 1회 성공(errors 0, 14씬, Mono, steam_api64.dll 포함 확인) 후 결과물·스크립트 삭제함. RunCommand에서 BuildPipeline 직접 호출은 MCP가 'user interaction' 사유로 거부.
+
+
+## ★ 콘텐츠 제작 원칙 — 런타임 생성 금지, 씬 오브젝트로 편집 가능하게 (2026-09-02 사용자 지시)
+- **"런타임 말고 그냥 편집할 수 있게, 앞으로 만드는 것도 다"**: 새로 만드는 소품/경로/카메라 샷/컷씬 배우는 `CreatePrimitive`/`new GameObject`로 Start()에서 찍어내지 말고 **씬(또는 프리팹)에 실제 오브젝트로 배치**하고 스크립트는 `public Transform/GameObject` 필드로 참조만 한다. 위치·재질·크기·파라미터를 인스펙터/씬뷰에서 바로 고칠 수 있어야 함.
+- 패턴(FrameHallClimb 참고): 경로 = 빈 GO 자식 배열(`Transform[]`), 카메라 샷 = 위치 GO + 바라볼 점 GO, 연출용 배우(애벌레/구슬) = 씬에 비활성으로 두고 재생 시 SetActive(true)→끝나면 SetActive(false)(파괴 X). `OnDrawGizmosSelected`로 경로/샷을 그려 편집 편의 제공. 참조가 비면 폴백 생성 + 경고.
+- 런타임 생성이 허용되는 것: 순간적인 이펙트(파티클 인스턴스), 수량이 데이터에 따라 달라지는 것(Instantiate 프리팹은 OK — 프리팹 자체는 편집 가능하므로).
+- FrameHall.unity: `FrameHallClimb/FrameHallProps/` 아래 LooseBalls(4)·CatHole·CatEmergePath(P0~P4)·BubblePoint·CameraShots(CamCloseup/Look, CamWide/Look)·CutsceneCaterpillar(Seg0~7, 비활성)·CatExitPath(E0~E6)·GoodbyeCaterpillar(TennisCaterpillar+Seg0~7, 비활성, destroyOnFinish=false)·TennisOrb(Assets/Guide/TennisOrb.mat + PointLight, 비활성). TennisCaterpillar는 자식이 있으면 자식을 몸통으로 사용(`Go(path)`).
