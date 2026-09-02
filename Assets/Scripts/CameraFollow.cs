@@ -37,6 +37,16 @@ public class CameraFollow : MonoBehaviour
     float yaw;
     float pitch = 20f;
 
+    // ★2026-09-03 컷씬 복귀 블렌드: 컷씬이 카메라를 옮겨 놓은 뒤 다시 켜질 때 스냅 대신 부드럽게 제자리로.
+    Vector3 blendPos; Quaternion blendRot; float blendUntil, blendDur;
+
+    /// <summary>지금 카메라 포즈에서 팔로우 포즈로 seconds 동안 부드럽게 이어 붙인다(컷씬 끝에서 enabled=true 직전에 호출).</summary>
+    public void BlendFrom(float seconds)
+    {
+        blendPos = transform.position; blendRot = transform.rotation;
+        blendDur = Mathf.Max(0.01f, seconds); blendUntil = Time.time + blendDur;
+    }
+
     void Start()
     {
         if (target == null && !string.IsNullOrEmpty(targetName))
@@ -81,6 +91,12 @@ public class CameraFollow : MonoBehaviour
         if (!Sane(pivot)) return;
         Vector3 pos = pivot - rot * Vector3.forward * distance;
         if (!Sane(pos)) return;
+        if (Time.time < blendUntil)
+        {
+            float u = Mathf.SmoothStep(0f, 1f, 1f - (blendUntil - Time.time) / blendDur);
+            transform.SetPositionAndRotation(Vector3.Lerp(blendPos, pos, u), Quaternion.Slerp(blendRot, rot, u));
+            return;
+        }
         transform.SetPositionAndRotation(pos, rot);
     }
 

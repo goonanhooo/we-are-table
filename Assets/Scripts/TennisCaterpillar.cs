@@ -34,6 +34,9 @@ public class TennisCaterpillar : MonoBehaviour
     public float archAmp = 0.55f;      // 아치 최고 높이
 
     Vector3[] pts;
+    Vector3 lastHead;
+    /// <summary>머리(첫 공) 위치 — 컷씬 카메라 시선 추적용. 끝나서 몸이 사라진 뒤엔 마지막 위치.</summary>
+    public Vector3 HeadPosition => (balls != null && balls.Length > 0 && balls[0] != null) ? balls[0].position : lastHead;
     float[] segLen;
     float totalLen;
     Transform[] balls;
@@ -47,6 +50,7 @@ public class TennisCaterpillar : MonoBehaviour
     public void BuildAndGo(Vector3[] path, Material mat, float moveSpeed, Gait g = Gait.Wave)
     {
         pts = path;
+        lastHead = path != null && path.Length > 0 ? path[0] : transform.position;
         speed = moveSpeed;
         gait = g;
         if (g == Gait.Inchworm) inchCycle = Mathf.Max(0.5f, (extLen - archLen) / Mathf.Max(moveSpeed * 0.55f, 0.2f));
@@ -133,6 +137,7 @@ public class TennisCaterpillar : MonoBehaviour
             }
             balls[i].position = p;
         }
+        lastHead = balls[0].position;
     }
 
     // ── 자벌레형: ①꼬리를 끌어당기며 몸 가운데가 아치로 솟음 ②머리를 내밀며 쫙 펴짐 — 반복 전진 ──
@@ -167,5 +172,6 @@ public class TennisCaterpillar : MonoBehaviour
             p.y += arch * archAmp * Mathf.Sin(Mathf.PI * f);          // 가운데가 가장 높은 아치
             balls[i].position = p;
         }
+        lastHead = balls[0].position;
     }
 }

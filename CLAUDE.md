@@ -359,3 +359,10 @@
 - **화분 퍼즐 = 버튼식(사용자 요청, 자세 판정 폐기)**: `PotPuzzle`@(0,0,-8) — `RingButton`(RingPlate.cs: 고리 메시 r0.78~2.8 `Assets/Guide/RingPlateMesh.asset`, 평소 초록→테이블 부위가 닿으면 빨강, 판정=링 윗면 위 touchHeight 0.12 슬랩의 테이블 콜라이더 바운즈가 고리와 겹침) + `PotShell`(텅 빈 관 `PotTubeMesh.asset` r0.65~0.75 h1) + `PotFloor` + `InnerButton`(정글 GiraffeTouchButton 재사용, 빨강→초록, heightWindow 1.2). `FrameHallStage`: `innerButton.Pressed && !outerRing.Pressed`를 holdNeed(1s) 유지 → Solve. 정답 = 다리 하나 화분에 넣고 기린 힘으로 몸을 들어 나머지 다리를 링에서 띄우기(다리 길이 0.7·longScale 1.6 → 0.42 상승 > 0.22). 재질 `BtnRing.mat`/`BtnInner.mat`(에미시브). 옛 PotTriggerRelay 삭제.
 - **⚠️ 플레이 검증 함정**: 에디터가 **일시정지(EditorApplication.isPaused)** 상태면 TeleportRoot/버튼/코루틴 전부 멈춘 채 조용히 실패한다(테이블이 스폰에 그대로) — 플레이 테스트 전 `EditorApplication.isPaused=false` 확인. Camera_Capture는 Scene View 창이 없으면 "Scene view is null"로 실패.
 - **주의**: 절차 메시 윗면은 위에서 봤을 때 시계방향 winding이어야 +y(Unity 좌표계) — 처음엔 뒤집혀 위에서 안 보이고 레이캐스트도 안 맞았음. 에디터 모드 물리 확인은 `Physics.SyncTransforms()` 후에. Camera_Capture(게임 카메라 ID)는 플레이 중 실패("Failed to render scene preview") — 씬뷰 캡처만 됨.
+
+
+## 액자 홀 — 75° 등반 경사면 + 버튼 하우징 + 컷씬 카메라 연출 (2026-09-03)
+- **등반벽 → 경사면**: `ClimbShaft/ClimbSlope`(Cube 44×12.42×1, `LookRotation(n, d)`; d=(0,sin75,cos75), n=(0,cos75,-sin75)), 윗변 (y0,z-22.5) 고정·아랫변 z-25.7. 옛 ClimbWall/Face 삭제. 퇴장 경로 E2/E3는 경사면 표면+법선 0.25, LooseBall_0/1은 z-28대로 이동(경사면에 묻히지 않게). 경사 각도를 바꾸려면 슬로프 회전·길이·E2/E3·공 위치를 같이.
+- **버튼 하우징**: `PotPuzzle/RingBase`(어두운 고리 r0.72~3.05, y0.08), `RingLip`(바깥 턱 r3.05~3.3, 높이 0.22), `RingBolts`(8개), `InnerBase`(어두운 원판). 초록 캡 `RingButton` y0.18, 빨간 캡 `InnerButton` y0.2. 메시 `RingBaseMesh/RingLipMesh.asset`, 재질 `BtnBase/BtnBolt.mat`.
+- **컷씬 카메라(FrameHallClimb)**: 진입은 컷 대신 `CamMoveTo`(현재 시점→클로즈업 1.6s). 힘 전달은 테이블 기준 오프셋 클로즈업(`glowCamBack/Side/Up`, 거리≈4 — CamWide 마커 삭제). 퇴장은 `WatchFromShoulder`: 테이블 어깨 너머 고정 위치(`shoulderBack/Side/Up`)에서 시선만 `TennisCaterpillar.HeadPosition`을 Slerp 추적. `exitWatchSeconds` 8.5(애벌레가 구멍 너머로 사라질 때까지). 복귀는 `CameraFollow.BlendFrom(1.2f)` 후 enable(스냅 없음) — FrameHallStage 뚜껑 컷씬도 동일.
+- 검증: EditorApplication.update 샘플러로 카메라 위치/forward를 파일에 기록해 확인(카메라는 게임뷰 캡처가 안 되므로 이 방식이 표준).

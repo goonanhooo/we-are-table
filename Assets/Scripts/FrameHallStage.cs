@@ -143,9 +143,9 @@ public class FrameHallStage : MonoBehaviour
             hatchLid.position = to;
         }
 
-        // 3) 잠깐 보여준 뒤 카메라 복귀
+        // 3) 잠깐 보여준 뒤 카메라 복귀(스냅 대신 블렌드)
         yield return new WaitForSeconds(cutsceneHold);
-        if (follow != null) follow.enabled = true;
+        if (follow != null) { follow.BlendFrom(1.2f); follow.enabled = true; }
     }
 
 #if UNITY_EDITOR

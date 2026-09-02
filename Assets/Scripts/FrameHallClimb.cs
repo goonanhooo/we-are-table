@@ -28,8 +28,15 @@ public class FrameHallClimb : MonoBehaviour
     public Transform bubblePoint;
     [Tooltip("클로즈업 카메라 위치 / 바라볼 점")]
     public Transform camCloseup, camCloseupLook;
-    [Tooltip("CCTV 하이앵글 카메라 위치 / 바라볼 점")]
-    public Transform camWide, camWideLook;
+    [Header("힘 전달/퇴장 샷 — 테이블 기준 상대 오프셋(테이블 위치가 매번 달라 마커 대신 숫자)")]
+    [Tooltip("힘 전달 클로즈업: 테이블 뒤(애벌레 반대쪽) 거리 / 옆 / 높이 / 바라볼 점 높이 — 테이블이 화면에 꽉 차게")]
+    public float glowCamBack = 3.2f, glowCamSide = 1.6f, glowCamUp = 1.9f, glowLookUp = 0.3f;
+    [Tooltip("퇴장 관전(어깨 너머): 테이블 뒤 / 옆 / 높이. 위치 고정, 시선만 애벌레를 따라감")]
+    public float shoulderBack = 2.4f, shoulderSide = 1.1f, shoulderUp = 1.7f;
+    [Tooltip("카메라 이동 시간(초): 컷씬 진입 / 클로즈업 전환 / 어깨 샷 전환 — 컷 없이 부드럽게")]
+    public float camIntroSeconds = 1.6f, camGlowSeconds = 1.4f, camShoulderSeconds = 1.2f;
+    [Tooltip("시선 추적 부드러움(클수록 빠르게 따라감)")]
+    public float lookFollowSpeed = 4f;
     [Tooltip("컷씬 애벌레(자식 구 8개 = 몸통, 평소 비활성). 크기/재질은 자식에서 편집.")]
     public Transform cutsceneChain;
     [Tooltip("퇴장 경로(순서대로 — 마지막은 벽 위 구멍 너머).")]
@@ -281,8 +288,8 @@ public class FrameHallClimb : MonoBehaviour
         Vector3 hp = HolePos;
         Vector3 camP = camCloseup != null ? camCloseup.position : hp + new Vector3(-5.5f, 2.6f, 1.5f);
         Vector3 lookP = camCloseupLook != null ? camCloseupLook.position : hp + Vector3.up * 0.4f;
-        SetCam(camP, lookP);
-        yield return Hold(0.5f, camP, lookP);
+        yield return CamMoveTo(camP, lookP, camIntroSeconds);   // ★컷 대신 현재 시점에서 부드럽게 이동
+        yield return Hold(0.3f, camP, lookP);
 
         // 1) 애벌레가 쥐구멍에서 S자로 반쯤만 나옴(몸 절반은 구멍 속 — 겹침 없음)
         var path = EmergePathPts();
@@ -298,10 +305,13 @@ public class FrameHallClimb : MonoBehaviour
         yield return Hold(talkSeconds, camP, lookP);
         currentBubble = null;
 
-        // 3) CCTV 하이앵글로 전환(공간 전체) — 그 앵글에서 빛 전달 + 테이블 발광
-        Vector3 camW = camWide != null ? camWide.position : new Vector3(-16f, 2.5f, -44f);   // 확장된 홀 전체가 보이는 코너
-        Vector3 lookW = camWideLook != null ? camWideLook.position : new Vector3(4f, -9f, -30f);
-        yield return CamLerp(camP, lookP, camW, lookW, 1.4f);
+        // 3) ★테이블 클로즈업(꽉 차게): 테이블 뒤·옆·위에서 테이블을 보고, 애벌레는 배경 → 빛이 화면 안으로 날아온다
+        Vector3 tp = tableTop != null ? tableTop.position : table.position;
+        Vector3 hDir = head - tp; hDir.y = 0f; hDir = hDir.sqrMagnitude > 1e-4f ? hDir.normalized : Vector3.forward;
+        Vector3 sideDir = Vector3.Cross(Vector3.up, hDir);
+        Vector3 camW = tp - hDir * glowCamBack + sideDir * glowCamSide + Vector3.up * glowCamUp;
+        Vector3 lookW = tp + Vector3.up * glowLookUp;
+        yield return CamMoveTo(camW, lookW, camGlowSeconds);
 
         bool orbIsScene = orb != null;
         var orbGo = orbIsScene ? orb : MakeOrb();
@@ -319,9 +329,10 @@ public class FrameHallClimb : MonoBehaviour
         if (tennis != null && !netGuest) tennis.unlocked = true;
         yield return FlashTable(camW, lookW);
 
-        // 4) 같은 CCTV 앵글 — 애벌레가 마저 나와 벽을 타고 '벽 위 구멍'으로 꾸물꾸물 퇴장
+        // 4) ★어깨 너머 시점: 테이블 뒤에 가만히 서서 시선만 애벌레를 따라감(벽을 타고 구멍으로 퇴장)
         ReleaseChain();
         var exitPts = ExitPathPts(head);
+        TennisCaterpillar cat;
         if (goodbyeCat != null)
         {
             // 씬 배치 애벌레: 속도/걸음새/진폭은 컴포넌트 값 그대로(에디터 편집)
@@ -329,20 +340,22 @@ public class FrameHallClimb : MonoBehaviour
             goodbyeCat.gameObject.SetActive(true);
             goodbyeCat.transform.position = exitPts[0];
             goodbyeCat.Go(exitPts);
+            cat = goodbyeCat;
         }
         else
         {
             var go = new GameObject("GoodbyeCaterpillar");
             go.transform.position = exitPts[0];
-            var cat = go.AddComponent<TennisCaterpillar>();
+            cat = go.AddComponent<TennisCaterpillar>();
             cat.bunchAmp = 0f;   // 수축 진동 제거
             cat.liftAmp = 0f;    // 위아래 들썩임 제거 — 가로 S웨이브만 남아 뱀처럼 미끄러짐
             cat.BuildAndGo(exitPts, BallMat(), 4.5f, TennisCaterpillar.Gait.Wave);
         }
-        yield return Hold(exitWatchSeconds, camW, lookW);
+        Vector3 camS = tp - hDir * shoulderBack + sideDir * shoulderSide + Vector3.up * shoulderUp;
+        yield return WatchFromShoulder(cat, camS, exitWatchSeconds);
 
-        // 5) 복귀 + 조작 설명 이미지
-        if (cameraFollow != null) cameraFollow.enabled = true;
+        // 5) 복귀(스냅 대신 블렌드) + 조작 설명 이미지
+        if (cameraFollow != null) { (cameraFollow as CameraFollow)?.BlendFrom(1.2f); cameraFollow.enabled = true; }
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         FreezeTable(false);
         cutsceneDone = true;
@@ -463,6 +476,42 @@ public class FrameHallClimb : MonoBehaviour
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
     { for (float t = 0; t < dur; t += Time.deltaTime) { SetCam(cp, cl); yield return null; } }
 
+    /// <summary>★현재 카메라 시점에서 목표 위치/시선으로 부드럽게 이동(컷 없음).</summary>
+    IEnumerator CamMoveTo(Vector3 p1, Vector3 l1, float dur)
+    {
+        if (cam == null) yield break;
+        Vector3 p0 = cam.position; Quaternion r0 = cam.rotation;
+        Quaternion r1 = Quaternion.LookRotation((l1 - p1).normalized, Vector3.up);
+        for (float t = 0; t < dur; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0f, 1f, t / dur);
+            cam.position = Vector3.Lerp(p0, p1, u); cam.rotation = Quaternion.Slerp(r0, r1, u);
+            yield return null;
+        }
+        cam.position = p1; cam.rotation = r1;
+    }
+
+    /// <summary>★어깨 너머 고정 위치로 이동한 뒤 가만히 서서, 시선만 애벌레 머리를 부드럽게 추적.</summary>
+    IEnumerator WatchFromShoulder(TennisCaterpillar cat, Vector3 camS, float dur)
+    {
+        if (cam == null) { yield return new WaitForSeconds(dur); yield break; }
+        Vector3 p0 = cam.position;
+        for (float t = 0; t < dur; t += Time.deltaTime)
+        {
+            float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / Mathf.Max(0.01f, camShoulderSeconds)));
+            Vector3 p = Vector3.Lerp(p0, camS, u);
+            Vector3 target = cat != null ? cat.HeadPosition : p + Vector3.forward;
+            Vector3 dir = target - p;
+            if (dir.sqrMagnitude > 1e-4f)
+            {
+                Quaternion want = Quaternion.LookRotation(dir.normalized, Vector3.up);
+                cam.rotation = Quaternion.Slerp(cam.rotation, want, 1f - Mathf.Exp(-lookFollowSpeed * Time.deltaTime));
+            }
+            cam.position = p;
+            yield return null;
+        }
+    }
+
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)
     {
         Quaternion r0 = Quaternion.LookRotation(l0 - p0, Vector3.up), r1 = Quaternion.LookRotation(l1 - p1, Vector3.up);
@@ -525,7 +574,6 @@ public class FrameHallClimb : MonoBehaviour
             if (look != null) { Gizmos.DrawLine(p.position, look.position); Gizmos.DrawWireSphere(look.position, 0.2f); }
         }
         Shot(camCloseup, camCloseupLook, Color.magenta);
-        Shot(camWide, camWideLook, new Color(1f, 0.5f, 1f));
         if (looseBalls != null) { Gizmos.color = Color.green; foreach (var t in looseBalls) if (t != null) Gizmos.DrawWireSphere(t.position, grabRadius); }
     }
 #endif
@@ -582,8 +630,8 @@ public class FrameHallClimb : MonoBehaviour
         // 홀 진입 힌트
         if (Time.time < hint2Until)
         {
-            string s = L.T("테니스공의 힘은 여기까지 — 화분 퍼즐은 기린의 힘(2)으로!",
-                           "the tennis power rests here — solve the pot puzzle with the giraffe power (2)!");
+            string s = L.T("테니스공의 힘은 여기까지 — 화분 속 버튼은 기린의 힘(2)으로 몸을 들어 밟아! 초록 링은 밟지 말 것",
+                           "the tennis power rests here — lift yourself with the giraffe power (2) to press the button in the pot! don't touch the green ring");
             float a = Mathf.Clamp01(hint2Until - Time.time);
             var sz2 = Measure(s);
             var r2 = new Rect((Screen.width - sz2.x) * 0.5f, Screen.height - sz2.y - 46f, sz2.x, sz2.y);
