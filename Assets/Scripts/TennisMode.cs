@@ -34,8 +34,15 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     static readonly UnityEngine.InputSystem.Key[] ReleaseKeys =
     { UnityEngine.InputSystem.Key.Z, UnityEngine.InputSystem.Key.V, UnityEngine.InputSystem.Key.M, UnityEngine.InputSystem.Key.Slash };
 
+    // ★2026-09-03 등반 보조(사용자 요청): 한 다리라도 붙어 있으면 테이블 무게를 거의 0으로 —
+    //   모든 ArticulationBody에 중력의 weightCancelWhenStuck 배만큼 반대 힘을 매 FixedUpdate 가해 상쇄.
+    //   (드라이브가 무게를 버티는 대신 몸을 옮기는 데만 쓰여 벽 등반이 안정·수월)
+    [Tooltip("한 다리라도 붙어 있을 때 테이블 무게 상쇄 비율(0=그대로, 1=완전 무중력). 0.95=거의 0")]
+    [Range(0f, 1f)] public float weightCancelWhenStuck = 0.95f;
+
     /// <summary>★멀티 게스트: 붙기 물리 없이 공 표시만(NetVisualSync가 NetApplyVisual로 상태 반영).</summary>
     [HideInInspector] public bool netVisualOnly;
+    ArticulationBody[] allBodies;   // 무게 상쇄 대상(테이블 루트 아래 전부)
     int netStuckMask;
 
     /// <summary>다리별 붙음 상태 비트마스크(legs 순서) — 호스트가 NetVisualSync로 발행.</summary>
@@ -77,10 +84,20 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         return false;
     }
 
+    void FixedUpdate()
+    {
+        // ★붙은 다리가 하나라도 있으면 무게 상쇄(게스트/비활성 제외)
+        if (!active || netVisualOnly || allBodies == null || weightCancelWhenStuck <= 0f || StuckMask == 0) return;
+        Vector3 lift = -Physics.gravity * weightCancelWhenStuck;
+        foreach (var ab in allBodies)
+            if (ab != null && ab.enabled && ab.useGravity) ab.AddForce(lift * ab.mass, ForceMode.Force);
+    }
+
     void Start()
     {
         ti = TableInput.Of(this);
         legs = transform.root.GetComponentsInChildren<ArtLegController>(true);
+        allBodies = transform.root.GetComponentsInChildren<ArticulationBody>(true);
         int n = legs.Length;
         legAbs = new ArticulationBody[n];
         meshes = new Transform[n];

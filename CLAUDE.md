@@ -372,3 +372,5 @@
 - `TennisMode.Start`: 공은 다리 피벗(ArticulationBody, 스케일 1)의 **자식** SphereCollider(반지름 0.17) — 메시 자식이면 기린 신축 스케일에 찌그러지므로 피벗 자식 + `KeepBallAtTip`으로 발끝 로컬 위치만 갱신(발끝이 움직일 때만). 켜지면 테이블이 공 반지름(0.17)만큼 떠서 서고 벽/바닥을 뚫지 않는다.
 - 붙기 앵커: 벽 최근접점 `surface`에 **공 표면점**(`tip + (surface-tip).normalized × ballRadius`)을 connectedAnchor로 고정 → 공이 벽에 딱 닿은 채 고정(검증: tip→ballPt 0.170, gap 0.000). 동적 물체 붙기는 `enableCollision=false`(공 콜라이더와 물건이 서로 밀며 떨지 않게).
 - 플레이 도중 스크립트를 고치면 기존 세션의 공은 옛 코드가 만든 루트 오브젝트로 남는다(도메인 리로드가 Start를 다시 안 돌림) — 반드시 새 플레이 세션에서 검증.
+
+- **등반 무게 상쇄(2026-09-03, 사용자 요청)**: `TennisMode.weightCancelWhenStuck`(기본 0.95) — 한 다리라도 붙어 있으면(StuckMask≠0) FixedUpdate에서 테이블 루트 아래 모든 ArticulationBody에 `-gravity×mass×비율`을 AddForce. 검증: 한 다리로 매달렸을 때 조인트 반력 74.6N(전체 무게) → 3~5N. 게스트/비활성엔 미적용. 0으로 두면 예전 동작.
