@@ -27,6 +27,10 @@ public class NetStageSync : NetworkBehaviour
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<bool> climbCutscene = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-04 IceCavern 광차: 호스트가 각 광차의 선로 진행도 u를 발행, 게스트는 RailRide.netRemote로 따라감(최대 3대)
+    readonly NetworkVariable<float> cartU0 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<float> cartU1 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<float> cartU2 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -36,6 +40,7 @@ public class NetStageSync : NetworkBehaviour
     SnowmanCutscene snowman;
     FrameHallStage frame;
     FrameHallClimb climb;
+    RailRide rail;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
@@ -50,6 +55,7 @@ public class NetStageSync : NetworkBehaviour
         snowman = FindAnyObjectByType<SnowmanCutscene>();
         frame = FindAnyObjectByType<FrameHallStage>();
         climb = FindAnyObjectByType<FrameHallClimb>();
+        rail = FindAnyObjectByType<RailRide>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -65,6 +71,7 @@ public class NetStageSync : NetworkBehaviour
             if (headRb != null) headRb.isKinematic = true;
             if (snowman != null) snowman.netRemoteDriven = true;
             if (climb != null) climb.netGuest = true;
+            if (rail != null) rail.netRemote = true;
         }
     }
 
@@ -83,6 +90,13 @@ public class NetStageSync : NetworkBehaviour
                 if (cm != carriedMask.Value) carriedMask.Value = cm;
                 if (climb.CutsceneStarted && !climbCutscene.Value) climbCutscene.Value = true;
             }
+            if (rail != null)
+            {
+                float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
+                if (Mathf.Abs(u0 - cartU0.Value) > 1e-4f) cartU0.Value = u0;
+                if (Mathf.Abs(u1 - cartU1.Value) > 1e-4f) cartU1.Value = u1;
+                if (Mathf.Abs(u2 - cartU2.Value) > 1e-4f) cartU2.Value = u2;
+            }
             // 편지: 세션 시작 시 활성이던 봉투가 비활성되면(=이번 세션에 주움) 발행
             for (int i = 0; i < letters.Length && i < 32; i++)
                 if (letterWasActive[i] && letters[i] != null && !letters[i].gameObject.activeSelf
@@ -100,6 +114,7 @@ public class NetStageSync : NetworkBehaviour
                 climb.NetApplyCarried(carriedMask.Value);
                 if (climbCutscene.Value && !guestClimb) { guestClimb = true; climb.PlayRemote(); }
             }
+            if (rail != null) { rail.NetApply(0, cartU0.Value); rail.NetApply(1, cartU1.Value); rail.NetApply(2, cartU2.Value); }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

@@ -15,12 +15,16 @@ public class RailRide : MonoBehaviour
     [Tooltip("탑승 후: 마지막 광차보다 이만큼 아래로 떨어지면 광차 위로 복구")] public float fallBelow = 8f;
     [Tooltip("탑승 전: 정거장보다 이만큼 아래(동굴 바닥)로 떨어지면 정거장으로 복구 — 시작 방 바닥(-12m)은 걸리지 않게")] public float fallBelowStation = 20f;
     public float recoverCooldown = 3f;
+    [Tooltip("★멀티 게스트: 호스트가 보낸 u만 따라감(붙음 판정/전진/낙하 복구 없음). NetStageSync가 켬")]
+    [HideInInspector] public bool netRemote;
+    float[] netTarget;
 
     [Header("탑승 중 카메라 — 가파른 샤프트에서 위/아래를 자유롭게 볼 수 있게 피치 제한 해제")]
     public float ridePitchMin = -80f, ridePitchMax = 85f;
 
     MineCart player, lastPlayer;
-    float departTimer, lastRecover = -99f;
+    float departTimer, lastRecover = -99f; bool recovering;
+    float ignoreAttachUntil = -1f;   // 재시작 직후: Destroy된 조인트가 같은 프레임엔 아직 살아 있어 '붙음'으로 오판 → 잠깐 무시
     Transform board; ArticulationBody root;
     CameraFollow follow; float savedMinPitch, savedMaxPitch; bool pitchOverridden;
     public MineCart PlayerCart => player;
@@ -35,9 +39,27 @@ public class RailRide : MonoBehaviour
     void OnDisable() { RestorePitch(); }
     void RestorePitch() { if (pitchOverridden && follow != null) { follow.minPitch = savedMinPitch; follow.maxPitch = savedMaxPitch; } pitchOverridden = false; }
 
+    /// <summary>호스트 → 게스트 발행용: 광차 i의 u.</summary>
+    public float CartU(int i) => carts != null && i >= 0 && i < carts.Length && carts[i] != null ? carts[i].u : 0f;
+    /// <summary>게스트: 호스트 u 수신(부드럽게 따라감).</summary>
+    public void NetApply(int i, float u) { if (netTarget == null || netTarget.Length != (carts != null ? carts.Length : 0)) netTarget = new float[carts != null ? carts.Length : 0]; if (i >= 0 && i < netTarget.Length) netTarget[i] = u; }
+
     void FixedUpdate()
     {
         if (carts == null || carts.Length == 0) return;
+        if (netRemote)
+        {
+            for (int i = 0; i < carts.Length; i++)
+            {
+                var c = carts[i]; if (c == null) continue;
+                float target = netTarget != null && i < netTarget.Length ? netTarget[i] : c.u;
+                float maxStep = c.track != null ? c.track.DuForDistance(c.u, speed * 1.6f * Time.fixedDeltaTime) : 1f;
+                if (Mathf.Abs(target - c.u) > 0.05f) c.u = target; else c.u = Mathf.MoveTowards(c.u, target, maxStep);
+                c.Place();
+            }
+            return;
+        }
+        if (Time.time < ignoreAttachUntil) { player = null; lastPlayer = null; foreach (var c in carts) if (c != null) c.Place(); return; }
         MineCart p = null;
         if (lastPlayer != null && lastPlayer.Attached) p = lastPlayer;
         else foreach (var c in carts) if (c != null && c.Attached) { p = c; break; }
@@ -65,10 +87,22 @@ public class RailRide : MonoBehaviour
         {
             lastRecover = Time.time;
             ScreenFader.FadeOut(0.25f);
+            recovering = true;
             root.TeleportRoot(refPos, Quaternion.identity); root.linearVelocity = Vector3.zero; root.angularVelocity = Vector3.zero;
             var rs = Object.FindAnyObjectByType<ArtSceneReset>(); if (rs != null) rs.ResetPoseAtXZ(refPos.x, refPos.z, refPos.y + 1.5f);
+            recovering = false;
             ScreenFader.FadeIn(0.6f);
         }
+    }
+
+    /// <summary>★2026-09-04 F1 재시작(ArtSceneReset.Restart)에서 호출: 광차를 정거장으로 되돌리고 낙하 복구 기준을 초기화
+    /// (안 그러면 리스폰된 테이블이 '마지막 광차보다 낮다'며 다시 광차로 끌려감).</summary>
+    public void OnRestart()
+    {
+        if (recovering) return;
+        player = null; lastPlayer = null; departTimer = 0f; lastRecover = Time.time; ignoreAttachUntil = Time.time + 0.5f;
+        RestorePitch();
+        if (carts != null) foreach (var c in carts) if (c != null) { c.u = c.uStart; c.Place(true); }
     }
 
     /// <summary>[검증용] 광차 i의 u 강제.</summary>

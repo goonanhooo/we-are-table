@@ -424,3 +424,11 @@
 - 광차 탑승 중 카메라 피치 제한 해제(`RailRide.ridePitchMin/Max` -80..85, 떼면 복원) — 65° 샤프트에서 위아래를 볼 수 있게.
 - 검증: 컷씬 동안 스포트 방향 오차 최대 4.3°, 탑승 중 minPitch -80 / 해제 후 -10 복원, 목 천장 위 레이 미검출 0(경계점 1개는 튜브 밖), 레일 위 여유 ≥11m.
 - 진단 캡처 요령: `Unity_Camera_Capture`는 실패 → RunCommand에서 임시 카메라를 RenderTexture로 렌더해 PNG 저장 후 Read로 확인(_DiagCams는 커밋 전 삭제).
+
+### 2026-09-04 IceCavern 3차(야간 자동 작업)
+- 견고성 테스트(파일 샘플러): 정거장 절벽 추락→정거장 복구 2.2s ✓, 샤프트 중간 손 놓음→광차 복구 1.5s ✓, 눈사람 방 도착 후 의자 컷씬 발동 ✓, 컷씬 중 F1 = 테이블만 스폰으로 옮겨지고 컷씬은 끝까지 진행(약 20s 고정, 무해).
+- ★버그 수정: F1 재시작 때 테니스 조인트가 남아 테이블이 광차로 끌려감 → `ArtSceneReset.ResetPoseInternal`이 `TennisMode.ReleaseAll()` 먼저 호출.
+  `ArtSceneReset.Restart`가 `RailRide.OnRestart()` 호출: 광차 정거장 복귀·복구 기준 초기화. 주의: `Destroy(joint)`는 프레임 끝에 지워져 같은 프레임 `Attached`가 true → 0.5s 동안 붙음 판정 무시(`ignoreAttachUntil`).
+  낙하 복구 자체는 `recovering` 플래그로 OnRestart를 건너뜀.
+- 성능: 정거장/동굴 중간/목/샤프트/눈사람 방 전부 프레임 8.3ms(에디터 vsync), batches 270~370, tris 51만~65만, setPass 25 → 최적화 불필요.
+- 멀티: `NetStageSync`가 광차 u(최대 3대, NetworkVariable<float>)를 호스트에서 발행, 게스트는 `RailRide.netRemote`로 목표 u를 부드럽게 추종(0.05 이상 차이면 스냅). 붙음 판정/전진/낙하 복구는 호스트만. 컷씬 핀조명은 PlayRemote 코루틴 안에서 같이 재생됨. 두 계정 실제 테스트는 미실시.

@@ -282,6 +282,8 @@ public class ArtSceneReset : MonoBehaviour
         if (root == null || disableManualReset) return;
         var js = Object.FindAnyObjectByType<JungleStage>();
         if (js != null && js.RestartRespawn(this)) return;
+        // ★2026-09-04 광차(IceCavern): 정거장으로 되돌리고 복구 기준 초기화
+        foreach (var rr in Object.FindObjectsByType<RailRide>(FindObjectsSortMode.None)) if (rr != null) rr.OnRestart();
         // 스캔을 '초기 높이 바로 위'에서 → 빙산 동굴처럼 지붕 있는 스폰에서 지붕 위로 안 올라감.
         ResetPoseAtXZ(initPos.x, initPos.z, initPos.y + 2f);
     }
@@ -311,6 +313,8 @@ public class ArtSceneReset : MonoBehaviour
 
     void ResetPoseInternal(Vector2 xz, float scanFromY)
     {
+        // ★2026-09-04 테니스공 조인트 먼저 전부 놓기(광차/벽에 붙은 채 순간이동 방지)
+        foreach (var tm in Object.FindObjectsByType<TennisMode>(FindObjectsSortMode.None)) if (tm != null) tm.ReleaseAll();
         // ★ yaw = 카메라가 보는 방향(원본과 동일) — 리셋 후 조작-화면 매핑 일관. 폴백=현재 yaw, NaN→0.
         float yaw = root.transform.eulerAngles.y;
         var cam = Camera.main;

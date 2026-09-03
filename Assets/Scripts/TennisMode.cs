@@ -232,6 +232,13 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         anchors[i] = null;
     }
 
+    /// <summary>★2026-09-04 모든 다리 놓기 — 리스폰/재시작 때 ArtSceneReset이 호출(붙은 채 순간이동하면 조인트가 테이블을 끌고 감).</summary>
+    public void ReleaseAll()
+    {
+        if (joints == null) return;
+        for (int i = 0; i < joints.Length; i++) Release(i);
+    }
+
     void OnDisable()
     {
         if (legs == null) return;
