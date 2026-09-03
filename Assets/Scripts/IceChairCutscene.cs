@@ -14,7 +14,7 @@ public class IceChairCutscene : MonoBehaviour
     [Tooltip("씬에 배치된 의자(홀웨이 Chair 복사본)")]
     public GameObject chairTemplate;
     [Tooltip("동굴 입구 중앙(바닥 높이) — 이 z를 지나면 바깥 카메라로 컷")]
-    public Vector3 doorPos = new Vector3(3.5f, 95f, 24f);
+    public Vector3 doorPos = new Vector3(0f, 95f, 24f);   // ★2026-09-04 가운데로(사용자 요청 — 눈사람 우회 x3.5 폐기)
     [Tooltip("입구 안쪽 이 거리에서 걷기 시작")]
     public float startInside = 4f;
     [Tooltip("슬라이드 게이트 직전 — 여기서 멈추고 얼음화")]
@@ -40,6 +40,9 @@ public class IceChairCutscene : MonoBehaviour
     public float watchSlide = 1.6f;
 
     [Header("정지 판정(정글과 동일 — 동굴 시작은 낙하 없음)")]
+    [Header("★발동 구역(2026-09-04): 하부 얼음 방에서 올라와 동굴 안으로 어느 정도 들어온 뒤에만 — 그 전엔 의자가 그냥 서 있음")]
+    [Tooltip("테이블 z가 이 값보다 앞(+z)이어야 발동(동굴 개구부 z-19 → 안쪽으로 11m)")] public float triggerMinZ = -8f;
+    [Tooltip("테이블 y가 이 값 이상(동굴 바닥 96 위)이어야 발동 — 하부 방(84)에서는 안 됨")] public float triggerMinY = 95f;
     public float settleSpeed = 0.8f;
     public float settleTime = 0.6f;
 
@@ -87,6 +90,7 @@ public class IceChairCutscene : MonoBehaviour
         if (played || board == null || chairTemplate == null || Time.timeSinceLevelLoad < 1.5f) return;
         float sp = (board.position - lastPos).magnitude / Mathf.Max(Time.deltaTime, 1e-4f);
         lastPos = board.position;
+        if (board.position.z < triggerMinZ || board.position.y < triggerMinY) { calm = 0f; return; }   // ★구역 밖 = 대기
         calm = sp < settleSpeed ? calm + Time.deltaTime : 0f;
         if (calm < settleTime) return;
         played = true;
