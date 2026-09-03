@@ -88,6 +88,14 @@ public class IceMountain : MonoBehaviour
     public float snowPitDepthWorld = 1.1f;  // 깊이
 
     [Header("로우폴리 패치워크(면별 미세 색 변화 — 평평한 방바닥/플라토도 폴리곤 결)")]
+    [Header("하부 얼음 방(★2026-09-03 테니스 구간) — 동굴 뒷벽 뒤·아래를 caveFloor보다 낮게 '고정' 파냄(design 좌표)")]
+    public bool lowerCave = false;
+    public Vector2 lowerCaveCenter = new Vector2(0f, -69f);   // design (world (0,-34.5))
+    public float lowerCaveHalfX = 46f;                         // design (world 23) — 방 벽(±21~22.5) 바깥까지 파서 지형 절벽이 벽 속에 숨음
+    public float lowerCaveHalfZ = 27f;                         // design (world 13.5 → z -48..-21)
+    public float lowerCaveFloor = 167.2f;                      // design (world 83.6 — 방 바닥 슬래브(83~84) 속)
+    public float lowerCaveEdge = 1f;                           // design (world 0.5) — 거의 수직
+
     [Range(0f, 0.3f)] public float faceColorJitter = 0.10f;
 
     Mesh mesh;       // 렌더용 flat-shaded(정점 분리)
@@ -112,6 +120,7 @@ public class IceMountain : MonoBehaviour
             h = h * 31 + (cave ? 1 : 0) + caveCenter.GetHashCode() + caveHalfX.GetHashCode() + caveHalfZ.GetHashCode() + caveFloor.GetHashCode() + caveEdge.GetHashCode();
             h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode() + trenchFloorWorld.GetHashCode() + trenchSlope2.GetHashCode() + trenchZKneeWorld.GetHashCode();
             h = h * 31 + (snowPit ? 1 : 0) + snowPitXWorld.GetHashCode() + snowPitZWorld.GetHashCode() + snowPitHalfWorld.GetHashCode() + snowPitEdgeWorld.GetHashCode() + snowPitDepthWorld.GetHashCode();
+            h = h * 31 + (lowerCave ? 1 : 0) + lowerCaveCenter.GetHashCode() + lowerCaveHalfX.GetHashCode() + lowerCaveHalfZ.GetHashCode() + lowerCaveFloor.GetHashCode() + lowerCaveEdge.GetHashCode();
             h = h * 31 + faceColorJitter.GetHashCode();
             return h;
         }
@@ -288,6 +297,15 @@ public class IceMountain : MonoBehaviour
             float kz = 1f - SStep(caveHalfZ - caveEdge, caveHalfZ, az);
             float kc = kx * kz;
             h = Mathf.Lerp(h, caveFloor, kc);
+        }
+
+        // ★하부 얼음 방: 동굴 카브 뒤에 적용해 뒷벽 밖 절벽을 없애고 방 바닥 높이로 고정(위쪽 산은 사라지지만 산 뒷면이라 안 보임)
+        if (lowerCave)
+        {
+            float ax2 = Mathf.Abs(x - lowerCaveCenter.x), az2 = Mathf.Abs(z - lowerCaveCenter.y);
+            float kx2 = 1f - SStep(lowerCaveHalfX - lowerCaveEdge, lowerCaveHalfX, ax2);
+            float kz2 = 1f - SStep(lowerCaveHalfZ - lowerCaveEdge, lowerCaveHalfZ, az2);
+            h = Mathf.Lerp(h, lowerCaveFloor, kx2 * kz2);
         }
 
         // 슬라이드 트렌치: 슬라이드 복도 아래 지형을 하강선(target) 아래로 파내기만(낮추기 전용).

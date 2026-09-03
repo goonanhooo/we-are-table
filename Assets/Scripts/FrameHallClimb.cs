@@ -37,6 +37,8 @@ public class FrameHallClimb : MonoBehaviour
     public float camIntroSeconds = 1.6f, camGlowSeconds = 1.4f, camShoulderSeconds = 1.2f;
     [Tooltip("시선 추적 부드러움(클수록 빠르게 따라감)")]
     public float lookFollowSpeed = 4f;
+    [Tooltip("★말풍선 화면 위치: 앵커 기준 좌우(-1 왼쪽 / 0 가운데 / 1 오른쪽) · 가로 여백(px) · 위로 띄우기(px). 애벌레 몸과 겹치면 조절")]
+    public float bubbleSide = -1f, bubbleGapX = 55f, bubbleGapY = 0f;
     [Tooltip("컷씬 애벌레(자식 구 8개 = 몸통, 평소 비활성). 크기/재질은 자식에서 편집.")]
     public Transform cutsceneChain;
     [Tooltip("퇴장 경로(순서대로 — 마지막은 벽 위 구멍 너머).")]
@@ -620,7 +622,9 @@ public class FrameHallClimb : MonoBehaviour
             {
                 float bw = Mathf.Clamp(Screen.width * 0.30f, 240f, 420f);
                 float bh = bw * (currentBubble.height / (float)currentBubble.width);
-                var r = new Rect(sp.x - bw - 55f, Screen.height - sp.y - bh * 0.5f, bw, bh);
+                float bcx = sp.x + bubbleSide * (bw * 0.5f + bubbleGapX);          // 좌우 배치
+                float bcy = (Screen.height - sp.y) - bubbleGapY;                     // 위로 띄우기
+                var r = new Rect(bcx - bw * 0.5f, bcy - bh * 0.5f, bw, bh);
                 r.x = Mathf.Max(8f, r.x);
                 r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
                 GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);

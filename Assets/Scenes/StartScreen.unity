@@ -1429,9 +1429,6 @@ MonoBehaviour:
   - label: "\uC815\uAE00"
     scene: Jungle
     thumb: Thumbs/jungle
-  - label: "\uC561\uC790"
-    scene: TennisCourt
-    thumb: Thumbs/climb
   - label: "\uBE59\uC0B0"
     scene: IceMountain
     thumb: Thumbs/ice

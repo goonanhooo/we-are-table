@@ -61,8 +61,7 @@ public class SnowmanCutscene : MonoBehaviour
         if (body == null) { var b = GameObject.Find("SnowmanBody"); if (b) body = b.transform; }
         if (head == null) { var h = GameObject.Find("SnowmanHead"); if (h) head = h.transform; }
         // ★2026-08-17: 이 퍼즐은 테니스공(붙잡기)+기린(높이)으로 머리를 옮기는 설계 — 씬 입장 시 테니스 부여
-        var tn = Object.FindAnyObjectByType<TennisMode>();
-        if (tn != null) { tn.unlocked = true; tn.active = true; }
+        // ★2026-09-03 테니스공의 힘은 하부 얼음 방(FrameHallClimb 컷씬)에서 얻는다 — 자동 부여 제거
         if (head != null) headRb = head.GetComponent<Rigidbody>();
         var tgo = GameObject.Find("Table"); if (tgo) table = tgo.transform;
         var ttgo = GameObject.Find("TableTop"); if (ttgo) tableTop = ttgo.transform;

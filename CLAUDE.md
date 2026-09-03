@@ -382,3 +382,12 @@
 - 결말: `TennisCourtStage`(exitHole 마커, holeRadius 2.4, fadeStartY 10, fallTriggerY 2 → IceMountain). `FallRespawn` killY -30 → (0,-8). 스폰 TablePlayer (0,25,-8) 하늘 낙하.
 - 흐름 갱신: GiraffeGate.nextScene(기본값+Jungle 씬 인스턴스)=TennisCourt, Progress.Chain, LevelSelect(테니스장, Thumbs/climb; StartScreen 씬 직렬화 배열도 치환), NetDebugPanel MapScenes. EditorBuildSettings에 TennisCourt 추가. FrameHall은 프로젝트에 남아 있지만 흐름에서 빠짐.
 - 검증(추적 파일): 착지 → 컷씬(클로즈업→테이블 클로즈업→어깨 시점) → 애벌레가 경사면 타고 구멍 속으로 → 힘 부여 → 구멍 낙하 → IceMountain 전환까지 정상. 반투명 재질(NetMesh/Fence)은 스크립트로 URP 투명 설정(_Surface=1, _Blend=0, 큐 3000) — 눈으로 확인 필요.
+
+
+## 빙산 하부 얼음 방 — 테니스 구간 통합 (2026-09-04, 사용자 요청 "그냥 빙산맵이랑 연결")
+- **흐름**: 정글 → **빙산**(하부 얼음 방에 낙하 → 공 4개 수집 → 애벌레 컷씬 → 테니스 힘 → 60° 경사면 등반 → 뒷벽 개구부로 눈사람 동굴 → 눈사람 퍼즐 → 슬라이드). FrameHall·TennisCourt는 프로젝트에 남았지만 흐름/레벨 목록에서 제외(GiraffeGate/Progress/LevelSelect/StartScreen 직렬화 복원). `SnowmanCutscene.Start`의 테니스 자동 부여 제거(하부 방에서 얻음).
+- **지형**: `IceMountain.cs`에 `lowerCave*` 카브 추가(design 좌표 center(0,-69) halfX 46 halfZ 27 floor 167.2(world 83.6) edge 1) — 동굴 카브 '뒤'에 적용해 뒷벽 밖 수직 절벽(z-21.x, 96→172)을 없애고 방 바닥 높이로 고정. ⚠️핵심 교훈: 하이트맵 절벽은 카브 경계(halfZ-edge)에서 '메시 정점 간격 3.15m' 단위로 실체화되므로, 방 벽 밖(±22.5)까지 파서 절벽이 벽 속에 숨게 할 것. 산 뒷면(z<-21)의 산체는 사라지지만 플레이어가 볼 수 없는 면.
+- **방 `LowerCave`**(프레임홀 샤프트 치수 그대로: x±21, z-19..-42.5, 바닥 84, 천장 113~114, 재질 CaveIce8): Room_Floor/WallL/WallR/WallEnd, 천장 4조각 + `Room_CeilHolePlate`(HolePlate.asset r2.62, 중심 (0,114,-34)), `ClimbSlope` 60°(윗변 (96, z-21)=뒷벽 바깥면·아랫변 (84,-27.9)), `DoorSill`(x±4 y84..96 z-21..-18.8 — 뒷벽 밑에서 지형이 내려앉는 구간을 메움), 조명 5개(프레임홀 복사, 푸른 틴트), `MouseHole`(20.97,84.65,-37.5), `ShaftPainting_Group`. 동굴 `WallBack`은 `WallBack_L/R/Top`(개구부 x±4, y96..103, y84까지 내려 봉인)으로 분할, 옛 천장 구멍은 `Ceil_Mid`로 봉인, WallSeeThrough wallNames 갱신.
+- **스폰/낙하**: TablePlayer (0,117,-34) → `DarkTubeIce`(y85.69, 메시 바닥 114) 속을 지나 천장 구멍으로 방 바닥(84)에 착지. RespawnPoint 동일. 카메라 CameraFollow distance 6/height 1.5(프레임홀 값 — 슬라이드 구간도 같이 바뀜, 원래 8/1.6).
+- **퍼즐 소품**: FrameHall의 `FrameHallClimb`(+FrameHallProps) 통째 복사, 매핑 (x, y+96, z+0.5). hallZ/shaftZ=±9999(홀 로직 비활성). 퇴장 경로 E2/E3=경사면(z=-21-(96-y)/tan60)+법선 0.25, E4~E6=개구부 통과 후 동굴 안(z-14).
+- **말풍선 겹침 해결**: `FrameHallClimb.bubbleSide/bubbleGapX/bubbleGapY` 신설(기본 -1/55/0 = 옛 동작). 원인 = 클로즈업 카메라가 몸통 방향(+x)을 깊이로 봐서 몸이 화면 왼쪽(말풍선 쪽)으로 물러남 → **카메라를 옆 45°**(hp+(-4.0,2.2,-3.2))로 옮겨 몸이 화면 오른쪽으로 뻗게 + 말풍선 왼쪽 위(gapX 40, gapY 60, 앵커 머리+1.0). 검증: 대사 구간 600샘플 겹침 0, 최소 간격 168px(스크린 투영 수치 검사 — 표준 검증법).

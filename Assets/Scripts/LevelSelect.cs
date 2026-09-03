@@ -23,7 +23,6 @@ public class LevelSelect : MonoBehaviour
     {
         new Level { label = "시작", scene = "Hallway",     thumb = "Thumbs/hallway" },
         new Level { label = "정글", scene = "Jungle",      thumb = "Thumbs/jungle"  },
-        new Level { label = "테니스장", scene = "TennisCourt", thumb = "Thumbs/climb" },   // ★2026-09-03 액자 홀 → 야외 테니스장
         new Level { label = "빙산", scene = "IceMountain", thumb = "Thumbs/ice"     },
     };
     [Tooltip("'구현중인 맵들' 버튼을 눌러야 보이는 목록")]
