@@ -16,13 +16,24 @@ public class RailRide : MonoBehaviour
     [Tooltip("탑승 전: 정거장보다 이만큼 아래(동굴 바닥)로 떨어지면 정거장으로 복구 — 시작 방 바닥(-12m)은 걸리지 않게")] public float fallBelowStation = 20f;
     public float recoverCooldown = 3f;
 
+    [Header("탑승 중 카메라 — 가파른 샤프트에서 위/아래를 자유롭게 볼 수 있게 피치 제한 해제")]
+    public float ridePitchMin = -80f, ridePitchMax = 85f;
+
     MineCart player, lastPlayer;
     float departTimer, lastRecover = -99f;
     Transform board; ArticulationBody root;
+    CameraFollow follow; float savedMinPitch, savedMaxPitch; bool pitchOverridden;
     public MineCart PlayerCart => player;
     public MineCart LastCart => lastPlayer;
 
-    void Start() { var b = GameObject.Find("Table"); if (b != null) { board = b.transform; root = b.GetComponent<ArticulationBody>(); } }
+    void Start()
+    {
+        var b = GameObject.Find("Table"); if (b != null) { board = b.transform; root = b.GetComponent<ArticulationBody>(); }
+        var cam = Camera.main; if (cam != null) follow = cam.GetComponent<CameraFollow>();
+    }
+
+    void OnDisable() { RestorePitch(); }
+    void RestorePitch() { if (pitchOverridden && follow != null) { follow.minPitch = savedMinPitch; follow.maxPitch = savedMaxPitch; } pitchOverridden = false; }
 
     void FixedUpdate()
     {
@@ -39,6 +50,12 @@ public class RailRide : MonoBehaviour
         }
         else departTimer = 0f;
         foreach (var c in carts) if (c != null) c.Place();
+        // 탑승 중(붙어 있음)엔 카메라 피치 제한 해제, 떼면 복원
+        if (follow != null)
+        {
+            if (player != null && !pitchOverridden) { savedMinPitch = follow.minPitch; savedMaxPitch = follow.maxPitch; follow.minPitch = ridePitchMin; follow.maxPitch = ridePitchMax; pitchOverridden = true; }
+            else if (player == null && pitchOverridden) RestorePitch();
+        }
 
         if (board == null || root == null || Time.time - lastRecover < recoverCooldown) return;
         foreach (var c in carts) if (c != null && c.Attached) return;

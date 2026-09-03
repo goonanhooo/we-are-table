@@ -47,6 +47,10 @@ public class FrameHallClimb : MonoBehaviour
     public TennisCaterpillar goodbyeCat;
     [Tooltip("힘 전달 빛 구슬(씬 배치, 평소 비활성). 재질/라이트는 오브젝트에서 편집.")]
     public GameObject orb;
+    [Tooltip("★2026-09-04 컷씬 핀조명(스포트, 평소 꺼짐): 시작 시 쥐구멍을 비추고 애벌레 머리를 따라감. 끝나면 서서히 꺼짐. 위치/각도/세기는 오브젝트에서 편집")]
+    public Light cutsceneSpot;
+    [Tooltip("핀조명 추적 부드러움(클수록 빠르게)")] public float spotFollowSpeed = 5f;
+    [Tooltip("힘 전달 때 테이블 발광 세기(에미션 배율) — 은은하게")] public float glowStrength = 1.0f;
 
     [Header("배치(숫자 폴백 — 위 씬 오브젝트가 비어 있을 때만)")]
     public Vector3 holePos = new Vector3(14.99f, -12f, -31f);   // 쥐구멍(오른쪽 벽 바닥)
@@ -178,8 +182,34 @@ public class FrameHallClimb : MonoBehaviour
     Vector3 Tip(int i) => legMesh[i].TransformPoint(0f, -0.5f, 0f);
     Material BallMat() => tennis != null ? tennis.ballMat : null;
 
+    // ── 컷씬 핀조명 추적 ──
+    Vector3 spotTarget; bool spotActive;
+    void SpotStart(Vector3 at)
+    {
+        if (cutsceneSpot == null) return;
+        if (cutsceneSpot.intensity <= 0.01f) cutsceneSpot.intensity = 6f;
+        cutsceneSpot.enabled = true;
+        Vector3 d = at - cutsceneSpot.transform.position;
+        if (d.sqrMagnitude > 1e-4f) cutsceneSpot.transform.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
+        spotTarget = at; spotActive = true;
+    }
+    IEnumerator SpotFadeOut(float sec)
+    {
+        if (cutsceneSpot == null) yield break;
+        float i0 = cutsceneSpot.intensity;
+        for (float t = 0; t < sec; t += Time.deltaTime) { cutsceneSpot.intensity = Mathf.Lerp(i0, 0f, t / sec); yield return null; }
+        cutsceneSpot.intensity = i0; cutsceneSpot.enabled = false; spotActive = false;
+    }
+    public bool SpotActive => spotActive;
+    public Vector3 SpotTarget => spotTarget;
+
     void Update()
     {
+        if (spotActive && cutsceneSpot != null)
+        {
+            Vector3 sd = spotTarget - cutsceneSpot.transform.position;
+            if (sd.sqrMagnitude > 1e-4f) cutsceneSpot.transform.rotation = Quaternion.Slerp(cutsceneSpot.transform.rotation, Quaternion.LookRotation(sd.normalized, Vector3.up), 1f - Mathf.Exp(-spotFollowSpeed * Time.deltaTime));
+        }
         if (table == null || legs == null) return;
 
         // ── 공 줍기: 빈 다리 발끝이 바닥 공에 닿으면 부착 (게스트는 호스트 마스크만 반영) ──
@@ -285,6 +315,7 @@ public class FrameHallClimb : MonoBehaviour
         FreezeTable(true);
         if (cameraFollow != null) cameraFollow.enabled = false;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = false;
+        SpotStart(HolePos);   // ★핀조명: 쥐구멍부터
 
         // 카메라: 쥐구멍을 비스듬히 봄(씬의 카메라 샷 오브젝트 우선)
         Vector3 hp = HolePos;
@@ -360,6 +391,7 @@ public class FrameHallClimb : MonoBehaviour
         if (cameraFollow != null) { (cameraFollow as CameraFollow)?.BlendFrom(1.2f); cameraFollow.enabled = true; }
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         FreezeTable(false);
+        StartCoroutine(SpotFadeOut(1.6f));
         cutsceneDone = true;
         if (guideTex != null) { showGuide = true; guideShownAt = Time.time; }
     }
@@ -381,7 +413,7 @@ public class FrameHallClimb : MonoBehaviour
                     if (carried[i] != null) { carried[i].gameObject.SetActive(false); carried[i] = null; }   // 씬 공은 숨김(재생 시 다시 켬)
                 swapped = true;
             }
-            Color emi = new Color(1.1f, 1.5f, 0.7f) * (k * 3.2f);
+            Color emi = new Color(1.1f, 1.5f, 0.7f) * (k * glowStrength);   // ★은은하게(기본 1.0, 이전 3.2)
             foreach (var r in rends)
             {
                 if (r == null) continue;
@@ -473,6 +505,7 @@ public class FrameHallClimb : MonoBehaviour
             p.y += Mathf.Max(0f, Mathf.Sin(phase)) * 0.06f;
             if (chain[i] != null) chain[i].position = p;
         }
+        if (chain.Length > 0 && chain[0] != null) spotTarget = chain[0].position;   // 핀조명은 머리를 따라감
     }
 
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
@@ -503,6 +536,7 @@ public class FrameHallClimb : MonoBehaviour
             float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / Mathf.Max(0.01f, camShoulderSeconds)));
             Vector3 p = Vector3.Lerp(p0, camS, u);
             Vector3 target = cat != null ? cat.HeadPosition : p + Vector3.forward;
+            spotTarget = target;
             Vector3 dir = target - p;
             if (dir.sqrMagnitude > 1e-4f)
             {
