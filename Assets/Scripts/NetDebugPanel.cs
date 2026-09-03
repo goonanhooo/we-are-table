@@ -59,13 +59,13 @@ public class NetDebugPanel : MonoBehaviour
     }
     static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
     // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
-    static readonly string[] MapNames = { "시작", "정글", "액자", "눈 덮인 산", "우주", "트랙", "달", "모험", "등반", "경주 (대전)", "축구 (대전)" };
+    static readonly string[] MapNames = { "시작", "정글", "테니스장", "눈 덮인 산", "우주", "트랙", "달", "모험", "등반", "경주 (대전)", "축구 (대전)" };
     // ★2026-08-17 영어 지원 — LevelSelect.MapLabel의 영문명과 일치
     static readonly string[] LegNamesEn = { "front left (WASD)", "front right (TFGH)", "back left (IJKL)", "back right (arrows)" };
-    static readonly string[] MapNamesEn = { "start", "jungle", "gallery", "iceberg", "space", "track", "moon", "adventure", "climb", "race (vs)", "soccer (vs)" };
+    static readonly string[] MapNamesEn = { "start", "jungle", "tennis court", "iceberg", "space", "track", "moon", "adventure", "climb", "race (vs)", "soccer (vs)" };
     static string LegName(int i) => L.Korean ? LegNames[i] : LegNamesEn[i];
     static string MapName(int i) => L.Korean ? MapNames[i] : MapNamesEn[i];
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "FrameHall", "IceMountain", "Space", "Track", "Moon", "Adventure", "Climb", "Race", "Soccer" };
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "TennisCourt", "IceMountain", "Space", "Track", "Moon", "Adventure", "Climb", "Race", "Soccer" };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
     void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }

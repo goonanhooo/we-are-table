@@ -374,3 +374,11 @@
 - 플레이 도중 스크립트를 고치면 기존 세션의 공은 옛 코드가 만든 루트 오브젝트로 남는다(도메인 리로드가 Start를 다시 안 돌림) — 반드시 새 플레이 세션에서 검증.
 
 - **등반 무게 상쇄(2026-09-03, 사용자 요청)**: `TennisMode.weightCancelWhenStuck`(기본 0.95) — 한 다리라도 붙어 있으면(StuckMask≠0) FixedUpdate에서 테이블 루트 아래 모든 ArticulationBody에 `-gravity×mass×비율`을 AddForce. 검증: 한 다리로 매달렸을 때 조인트 반력 74.6N(전체 무게) → 3~5N. 게스트/비활성엔 미적용. 0으로 두면 예전 동작.
+
+
+## 야외 테니스 경기장 씬 `TennisCourt.unity` (2026-09-03, 액자 홀 대체 — 정글 → 테니스장 → 빙산)
+- 구조: `Stadium/` 아래 Ground(초록 서라운드 64×52 + 파란 코트 17.5×38, 흰 라인 박스), Net(기둥+반투명 네트+테이프), Fences(반투명 패널 + 기둥, `Bounds`는 보이지 않는 20m 경계 콜라이더), Stands(양옆·근단 8단 계단식 관중석 + 좌석 띠), EndStand(+z: `ClimbSlope` 60° 30m폭 12m높이, 줄무늬 띠, 꼭대기 플랫폼 4조각 + `ExitHole`(FrameHall의 HoleRim/DarkTube/Plug/HolePlate 복사, y12 z36), 네이비 엔드월·스코어보드), LightTowers(장식). 조명 = `Sun`(Directional 52°/-35°, soft shadow) + 스카이박스 앰비언트, 카메라 Skybox.
+- 퍼즐: `FrameHallClimb`(FrameHall에서 통째로 복사, hallZ/shaftZ=±9999로 홀 로직 비활성) — 공 4개 코트 위, 쥐구멍 `MouseHole`은 오른쪽 엔드월(18,0.65,26) -z 향, 등장 경로 P0~P4는 z축 방향, 퇴장 경로 E0~E6는 경사면(z=26+y/tan60)+법선 0.25를 타고 플랫폼 구멍 속(0,10,36)으로. 클로즈업 카메라 hp+(1.5,2.6,-5.5).
+- 결말: `TennisCourtStage`(exitHole 마커, holeRadius 2.4, fadeStartY 10, fallTriggerY 2 → IceMountain). `FallRespawn` killY -30 → (0,-8). 스폰 TablePlayer (0,25,-8) 하늘 낙하.
+- 흐름 갱신: GiraffeGate.nextScene(기본값+Jungle 씬 인스턴스)=TennisCourt, Progress.Chain, LevelSelect(테니스장, Thumbs/climb; StartScreen 씬 직렬화 배열도 치환), NetDebugPanel MapScenes. EditorBuildSettings에 TennisCourt 추가. FrameHall은 프로젝트에 남아 있지만 흐름에서 빠짐.
+- 검증(추적 파일): 착지 → 컷씬(클로즈업→테이블 클로즈업→어깨 시점) → 애벌레가 경사면 타고 구멍 속으로 → 힘 부여 → 구멍 낙하 → IceMountain 전환까지 정상. 반투명 재질(NetMesh/Fence)은 스크립트로 URP 투명 설정(_Surface=1, _Blend=0, 큐 3000) — 눈으로 확인 필요.

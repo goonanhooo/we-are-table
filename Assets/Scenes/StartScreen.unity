@@ -1430,8 +1430,8 @@ MonoBehaviour:
     scene: Jungle
     thumb: Thumbs/jungle
   - label: "\uC561\uC790"
-    scene: FrameHall
-    thumb: Thumbs/frame
+    scene: TennisCourt
+    thumb: Thumbs/climb
   - label: "\uBE59\uC0B0"
     scene: IceMountain
     thumb: Thumbs/ice
