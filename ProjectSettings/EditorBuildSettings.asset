@@ -50,6 +50,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/TennisCourt.unity
     guid: cc4ec47245a9d4e8eb6ca6e7bcc023f4
+  - enabled: 1
+    path: Assets/Scenes/IceCavern.unity
+    guid: 1ffcb72ef884143aca9a386b3dd1fba8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
