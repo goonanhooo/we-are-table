@@ -69,7 +69,12 @@ public static class IceCavernBuilder
     public const float FLOOR = -200f, FARZ = -370f, CLIPZ = -22f;
     public const float VZ = -48f, VBOT = -115f, VTOP = 108f;   // ★샤프트 위는 108에서 돔(113.6)으로 마감 — 지형(120-6) 아래, 깎아지른 모서리 없음
     static float Wv(float y) => Mathf.Lerp(40f, 18f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.3f));   // ★위쪽 폭 13→18(레일 주변 여유)
-    static float Hv(float y) => Mathf.Lerp(48f, 30f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.1f));
+    // ★샤프트 뒤쪽(-z)은 산 북사면 아래로 벗어나 지형 클램프가 위쪽 링 뒤 점을 40m 끌어내려 면이 찢어졌음 →
+    //   위로 갈수록 중심을 앞(문 쪽 -36)으로 옮기고 앞뒤 반폭을 48→12로 줄여 항상 산 안(지형 ≥ y+6)에 머물게 함
+    //   단, y≤-20(수평 동굴과 만나는 아래쪽)은 원래 깊이(48, 중심 -48)를 유지 — 줄이면 H 튜브 끝 천장이 V 밖에 남아 레일 위 3.5m로 좁아짐
+    static float TopT(float y) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-20f, VTOP, y));
+    static float Hv(float y) => Mathf.Lerp(48f, 14f, TopT(y));    // 위쪽 앞뒤 반폭 14: 앞면(-34+14=-20)이 클립면 -22에 닿아 문 앞벽이 평평하게 유지됨
+    static float Zc(float y) => Mathf.Lerp(VZ, -34f, TopT(y));
 
     [MenuItem("Tools/IceCavern/Rebuild Cavern")]
     public static void RebuildMenu() { Debug.Log(Build()); }
@@ -100,7 +105,7 @@ public static class IceCavernBuilder
         for (int i = 0; i < cl.Count; i++) { int zi = Mathf.Clamp(Mathf.RoundToInt(cl[i].z + 400f), 0, ZN - 1); tcy[zi] = cl[i].y; tw[zi] = cw[i]; th[zi] = chh[i]; }
         for (int i = 1; i < ZN; i++) if (tw[i] < 0f && tw[i - 1] > 0f) { tw[i] = tw[i - 1]; th[i] = th[i - 1]; tcy[i] = tcy[i - 1]; }
         System.Func<Vector3, bool> insideH = p => { if (p.z < FARZ || p.z > -78f) return false; int zi = Mathf.Clamp(Mathf.RoundToInt(p.z + 400f), 0, ZN - 1); if (tw[zi] <= 0f) return false; float ex = p.x / tw[zi], ey = (p.y - tcy[zi]) / th[zi]; return ex * ex + ey * ey < 1f; };
-        System.Func<Vector3, bool> insideV = p => { if (p.y < VBOT || p.y > VTOP + 6f || p.z > CLIPZ + 1f) return false; float yy = Mathf.Min(p.y, VTOP); float ex = p.x / Wv(yy), ez = (p.z - VZ) / Hv(yy); return ex * ex + ez * ez < 1f; };
+        System.Func<Vector3, bool> insideV = p => { if (p.y < VBOT || p.y > VTOP + 6f || p.z > CLIPZ + 1f) return false; float yy = Mathf.Min(p.y, VTOP); float ex = p.x / Wv(yy), ez = (p.z - Zc(yy)) / Hv(yy); return ex * ex + ez * ez < 1f; };
         // ★경계 빈 칸 방지: 네 꼭짓점이 '전부' 상대 볼륨 안일 때만 제거(중심점 기준이면 경계에 구멍이 뜯긴 듯 남음)
         System.Func<System.Func<Vector3, bool>, Vector3, Vector3, Vector3, Vector3, bool> allIn = (f, a, b, c, d) => f(a) && f(b) && f(c) && f(d);
 
@@ -150,7 +155,7 @@ public static class IceCavernBuilder
                 float phi = Mathf.PI * 2f * (i % NA) / NA;
                 float n = 1f + 0.10f * Mathf.Sin(3f * phi + 0.9f * k) + 0.06f * Mathf.Sin(7f * phi + 1.7f * k) + (i == NA ? 0f : RS(0.03f));
                 if (i == NA) n = 1f + 0.10f * Mathf.Sin(0.9f * k) + 0.06f * Mathf.Sin(1.7f * k);
-                Vector3 p = new Vector3(Wv(yy) * sc * n * Mathf.Cos(phi), y + (k == 0 || k >= NV - 3 ? 0f : RS(0.6f)), VZ + Hv(yy) * sc * n * Mathf.Sin(phi));
+                Vector3 p = new Vector3(Wv(yy) * sc * n * Mathf.Cos(phi), y + (k == 0 || k >= NV - 3 ? 0f : RS(0.6f)), Zc(yy) + Hv(yy) * sc * n * Mathf.Sin(phi));
                 vringU[k, i] = p;
                 float tm = terrainMin(p.x, p.z) - 6f; if (p.y > tm) p.y = tm;
                 if (p.z > CLIPZ) p.z = CLIPZ - (i == NA ? 0f : R01() * 0.5f);
@@ -167,12 +172,18 @@ public static class IceCavernBuilder
                 if (allIn(insideH, a, b, c, d)) { skipH++; continue; }
                 // 문 구멍: 앞벽에 닿는(모서리 포함) 사각형 중 구멍 상자(x±7, y 91..108)와 겹치면 제거 — 레일 y100 광차(~103)가 걸리지 않게
                 { float minX = Mathf.Min(a.x, b.x, c.x, d.x), maxX = Mathf.Max(a.x, b.x, c.x, d.x), minY = Mathf.Min(a.y, b.y, c.y, d.y), maxY = Mathf.Max(a.y, b.y, c.y, d.y);
-                  if (maxZ >= CLIPZ - 3f && maxX > -8f && minX < 8f && maxY > 91f && minY < 108f) { skipDoor++; continue; } }
+                  if (maxZ >= CLIPZ - 4.5f && maxX > -8f && minX < 8f && maxY > 91f && minY < 108f) { skipDoor++; continue; } }
                 Vector3 cenU = (vringU[k, i] + vringU[k, i + 1] + vringU[k + 1, i + 1] + vringU[k + 1, i]) * 0.25f;
-                tube.Quad(a, b, c, d, new Vector3(0f, Mathf.Min(cenU.y, VTOP), VZ) - cenU, ByPos);
+                tube.Quad(a, b, c, d, new Vector3(0f, Mathf.Min(cenU.y, VTOP), Zc(Mathf.Min(cenU.y, VTOP))) - cenU, ByPos);
             }
-        { Vector3 cen0 = new Vector3(0f, VBOT, VZ); for (int i = 0; i < NA; i++) { Vector3 a = vring[0, i], b = vring[0, i + 1]; if (insideH(cen0) && insideH(a) && insideH(b)) continue; tube.Tri(cen0, a, b, Vector3.up, Rock()); } }
-        { float ty = 999f; for (int i = 0; i < NA; i++) ty = Mathf.Min(ty, vring[NV - 1, i].y); Vector3 cen = new Vector3(0f, Mathf.Min(ty + 1.2f, 113.6f), VZ); for (int i = 0; i < NA; i++) tube.Tri(cen, vring[NV - 1, i], vring[NV - 1, i + 1], Vector3.down, Ice()); }
+        {   // 바닥 원판: 동심 링 3단 + 중앙 부채꼴(한 번에 부채꼴로 만들면 45m 슬리버가 찢긴 듯 보임)
+            Vector3 cen0 = new Vector3(0f, VBOT, VZ); int RD = 3; Vector3[,] dr = new Vector3[RD + 1, NA + 1];
+            for (int r = 0; r <= RD; r++) for (int i = 0; i <= NA; i++) { float f = r / (float)RD; Vector3 q = Vector3.Lerp(cen0, vring[0, i], f); if (r > 0 && r < RD && i < NA) q += new Vector3(RS(1.2f), RS(0.5f), RS(1.2f)); dr[r, i] = q; }
+            for (int i = 0; i < NA; i++) dr[RD, i] = vring[0, i]; dr[RD, NA] = dr[RD, 0]; for (int r = 1; r < RD; r++) dr[r, NA] = dr[r, 0];
+            for (int i = 0; i < NA; i++) { Vector3 a = dr[1, i], b = dr[1, i + 1]; if (insideH(cen0) && insideH(a) && insideH(b)) continue; tube.Tri(cen0, a, b, Vector3.up, Rock()); }
+            for (int r = 1; r < RD; r++) for (int i = 0; i < NA; i++) { Vector3 a = dr[r, i], b = dr[r, i + 1], c2 = dr[r + 1, i + 1], d2 = dr[r + 1, i]; if (insideH(a) && insideH(b) && insideH(c2) && insideH(d2)) continue; tube.Quad(a, b, c2, d2, Vector3.up, pp => Rock()); }
+        }
+        { float ty = 999f; for (int i = 0; i < NA; i++) ty = Mathf.Min(ty, vring[NV - 1, i].y); Vector3 cen = new Vector3(0f, Mathf.Min(ty + 1.2f, 113.6f), Zc(VTOP)); for (int i = 0; i < NA; i++) tube.Tri(cen, vring[NV - 1, i], vring[NV - 1, i + 1], Vector3.down, Ice()); }
         sb.Append("H rings=" + NR + " tris=" + hTris + " skipInsideV=" + skipV + "; V rings=" + NV + " tris=" + (tube.t.Count / 3 - hTris) + " skipInsideH=" + skipH + " skipDoor=" + skipDoor + "\n");
         System.Func<Vector3, string> bucket = p => p.z < -90f ? "z" + Mathf.FloorToInt((p.z + 400f) / 40f) : "y" + Mathf.FloorToInt((p.y + 220f) / 45f);
         sb.Append("tube chunks=" + SplitMake(tube, "CaveTube", root.transform, mat, bucket) + "\n");
