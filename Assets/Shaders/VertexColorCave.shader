@@ -9,6 +9,7 @@ Shader "Custom/VertexColorCave"
         _AmbientBoost ("Ambient Boost", Range(0,2)) = 0.3
         _MainLightScale ("Main Light Scale", Range(0,1)) = 0.0
         _LightBoost ("Additional Light Boost", Range(0,4)) = 1.0
+        _MaxBright ("Max Brightness (x albedo) — 조명 가까이서 하얗게 날아가지 않게", Range(1,4)) = 1.9
     }
     SubShader
     {
@@ -35,6 +36,7 @@ Shader "Custom/VertexColorCave"
                 float  _AmbientBoost;
                 float  _MainLightScale;
                 float  _LightBoost;
+                float  _MaxBright;
             CBUFFER_END
 
             struct Attributes
@@ -85,6 +87,8 @@ Shader "Custom/VertexColorCave"
                 }
                 #endif
 
+                // ★2026-09-04 밝기 상한: 색조는 유지하고 알베도의 _MaxBright배를 넘지 않게(암석이 얼음처럼 하얘지는 것 방지)
+                col = min(col, albedo * _MaxBright + 0.02);
                 col = MixFog(col, IN.fogFactor);
                 return half4(col, 1);
             }

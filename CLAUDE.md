@@ -432,3 +432,12 @@
   낙하 복구 자체는 `recovering` 플래그로 OnRestart를 건너뜀.
 - 성능: 정거장/동굴 중간/목/샤프트/눈사람 방 전부 프레임 8.3ms(에디터 vsync), batches 270~370, tris 51만~65만, setPass 25 → 최적화 불필요.
 - 멀티: `NetStageSync`가 광차 u(최대 3대, NetworkVariable<float>)를 호스트에서 발행, 게스트는 `RailRide.netRemote`로 목표 u를 부드럽게 추종(0.05 이상 차이면 스냅). 붙음 판정/전진/낙하 복구는 호스트만. 컷씬 핀조명은 PlayRemote 코루틴 안에서 같이 재생됨. 두 계정 실제 테스트는 미실시.
+
+### 2026-09-04 IceCavern 4차(사용자 피드백 2: 도착 레일·조명·돔·스폰)
+- Unity AI Assistant MCP(RunCommand)가 "Connection revoked"로 끊기면 coplaydev `unityMCP`의 `execute_code`(Roslyn, 메서드 본문만: using 불가 → 풀네임, `UnityEngine.Object` 명시, ExitPlaymode는 safety_checks=false)로 대체 가능. 긴 생성 코드는 `Assets/Editor/IceCavernBuilder.cs`(Tools/IceCavern/Rebuild Cavern, BuildTube/BuildDecor)로 옮김.
+- ★MeshCollider 함정: 같은 경로의 옛 메시 에셋을 CreateAsset으로 덮어쓰면 콜라이더 bounds가 0(레이캐스트 안 맞음). 먼저 DeleteAsset, 생성 후 bounds 0이면 sharedMesh 재할당. 장식 배치(BuildDecor)는 튜브 생성과 별도 호출.
+- ★URP 포인트 라이트는 역제곱 감쇠 → 수십 m 동굴에는 세기 수백(벽 420·채움 380·결정 90), 근거리 과노출은 `VertexColorCave._MaxBright`(1.45 = 알베도 배수 상한)로 막아 암석이 하얗게 안 날아감. 목/샤프트(얼음 알베도 0.9)는 훨씬 약하게(110/70, 출구 스포트 650).
+- 도착 레일: 문턱(96) 뒤 (0,95.6,-15)→(0,95.1,-7)로 살짝 내려 광차 바닥=동굴 바닥 96.00, 앞벽 0.3m. `IceChairCutscene.triggerMinZ` -8→0(광차에서 내려 걸어가야 의자 컷씬).
+- 샤프트 위 VTOP 108 + 축소 링 2개 + 부채꼴 = 돔(z-30~-40에서 천장 110~112, 뒤로 갈수록 낮아짐).
+- 스폰: DarkTubeIce x/z 스케일 3(카메라 6m가 튜브 안), `CaveFogZone` 첫 프레임 즉시 적용(w 스냅) + 카메라 배경색도 동굴 안에서 검게 블렌드.
+- 검증: 목 위 레이 미검출 2/377(경계), 레일 위 여유 7.2m, 도착 시 의자 컷씬 미발동·광차 바닥 96.00, 캡처(caps5/6)로 조명 확인.
