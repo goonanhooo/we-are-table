@@ -63,13 +63,13 @@ public static class IceCavernBuilder
     }
 
     // ── 파라미터(에디터에서 편집) ──
-    public static Vector3[] HP = { new Vector3(0, -125, -392), new Vector3(0, -122, -362), new Vector3(0, -118, -310), new Vector3(0, -116, -255), new Vector3(0, -114, -200), new Vector3(0, -108, -150), new Vector3(0, -95, -118), new Vector3(0, -75, -96), new Vector3(0, -60, -78) };
-    public static float[] HW = { 30, 70, 130, 160, 152, 125, 90, 55, 22 };
-    public static float[] HH = { 30, 55, 85, 88, 90, 84, 70, 50, 28 };
+    public static Vector3[] HP = { new Vector3(0, -125, -392), new Vector3(0, -122, -362), new Vector3(0, -118, -310), new Vector3(0, -116, -255), new Vector3(0, -114, -200), new Vector3(0, -108, -150), new Vector3(0, -95, -118), new Vector3(0, -72, -96), new Vector3(0, -50, -78) };   // ★끝을 높이고 키워 레일(y-40~-30) 위 천장 여유 확보
+    public static float[] HW = { 30, 70, 130, 160, 152, 125, 90, 55, 26 };
+    public static float[] HH = { 30, 55, 85, 88, 90, 84, 72, 54, 45 };
     public const float FLOOR = -200f, FARZ = -370f, CLIPZ = -22f;
     public const float VZ = -48f, VBOT = -115f, VTOP = 108f;   // ★샤프트 위는 108에서 돔(113.6)으로 마감 — 지형(120-6) 아래, 깎아지른 모서리 없음
-    static float Wv(float y) => Mathf.Lerp(40f, 13f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.3f));
-    static float Hv(float y) => Mathf.Lerp(48f, 27f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.1f));
+    static float Wv(float y) => Mathf.Lerp(40f, 18f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.3f));   // ★위쪽 폭 13→18(레일 주변 여유)
+    static float Hv(float y) => Mathf.Lerp(48f, 30f, Mathf.Pow(Mathf.InverseLerp(VBOT, VTOP, y), 1.1f));
 
     [MenuItem("Tools/IceCavern/Rebuild Cavern")]
     public static void RebuildMenu() { Debug.Log(Build()); }
@@ -167,7 +167,7 @@ public static class IceCavernBuilder
                 if (allIn(insideH, a, b, c, d)) { skipH++; continue; }
                 // 문 구멍: 앞벽에 닿는(모서리 포함) 사각형 중 구멍 상자(x±7, y 91..108)와 겹치면 제거 — 레일 y100 광차(~103)가 걸리지 않게
                 { float minX = Mathf.Min(a.x, b.x, c.x, d.x), maxX = Mathf.Max(a.x, b.x, c.x, d.x), minY = Mathf.Min(a.y, b.y, c.y, d.y), maxY = Mathf.Max(a.y, b.y, c.y, d.y);
-                  if (maxZ >= CLIPZ - 3f && maxX > -7f && minX < 7f && maxY > 91f && minY < 108f) { skipDoor++; continue; } }
+                  if (maxZ >= CLIPZ - 3f && maxX > -8f && minX < 8f && maxY > 91f && minY < 108f) { skipDoor++; continue; } }
                 Vector3 cenU = (vringU[k, i] + vringU[k, i + 1] + vringU[k + 1, i + 1] + vringU[k + 1, i]) * 0.25f;
                 tube.Quad(a, b, c, d, new Vector3(0f, Mathf.Min(cenU.y, VTOP), VZ) - cenU, ByPos);
             }

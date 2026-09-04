@@ -96,6 +96,11 @@ public class IceMountain : MonoBehaviour
     public float lowerCaveFloor = 167.2f;                      // design (world 83.6 — 방 바닥 슬래브(83~84) 속)
     public float lowerCaveEdge = 1f;                           // design (world 0.5) — 거의 수직
 
+    [Header("★2026-09-04 지형 구멍(IceCavern 문): 이 월드 상자 안 격자 사각형은 렌더/콜라이더에서 제외 — 동굴 뒷문을 가로지르는 지형 면 제거")]
+    public bool cutHole = false;
+    public Vector3 cutHoleCenter = new Vector3(0f, 100f, -20.5f);   // world
+    public Vector3 cutHoleHalf = new Vector3(5f, 30f, 2.6f);        // world
+
     [Range(0f, 0.3f)] public float faceColorJitter = 0.10f;
 
     Mesh mesh;       // 렌더용 flat-shaded(정점 분리)
@@ -121,6 +126,7 @@ public class IceMountain : MonoBehaviour
             h = h * 31 + (slideTrench ? 1 : 0) + trenchHalfXWorld.GetHashCode() + trenchEdgeWorld.GetHashCode() + trenchZStartWorld.GetHashCode() + trenchZEndWorld.GetHashCode() + trenchZBlend.GetHashCode() + trenchTopWorld.GetHashCode() + trenchSlope.GetHashCode() + trenchFloorWorld.GetHashCode() + trenchSlope2.GetHashCode() + trenchZKneeWorld.GetHashCode();
             h = h * 31 + (snowPit ? 1 : 0) + snowPitXWorld.GetHashCode() + snowPitZWorld.GetHashCode() + snowPitHalfWorld.GetHashCode() + snowPitEdgeWorld.GetHashCode() + snowPitDepthWorld.GetHashCode();
             h = h * 31 + (lowerCave ? 1 : 0) + lowerCaveCenter.GetHashCode() + lowerCaveHalfX.GetHashCode() + lowerCaveHalfZ.GetHashCode() + lowerCaveFloor.GetHashCode() + lowerCaveEdge.GetHashCode();
+            h = h * 31 + (cutHole ? 1 : 0) + cutHoleCenter.GetHashCode() + cutHoleHalf.GetHashCode();
             h = h * 31 + faceColorJitter.GetHashCode();
             return h;
         }
@@ -151,14 +157,18 @@ public class IceMountain : MonoBehaviour
         var cols = new Color[quads * 6];
         var tris = new int[quads * 6];
         int vi = 0;
+        float wsHole = (worldScale != 1f) ? worldScale : 1f;
+        System.Func<Vector3, bool> inHole = q => { if (!cutHole) return false; Vector3 w = q * wsHole; return Mathf.Abs(w.x - cutHoleCenter.x) <= cutHoleHalf.x && Mathf.Abs(w.z - cutHoleCenter.z) <= cutHoleHalf.z && Mathf.Abs(w.y - cutHoleCenter.y) <= cutHoleHalf.y; };
         for (int z = 0; z < res; z++)
             for (int x = 0; x < res; x++)
             {
                 int i = z * vside + x;
                 Vector3 a = grid[i], b = grid[i + vside], c = grid[i + 1], d = grid[i + vside + 1];
+                if (inHole((a + b + c + d) * 0.25f)) continue;   // ★구멍: 사각형 통째로 생략(정점은 남겨 인덱스 유지 — 뒤에서 잘라냄)
                 AddTri(verts, cols, tris, ref vi, a, b, c);
                 AddTri(verts, cols, tris, ref vi, c, b, d);
             }
+        if (vi < verts.Length) { System.Array.Resize(ref verts, vi); System.Array.Resize(ref cols, vi); System.Array.Resize(ref tris, vi); }
 
         // 3) worldScale 균등 축소
         if (worldScale != 1f)
@@ -186,9 +196,11 @@ public class IceMountain : MonoBehaviour
             for (int x = 0; x < res; x++)
             {
                 int gi = z * vside + x;
+                if (inHole((grid[gi] + grid[gi + vside] + grid[gi + 1] + grid[gi + vside + 1]) * 0.25f)) continue;   // ★구멍: 콜라이더도 제외
                 ctris[ct++] = gi; ctris[ct++] = gi + vside; ctris[ct++] = gi + 1;
                 ctris[ct++] = gi + 1; ctris[ct++] = gi + vside; ctris[ct++] = gi + vside + 1;
             }
+        if (ct < ctris.Length) System.Array.Resize(ref ctris, ct);
         if (colMesh == null) { colMesh = new Mesh { name = "IceColliderMesh" }; colMesh.hideFlags = HideFlags.DontSave; }
         colMesh.Clear();
         colMesh.indexFormat = (cverts.Length > 65000) ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
