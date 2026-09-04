@@ -42,7 +42,7 @@ public class LevelSelect : MonoBehaviour
     int previewHover = -1;
     bool loadPending;
 
-    int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가)
+    int step;            // 0=모드 선택, 1=스테이지 선택(1인/로컬), 2=방코드 입력(참가), 3=난이도 선택(★2026-09-05 — 1인 스테이지 전에)
     string codeInput = "";
     bool busy;           // 방 생성/참가 진행 중
     string busyMsg = ""; // ★로딩 화면 문구(방 만드는 중/참가 중) — busy 동안 전용 화면 표시(2026-07-14)
@@ -74,12 +74,12 @@ public class LevelSelect : MonoBehaviour
         Showing = true; step = 0; codeInput = ""; showWip = false; multiOnly = false; directStage = false;
     }
 
-    /// <summary>★B안 '시작하기': 스테이지 선택으로 바로(뒤로 = 홈).</summary>
+    /// <summary>★B안 '시작하기': 난이도 선택 → 스테이지 선택(뒤로 = 홈).</summary>
     public void OpenStage()
     {
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && (nm.IsHost || nm.IsConnectedClient)) return;
-        Showing = true; step = 1; codeInput = ""; showWip = false; multiOnly = false; directStage = true;
+        Showing = true; step = 3; codeInput = ""; showWip = false; multiOnly = false; directStage = true;
     }
 
     /// <summary>★B안 '함께하기': 멀티 옵션만 있는 모드 선택으로 열기.</summary>
@@ -90,11 +90,17 @@ public class LevelSelect : MonoBehaviour
         Showing = true; step = 0; codeInput = ""; showWip = false; multiOnly = true; directStage = false;
     }
 
-    /// <summary>스테이지의 '뒤로': 구현중 목록이면 기본 목록으로, 직행 진입이면 홈으로, 아니면 모드 선택으로.</summary>
+    /// <summary>스테이지의 '뒤로': 구현중 목록이면 기본 목록으로, 아니면 난이도 선택으로.</summary>
     void StageBack()
     {
         if (showWip) showWip = false;
-        else if (directStage) Close();
+        else step = 3;
+    }
+
+    /// <summary>난이도의 '뒤로': 직행 진입이면 홈으로, 아니면 모드 선택으로.</summary>
+    void DiffBack()
+    {
+        if (directStage) Close();
         else step = 0;
     }
 
@@ -134,11 +140,11 @@ public class LevelSelect : MonoBehaviour
         previewHover = -1;
     }
 
-    /// <summary>테스트/외부 진입용: 0=모드 선택, 1=스테이지 선택(wip=구현중 목록), 2=코드 참가.</summary>
+    /// <summary>테스트/외부 진입용: 0=모드 선택, 1=스테이지 선택(wip=구현중 목록), 2=코드 참가, 3=난이도 선택.</summary>
     public void GoTo(int s, bool wip = false)
     {
         Showing = true;
-        step = Mathf.Clamp(s, 0, 2);
+        step = Mathf.Clamp(s, 0, 3);
         showWip = wip;
     }
 
@@ -263,6 +269,7 @@ public class LevelSelect : MonoBehaviour
         if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Escape)
         {
             if (step == 1) StageBack();
+            else if (step == 3) DiffBack();
             else if (step > 0) step = 0;
             else Close();
             return;
@@ -270,6 +277,7 @@ public class LevelSelect : MonoBehaviour
 
         if (step == 0) DrawModeSelect();
         else if (step == 1) DrawStageSelect();
+        else if (step == 3) DrawDifficulty();
         else DrawJoin();
 
         // 스테이지 선택 화면이 아니면 프리뷰 퇴장
@@ -402,7 +410,7 @@ public class LevelSelect : MonoBehaviour
         float bw = 440f, bh = 60f, gap = 16f;
         if (!multiOnly)
         {
-            if (WhiteBtn(new Rect(lx, y, bw, bh), L.T("1인 플레이", "solo"), btnStyle)) step = 1;
+            if (WhiteBtn(new Rect(lx, y, bw, bh), L.T("1인 플레이", "solo"), btnStyle)) step = 3;   // 난이도 → 스테이지
             y += bh + gap;
         }
         // ★2026-07-14 로컬 멀티 항목 삭제(사용자 요청) — 한 키보드 협동은 그냥 시작하기로 하면 됨
@@ -427,6 +435,37 @@ public class LevelSelect : MonoBehaviour
         Time.timeScale = 1f;
         Close();
         NetScene.Load(lv.scene);
+    }
+
+    // ── ④ 난이도 선택(★2026-09-05, 1인 스테이지 전에): 겁쟁이(바로서기 무제한) / 보통(3개 + 링 충전) ──
+    static readonly Difficulty.Mode[] DiffOrder = { Difficulty.Mode.Coward, Difficulty.Mode.Normal };
+    void DrawDifficulty()
+    {
+        float lx = Screen.width * 0.09f;
+        float y = Screen.height * 0.36f;
+        GUI.Label(new Rect(lx, y, 700f, 56f), L.T("난이도 선택", "choose a difficulty"), titleStyle);
+        y += 74f;
+
+        float bw = 520f, bh = 60f;
+        var cur = Difficulty.Local;
+        foreach (var m in DiffOrder)
+        {
+            var r = new Rect(lx, y, bw, bh);
+            string name = Difficulty.Name(m, false);
+            bool hover = r.Contains(Event.current.mousePosition);
+            if (WhiteBtn(r, name, btnStyle)) { Difficulty.Local = m; step = 1; }
+            // 지난번에 고른 난이도 = 밑줄 고정(호버 중엔 호버 밑줄이 대신)
+            if (m == cur && !hover && HandUI.Underline != null)
+            {
+                float tw = Mathf.Min(btnStyle.CalcSize(new GUIContent(name)).x, bw);
+                GUI.DrawTexture(new Rect(r.x, r.yMax - 10f, tw, 14f), HandUI.Underline, ScaleMode.StretchToFill);
+            }
+            y += bh + 2f;
+            GUI.Label(new Rect(lx, y, 820f, 28f), Difficulty.Desc(m), smallStyle);
+            y += 46f;
+        }
+        y += 8f;
+        if (WhiteBtn(new Rect(lx, y, 150f, 50f), L.T("뒤로", "back"), backStyle)) DiffBack();
     }
 
     // ── ③ 코드로 참가: 화면이 열리면 바로 타이핑 활성 ──

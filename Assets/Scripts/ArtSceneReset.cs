@@ -4,8 +4,9 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// ArticulationBody 테이블용 리셋/리스폰. 테이블 루트에 부착.
 /// ★2026-07-12 개편: F1 = 다시 시작(처음 스폰 위치 리스폰). ★2026-07-13 '1' 자세 다시 잡기 부활 —
-/// **맵당 poseResetMax(3)회 충전제**(우상단 동그라미 UI, 쓸 때마다 비워짐, CheatMode.Active면 무제한/소모 없음,
-/// 충전 아이템용 AddPoseResets/RefillPoseResets API — 아이템 자체는 추후).
+/// **맵당 poseResetMax(3)회 충전제**. ★2026-09-05 난이도/도넛: 보통 난이도 = 3회 + 링(PoseRing)으로 누적 충전(상한 없음),
+/// 겁쟁이 난이도(Difficulty.Coward)·CheatMode = 무제한/소모 없음. HUD = 우상단 손그림 도넛 줄(PoseDonutUI) —
+/// 멀티 게스트는 이 컴포넌트가 꺼져 있어 NetStageSync가 같은 드로어로 그린다.
 /// - F1 또는 뒤집힘 배너의 [다시 시작] 버튼 = Restart(): 초기 스폰 XZ에 리스폰(스캔은 초기 높이 바로 위에서 —
 ///   빙산 동굴처럼 지붕 있는 곳에서 지붕 위로 안 올라가게). 정글은 JungleStage.RestartRespawn이 가로채
 ///   강을 건넌 뒤면 '지금 있던 쪽' 안전 지점(체크포인트 규칙)에 리스폰.
@@ -53,11 +54,33 @@ public class ArtSceneReset : MonoBehaviour
     Vector3 initPos;                                     // F1 다시 시작용 초기 스폰(루트 위치, Awake 캡처)
     GUIStyle bannerStyle, bannerSub, btnLabel;
     Texture2D white, circleFull, circleEmpty;
-    // ★2026-07-14 마리오 갤럭시식 3등분 파이 UI(손그림, Resources/HandUI) + 중앙 모드 아이콘
-    Texture2D[] pieTex;
+    // 모드 아이콘(기린/얼음, Resources/HandUI) — 도넛 줄 왼쪽에 표시(★2026-09-05 파이 UI → 도넛 줄로 교체)
     Texture2D icoGiraffe, icoIce;
+    bool iconsLoaded;
     GiraffeMode giraffe;
     IcePower ice;
+
+    /// <summary>지금 켜진 모드의 아이콘(없으면 null). 게스트 HUD(NetStageSync)도 사용 — 컴포넌트가 꺼져 있어도 동작.</summary>
+    public Texture2D ModeIcon()
+    {
+        if (!iconsLoaded)
+        {
+            iconsLoaded = true;
+            icoGiraffe = Resources.Load<Texture2D>("HandUI/mode_giraffe");
+            icoIce = Resources.Load<Texture2D>("HandUI/mode_ice");
+            giraffe = transform.root.GetComponentInChildren<GiraffeMode>(true);
+            ice = transform.root.GetComponentInChildren<IcePower>(true);
+        }
+        return giraffe != null && giraffe.active ? icoGiraffe
+             : ice != null && ice.active ? icoIce : null;
+    }
+
+    /// <summary>도넛 줄 위쪽 y — 멀티 세션 중엔 우상단 미니 패널(NetDebugPanel, y8~104) 아래로 내림.</summary>
+    public static float HudTop()
+    {
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        return nm != null && nm.IsListening ? 112f : 14f;
+    }
 
     bool inMenuScene;   // 시작 화면(배경 테이블)에선 충전 UI/뒤집힘 배너 숨김
 
@@ -78,18 +101,21 @@ public class ArtSceneReset : MonoBehaviour
                    || Object.FindAnyObjectByType<NewStartScreenUI>(FindObjectsInactive.Include) != null;
     }
 
-    /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트(CheatMode.Active) 중엔 무제한.</summary>
+    /// <summary>바로서기 무제한 여부 — 치트(CheatMode.Active) 또는 겁쟁이 난이도.</summary>
+    public static bool Unlimited => CheatMode.Active || Difficulty.Coward;
+
+    /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수(도넛) 소모. 치트/겁쟁이 난이도면 무제한.</summary>
     public void TryPoseReset()
     {
         if (disableManualReset || root == null) return;
-        bool cheat = CheatMode.Active;
-        if (!cheat && poseResetsLeft <= 0) return;   // 다 씀 — 맵의 충전 아이템(추후)으로 회복
+        bool unlimited = Unlimited;
+        if (!unlimited && poseResetsLeft <= 0) return;   // 도넛 다 씀 — 길의 링(PoseRing)으로 충전
         ResetPoseInPlace();
-        if (!cheat) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1);
+        if (!unlimited) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1);
     }
 
-    /// <summary>충전 아이템용(아직 아이템 없음 — 시스템만): n회 회복(최대치 제한).</summary>
-    public void AddPoseResets(int n = 1) => poseResetsLeft = Mathf.Clamp(poseResetsLeft + n, 0, poseResetMax);
+    /// <summary>링(PoseRing) 충전: n회 회복 — ★누적(3개 넘게도 쌓임, 상한 없음).</summary>
+    public void AddPoseResets(int n = 1) => poseResetsLeft = Mathf.Max(0, poseResetsLeft + n);
 
     /// <summary>가득 충전.</summary>
     public void RefillPoseResets() => poseResetsLeft = poseResetMax;
@@ -211,17 +237,9 @@ public class ArtSceneReset : MonoBehaviour
         bannerSub.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
         btnLabel = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         btnLabel.normal.textColor = ink;
-        // 충전 동그라미: 채움=잉크(가득), 빈 것=흰 배경에 회색 테두리(다 씀) — 파이 텍스처 폴백용
+        // 충전 동그라미: 채움=잉크(가득), 빈 것=흰 배경에 회색 테두리(다 씀) — 도넛 텍스처 없을 때 폴백용
         circleFull = MakeCircleTex(64, new Color(0.16f, 0.13f, 0.10f, 1f), Color.black, 4f);
         circleEmpty = MakeCircleTex(64, new Color(1f, 1f, 1f, 0.85f), new Color(0f, 0f, 0f, 0.55f), 4f);
-
-        // ★3등분 파이(0~3칸) + 모드 아이콘(손그림) — 없으면 위 동그라미 폴백
-        pieTex = new Texture2D[4];
-        for (int i = 0; i < 4; i++) pieTex[i] = Resources.Load<Texture2D>("HandUI/pose_pie_" + i);
-        icoGiraffe = Resources.Load<Texture2D>("HandUI/mode_giraffe");
-        icoIce = Resources.Load<Texture2D>("HandUI/mode_ice");
-        giraffe = transform.root.GetComponentInChildren<GiraffeMode>(true);
-        ice = transform.root.GetComponentInChildren<IcePower>(true);
     }
 
     void OnGUI()
@@ -230,31 +248,19 @@ public class ArtSceneReset : MonoBehaviour
         if (disableManualReset || inMenuScene) return;   // 규칙 씬/시작 화면에선 숨김
         EnsureUiAssets();
 
-        // ── 우상단 '자세 다시 잡기' 충전 UI — 3등분 파이(마리오 갤럭시식, 손그림) + 중앙 모드 아이콘 ──
-        bool cheat = CheatMode.Active;
-        int left = cheat ? 3 : Mathf.Clamp(poseResetsLeft, 0, 3);   // 치트 중엔 항상 가득(무제한)
-        if (pieTex != null && pieTex[left] != null)
-        {
-            float ps = chargeCircleSize * 2.4f;   // 파이 지름(기존 동그라미의 2.4배)
-            var pieR = new Rect(Screen.width - 18f - ps, 14f, ps, ps);
-            GUI.DrawTexture(pieR, pieTex[left], ScaleMode.ScaleToFit, true);
-            // 모드가 켜져 있으면 파이 가운데에 아이콘(기린/얼음)
-            Texture2D icon = giraffe != null && giraffe.active ? icoGiraffe
-                           : ice != null && ice.active ? icoIce : null;
-            if (icon != null)
-            {
-                float isz = ps * 0.44f;
-                GUI.DrawTexture(new Rect(pieR.center.x - isz * 0.5f, pieR.center.y - isz * 0.5f, isz, isz),
-                    icon, ScaleMode.ScaleToFit, true);
-            }
-        }
+        // ── 우상단 '자세 다시 잡기' 충전 UI — ★손그림 도넛 줄(기본 3개, 링으로 더 쌓임, 무제한=∞) + 왼쪽 모드 아이콘 ──
+        bool unlimited = Unlimited;
+        float yTop = HudTop();
+        if (PoseDonutUI.Available)
+            PoseDonutUI.Draw(poseResetsLeft, unlimited, poseResetMax, ModeIcon(), yTop);
         else
         {
-            // 폴백: 기존 동그라미 3개
+            // 폴백: 동그라미(기본 슬롯 수만큼)
             float d = chargeCircleSize, gap = 12f;
-            float x0 = Screen.width - 18f - poseResetMax * d - (poseResetMax - 1) * gap;
-            for (int i = 0; i < poseResetMax; i++)
-                GUI.DrawTexture(new Rect(x0 + i * (d + gap), 16f, d, d), cheat || i < poseResetsLeft ? circleFull : circleEmpty);
+            int slots = Mathf.Max(poseResetMax, Mathf.Min(poseResetsLeft, PoseDonutUI.MaxDrawn));
+            float x0 = Screen.width - 18f - slots * d - (slots - 1) * gap;
+            for (int i = 0; i < slots; i++)
+                GUI.DrawTexture(new Rect(x0 + i * (d + gap), yTop + 2f, d, d), unlimited || i < poseResetsLeft ? circleFull : circleEmpty);
         }
 
         // ── 뒤집힘 배너 ──
@@ -269,9 +275,12 @@ public class ArtSceneReset : MonoBehaviour
         if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
         GUI.Label(btn, L.T("다시 시작 (F1)", "restart (F1)"), btnLabel);
 
-        string hint = (cheat || poseResetsLeft > 0)
-            ? L.T("또는 1 키 — 자세 다시 잡기 (", "or press 1 — fix pose (") + (cheat ? L.T("치트: 무제한", "cheat: unlimited") : L.T("남은 횟수 ", "left: ") + poseResetsLeft) + ")"
-            : L.T("자세 다시 잡기를 모두 썼어요", "no pose fixes left");
+        string hint = (unlimited || poseResetsLeft > 0)
+            ? L.T("또는 1 키 — 자세 다시 잡기 (", "or press 1 — fix pose (")
+              + (CheatMode.Active ? L.T("치트: 무제한", "cheat: unlimited")
+                 : Difficulty.Coward ? L.T("겁쟁이 난이도: 무제한", "coward mode: unlimited")
+                 : L.T("도넛 ", "donuts: ") + poseResetsLeft) + ")"
+            : L.T("도넛을 다 썼어요 — 길에 있는 링을 먹으면 충전!", "out of donuts — grab a ring to refill!");
         GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), hint, bannerSub);
     }
 

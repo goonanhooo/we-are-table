@@ -465,3 +465,13 @@
 - 원인: 샤프트 뒤(-z)가 산 북사면 아래로 벗어나(z -96까지) 위쪽 링의 뒤 점들이 지형 클램프로 40m 이상 끌려 내려와 면이 길게 늘어남 + 바닥 원판 부채꼴(45m 슬리버).
 - 해결: `Zc(y)`/`Hv(y)` — y≤-20은 원래(중심 -48, 반폭 48) 유지(줄이면 H 튜브 끝 천장이 V 밖에 남아 레일 위 3.5m로 좁아짐), 그 위는 SmoothStep으로 중심 -34·반폭 14까지(앞면이 클립면 -22에 닿아 문 앞벽 평평). 바닥 원판은 동심 3단.
 - 검증: 샤프트 뒤벽 정점 중 지형 클램프에 걸린 것 0/1782, 문 레이 0/21 막힘, 레일 위 최소 여유 9.6m(문 위), 목→종착 탑승 dist ≤0.30.
+
+## 2026-09-05 난이도 선택 + 바로서기 도넛 HUD + 충전 링(PoseRing)
+- **난이도(`Difficulty.cs`, static)**: Normal(보통)=바로서기('1') 맵당 3회 + 링으로 누적 충전(상한 없음) / Coward(겁쟁이)=무제한(링 숨김). PlayerPrefs "difficulty"(0/1). 멀티는 `Difficulty.NetOverride`(호스트 값)가 우선 — `NetLegLink.difficulty` NetworkVariable(+세션 캐시 sDiff)로 전원 적용, 세션 종료(ResetSessionCache/OnDisconnected/디스폰 시 !IsListening)에 -1.
+- **선택 UI**: 1인 = LevelSelect step 3(시작하기 → 난이도 → 스테이지, 지난번 선택 밑줄 고정, `GoTo(3)`) / 멀티 = 로비 맵 목록 아래 한 줄("겁쟁이들을 위한 난이도" 복수형 · "보통 난이도", 호스트 클릭 → `NetLegLink.SetDifficulty`, 게스트 표시만). ⚠️로비는 1080p에서 스팀 버튼까지 들어가야 하므로 난이도는 라벨+한 줄(38px)로 압축(DiffY/ActionY).
+- **HUD(`PoseDonutUI.cs`, 공용 드로어)**: 우상단 손그림 도넛(Resources/HandUI/donut.png, scratchpad donut.py — 1024 렌더→256 LANCZOS) 남은 개수만큼 한 줄(68px), 기본 3칸보다 적으면 빈 자리 흐리게, 8개 초과 시 마지막 칸 +N, 무제한(겁쟁이/치트)=∞+도넛 1개, 개수 변하면 마지막 도넛 통통. 모드 아이콘(기린/얼음)은 줄 왼쪽. 멀티 세션 중엔 y112(우상단 미니 패널 아래). 호스트/1인=ArtSceneReset.OnGUI, **게스트=NetStageSync.OnGUI**(게스트 ArtSceneReset은 꺼져 있음 — `poseResets` NetworkVariable로 개수 수신). 옛 pose_pie_0~3.png 삭제.
+- **링(`PoseRing.cs` + `Assets/Prefabs/PoseRing.prefab`, 메시 Guide/Rings/RingTorus.asset R0.75 r0.11, 재질 RingGold.mat)**: 각 씬 `PoseRings/Ring_NN`(이름순 = NetStageSync ringBits 인덱스). 세로로 서서 90°/s 회전+둥실, 트리거 r1.3, 테이블 판별은 LetterPickup 패턴, 먹으면 `AddPoseResets(1)`(이제 캡 없음). 겁쟁이면 매 프레임 렌더러/콜라이더 off(멀티 값이 늦게 와도 반영). 게스트는 트리거가 안 뜨므로 호스트 ringBits → `CollectRemote()`.
+  배치(지면+1.0): Hallway (0,·,-4)(0,·,2) / Jungle 스폰→철창 (1.5,5.7,5.5), 강 건너 (-11,6.1,23), 창고 문 앞 (-18.8,6.8,28), 창고 안 (-32,7.3,36.7) / IceMountain 하부 방 (-13,84.9,-30), 문턱 뒤 (0.5,97,-12), 눈사람 방 (-6,96.2,2), 슬라이드 z80 (0,49,80), 착지 패드 (0,3.5,244) / IceCavern 시작 방·정거장·도착·눈사람 방·슬라이드·패드 6개. 정글 옛 CoinPiles(코인 더미)+CoinPickup.cs는 삭제(링으로 대체).
+- ★NetLegLink 세션 캐시 함정 수정: SetMap/StartGame이 `sHasCache=true`만 켜면 기본 struct sOwners(전부 0=클라 0 소유)가 씬 전환 후 복원돼 호스트 다리가 External로 잠길 수 있었음 → `Cache()`가 처음 켤 때 현재 owners(전부 NONE)를 저장.
+- 검증(플레이): Hallway 링 진입 3→4, '1' 4→3, 링 숨김 ✓ · 6개 표시 ✓ · 겁쟁이 전환 시 링 즉시 숨김·'1' 무소모·∞ 표시 ✓ · StartHost 후 NetOverride=로컬값, SetDifficulty(1)→전원 Coward·HUD y112, Shutdown→-1 ✓ · 시작 화면 난이도 단계/로비 난이도 줄 스크린샷 ✓. 게스트 HUD/링 숨김은 실기기 2대 확인 필요.
+- 검증 팁: 플레이 중 `ScreenCapture.CaptureScreenshot`가 이번엔 파일을 씀(IMGUI HUD 포함) — 게임 뷰가 살아있으면 이 방법이 가장 빠름. HallwayStage 컷씬(~25s)이 끝나야 TeleportRoot가 먹음(`root.immovable` 확인).

@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// ★2026-08-17 홀웨이 텍스트 튜토리얼(사용자 요청): 컷씬 → 조작법 이미지(ControlsGuide)가 끝난 뒤
 /// 손글씨 안내 3단계를 순서대로 보여준다.
 ///  1) 걷기 — 다리별 키 소개(테이블이 좀 걸으면 다음으로)
-///  2) 바로서기 — 우상단 파이 소개 + 맵당 3회 제한(파이 바로 아래에 표시)
+///  2) 바로서기 — 우상단 도넛 줄 소개 + 도넛 3개/링 충전(겁쟁이 난이도면 무제한 안내, 도넛 줄 바로 아래에 표시)
 ///  3) 다리 색 — ESC 설정에서 켤 수 있음(설정을 열면 즉시 완료)
 /// 표시는 홀웨이 씬 전용(씬에 배치), 매 입장마다 나온다(첫 맵 = 튜토리얼 맵).
 /// </summary>
@@ -97,12 +97,15 @@ public class HallwayTutorial : MonoBehaviour
         }
         else if (step == 2)
         {
-            string s = L.T(
-                "오른쪽 위 파이 = 바로서기\n뒤집히면 1 키로 자세를 다시 잡아요 — 맵마다 3번뿐!",
-                "the pie up here = pose fixes\npress 1 to stand back up — only 3 per map!");
-            // 우상단 파이(지름 ~91px, y14~105) 바로 아래 — 크기는 텍스트 실측(잘림 방지)
+            // ★2026-09-05 도넛 HUD: 보통 = 3개 + 링 충전 / 겁쟁이 난이도 = 무제한
+            string s = Difficulty.Coward
+                ? L.T("오른쪽 위 도넛 = 바로서기\n뒤집히면 1 키로 자세를 다시 잡아요 — 겁쟁이 난이도라 무제한!",
+                      "the donut up here = pose fixes\npress 1 to stand back up — unlimited on coward mode!")
+                : L.T("오른쪽 위 도넛 = 바로서기\n뒤집히면 1 키로 자세를 다시 잡아요 — 하나씩 써요, 길에 있는 링을 먹으면 충전!",
+                      "the donuts up here = pose fixes\npress 1 to stand back up — one donut each, rings on the way refill!");
+            // 우상단 도넛 줄(PoseDonutUI.RowBottom) 바로 아래 — 크기는 텍스트 실측(잘림 방지)
             var sz = Measure(s);
-            Hint(new Rect(Screen.width - sz.x - 14f, 112f, sz.x, sz.y), s);
+            Hint(new Rect(Screen.width - sz.x - 14f, PoseDonutUI.RowBottom + 8f, sz.x, sz.y), s);
         }
         else if (step == 3)
         {

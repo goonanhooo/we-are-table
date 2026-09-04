@@ -38,6 +38,10 @@ public class NetLegLink : NetworkBehaviour
     readonly NetworkVariable<byte> mapIndex = new(255,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    // ★2026-09-05 로비 난이도(0=보통, 1=겁쟁이들을 위한) — 호스트 선택, 전원 Difficulty.NetOverride로 적용
+    readonly NetworkVariable<byte> difficulty = new(0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     // ★세션 상태 캐시(서버 static): NetworkVariable은 NetLegLink '인스턴스'에 살아서
     //   씬 전환(StartGame→NetScene.Load, 정글→빙산 등)마다 새 인스턴스에서 리셋된다 —
     //   로비가 시작 화면으로 오면서(2026-07-07) 시작 직후 배정이 날아가는 치명타가 됨.
@@ -47,7 +51,15 @@ public class NetLegLink : NetworkBehaviour
     static LegOwners sOwners;
     static bool sStarted;
     static byte sMap = 255;
-    public static void ResetSessionCache() { sHasCache = false; sStarted = false; sMap = 255; }
+    static byte sDiff;
+    public static void ResetSessionCache() { sHasCache = false; sStarted = false; sMap = 255; sDiff = 0; Difficulty.NetOverride = -1; }
+    /// <summary>캐시 켜기 — ⚠️처음 켤 때 sOwners를 현재 값(전부 NONE)으로 채움: 기본 struct(전부 0=클라 0 소유)가
+    /// 씬 전환 후 복원되면 호스트 다리가 External 소스로 잠기는 함정(맵/난이도만 고르고 다리 안 고른 경우).</summary>
+    void Cache()
+    {
+        if (!sHasCache) sOwners = owners.Value;
+        sHasCache = true;
+    }
 
     TableInput tableInput;
     int myMask;                       // 내가 소유한 다리 비트마스크(게스트 입력 전송 + 표시)
@@ -57,6 +69,20 @@ public class NetLegLink : NetworkBehaviour
     public bool Started => started.Value;
     /// <summary>로비에서 호스트가 고른 맵 인덱스(-1=미선택).</summary>
     public int MapIndex => mapIndex.Value == 255 ? -1 : mapIndex.Value;
+    /// <summary>로비 난이도(Difficulty.Mode 값).</summary>
+    public int DifficultyIndex => difficulty.Value;
+
+    /// <summary>호스트: 로비에서 난이도 선택 — 전원 동기화 + 호스트 로컬 기본값에도 저장.</summary>
+    public void SetDifficulty(int d)
+    {
+        if (!IsServer || started.Value) return;
+        d = Mathf.Clamp(d, 0, 1);
+        difficulty.Value = (byte)d;
+        sDiff = (byte)d; Cache();
+        Difficulty.Local = (Difficulty.Mode)d;
+    }
+
+    void OnDifficultyChanged(byte _, byte v) => Difficulty.NetOverride = v;
     /// <summary>다리 주인 표시용: -2=빈 자리, -1=호스트, 그 외=clientId.</summary>
     public long OwnerOf(int leg)
     {
@@ -104,7 +130,7 @@ public class NetLegLink : NetworkBehaviour
     {
         if (!IsServer || started.Value || i < 0 || i > 254) return;
         mapIndex.Value = (byte)i;
-        sMap = (byte)i; sHasCache = true;
+        sMap = (byte)i; Cache();
     }
 
     /// <summary>호스트: 게임 시작 — 다리 고정 + 세션 잠금(중간 난입 차단). 씬 로드는 호출 쪽(NetDebugPanel).</summary>
@@ -112,7 +138,7 @@ public class NetLegLink : NetworkBehaviour
     {
         if (!IsServer || started.Value) return;
         started.Value = true;
-        sStarted = true; sHasCache = true;
+        sStarted = true; Cache();
         _ = NetSession.LockAsync();
     }
 
@@ -130,14 +156,24 @@ public class NetLegLink : NetworkBehaviour
         if (IsServer)
         {
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
-            // ★씬 전환으로 새로 스폰된 인스턴스: 이전 씬의 배정/시작/맵 상태 복원
+            // ★씬 전환으로 새로 스폰된 인스턴스: 이전 씬의 배정/시작/맵/난이도 상태 복원
             if (sHasCache)
             {
                 owners.Value = sOwners;
                 started.Value = sStarted;
                 mapIndex.Value = sMap;
+                difficulty.Value = sDiff;
+            }
+            else
+            {
+                // 새 세션의 기본 난이도 = 호스트가 시작 화면에서 마지막으로 고른 값
+                difficulty.Value = (byte)Difficulty.Local;
+                sDiff = difficulty.Value;
             }
         }
+        // ★난이도는 전원(호스트 포함)이 세션 값으로 덮어씀 — 게스트는 스폰 시 이미 동기화된 값
+        difficulty.OnValueChanged += OnDifficultyChanged;
+        Difficulty.NetOverride = difficulty.Value;
         if (IsClient && !IsServer) ApplyGuestMode();
         OnOwnersChanged(default, owners.Value);
     }
@@ -145,6 +181,9 @@ public class NetLegLink : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         owners.OnValueChanged -= OnOwnersChanged;
+        difficulty.OnValueChanged -= OnDifficultyChanged;
+        // 세션이 끝나며 사라질 때만 난이도 덮어쓰기 해제(씬 전환 중 디스폰은 새 인스턴스가 다시 적용)
+        if (NetworkManager == null || !NetworkManager.IsListening) Difficulty.NetOverride = -1;
         if (IsServer && NetworkManager != null)
             NetworkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         // 세션 종료 → 전 다리 로컬 복귀(호스트가 싱글로 이어서 조작 가능)

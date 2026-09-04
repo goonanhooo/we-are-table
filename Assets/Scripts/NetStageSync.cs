@@ -31,9 +31,20 @@ public class NetStageSync : NetworkBehaviour
     readonly NetworkVariable<float> cartU0 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<float> cartU1 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<float> cartU2 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-05 바로서기 도넛/링: 호스트가 남은 횟수(-1=미발행)와 먹은 링 비트(PoseRing 이름순)를 발행,
+    //   게스트는 도넛 HUD를 직접 그리고(ArtSceneReset이 꺼져 있음) 링을 숨긴다.
+    readonly NetworkVariable<int> poseResets = new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<int> ringBits = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
+    /// <summary>디버그/검증용: 발행된 링 비트 / 도넛 수.</summary>
+    public int RingBitsDebug => ringBits.Value;
+    public int PoseResetsDebug => poseResets.Value;
+
+    ArtSceneReset asr;
+    PoseRing[] rings;
+    int guestRingSeen;
 
     CageButton cage;
     GiraffeGate gate;
@@ -64,6 +75,11 @@ public class NetStageSync : NetworkBehaviour
         System.Array.Sort(letters, (a, b) => string.CompareOrdinal(a.letterId, b.letterId));
         letterWasActive = new bool[letters.Length];
         for (int i = 0; i < letters.Length; i++) letterWasActive[i] = letters[i].gameObject.activeSelf;
+
+        // 바로서기 도넛/링: 테이블의 ArtSceneReset + 씬의 링(이름순 = 비트 인덱스, 호스트/게스트 동일)
+        asr = FindAnyObjectByType<ArtSceneReset>(FindObjectsInactive.Include);
+        rings = FindObjectsByType<PoseRing>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        System.Array.Sort(rings, (a, b) => string.CompareOrdinal(a.name, b.name));
 
         if (!IsServer)
         {
@@ -102,9 +118,22 @@ public class NetStageSync : NetworkBehaviour
                 if (letterWasActive[i] && letters[i] != null && !letters[i].gameObject.activeSelf
                     && (letterBits.Value & (1 << i)) == 0)
                     letterBits.Value |= 1 << i;
+            // 도넛 수 + 먹은 링
+            if (asr != null && asr.PoseResetsLeft != poseResets.Value) poseResets.Value = asr.PoseResetsLeft;
+            for (int i = 0; i < rings.Length && i < 32; i++)
+                if (rings[i] != null && rings[i].Collected && (ringBits.Value & (1 << i)) == 0)
+                    ringBits.Value |= 1 << i;
         }
         else
         {
+            // 링: 호스트가 먹은 링을 숨김(카운트는 poseResets로 따로)
+            int freshRings = ringBits.Value & ~guestRingSeen;
+            if (freshRings != 0)
+            {
+                for (int i = 0; i < rings.Length && i < 32; i++)
+                    if ((freshRings & (1 << i)) != 0 && rings[i] != null) rings[i].CollectRemote();
+                guestRingSeen = ringBits.Value;
+            }
             if (cagePressed.Value && !guestCage) { guestCage = true; if (cage != null) cage.PlayRemote(); }
             if (gateOpened.Value && !guestGate) { guestGate = true; if (gate != null && !gate.Opened) gate.ForceOpen(); }
             if (snowmanPlayed.Value && !guestSnowman) { guestSnowman = true; if (snowman != null) snowman.PlayRemote(); }
@@ -129,5 +158,15 @@ public class NetStageSync : NetworkBehaviour
                 guestLetterSeen = letterBits.Value;
             }
         }
+    }
+
+    /// <summary>게스트 전용 HUD: 호스트의 도넛 수를 같은 드로어로 우상단에(호스트/1인은 ArtSceneReset.OnGUI가 그림).</summary>
+    void OnGUI()
+    {
+        if (!IsSpawned || IsServer || asr == null || asr.disableManualReset) return;
+        UiKit.ApplyKoreanFont();
+        if (!PoseDonutUI.Available) return;
+        int n = poseResets.Value < 0 ? asr.poseResetMax : poseResets.Value;
+        PoseDonutUI.Draw(n, ArtSceneReset.Unlimited, asr.poseResetMax, asr.ModeIcon(), ArtSceneReset.HudTop());
     }
 }

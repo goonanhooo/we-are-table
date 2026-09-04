@@ -76,6 +76,7 @@ public class NetDebugPanel : MonoBehaviour
         if (!NM.IsServer && clientId == NM.LocalClientId)
         {
             status = L.T("호스트 연결 종료 — 세션 끝", "host left — session over");
+            Difficulty.NetOverride = -1;   // 세션 난이도 해제 → 로컬 선택으로 복귀
             _ = NetSession.LeaveAsync();
             NM.Shutdown();
             SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
@@ -87,8 +88,11 @@ public class NetDebugPanel : MonoBehaviour
 
     // ★2026-07-14 로비 = 왼쪽 열(홈 메뉴 계층에 포함, 가운데 창 폐지 — 사용자 요청)
     const float MapRowY = 352f;                                                // 맵 목록 시작 y
-    static float ActionY => MapRowY + ((MapNames.Length + 2) / 3) * 44f + 18f; // 시작/나가기 줄 y
+    static float DiffY => MapRowY + ((MapNames.Length + 2) / 3) * 44f + 6f;    // ★2026-09-05 난이도(라벨 줄 + 항목 한 줄 — 1080p에서 스팀 버튼까지 들어가게 압축)
+    static float ActionY => DiffY + 26f + 38f + 8f;                            // 시작/나가기 줄 y
     static float PanelH => ActionY + 50f + 28f;                                // + status 줄
+    Rect DiffBtn(int i) => i == 0 ? R(0f, DiffY + 26f, 262f, 38f) : R(272f, DiffY + 26f, 150f, 38f);
+    static Difficulty.Mode DiffOf(int i) => i == 0 ? Difficulty.Mode.Coward : Difficulty.Mode.Normal;
     Rect Panel() => InLobby
         ? new Rect(Screen.width * 0.09f, Mathf.Max(24f, Screen.height * 0.34f), 480f, PanelH)  // 로비=왼쪽 열(타이틀 아래)
         : new Rect(Screen.width - 260f, 8f, 252f, 96f);                                        // 인게임=우상단 미니
@@ -122,6 +126,10 @@ public class NetDebugPanel : MonoBehaviour
                         if (Preview != null) { Preview.Show(i, 1); Preview.Pulse(); }   // 선택 확정 펄스
                         return;
                     }
+            // ★난이도(호스트만 선택, 전원 동기화)
+            if (NM.IsHost)
+                for (int i = 0; i < 2; i++)
+                    if (DiffBtn(i).Contains(gm)) { link.SetDifficulty((int)DiffOf(i)); return; }
             if (NM.IsHost && R(0f, ActionY, 300f, 48f).Contains(gm))
             {
                 // 게임 시작 = 다리/세션 잠금 + 전원 선택 맵으로 이동(로비는 시작 화면에 있으므로 여기서 로드)
@@ -248,6 +256,23 @@ public class NetDebugPanel : MonoBehaviour
             {
                 Preview.Show(sel, sel < guestShownSel ? -1 : 1);
                 guestShownSel = sel;
+            }
+
+            // ★2026-09-05 난이도(호스트=클릭, 게스트=표시) — 멀티는 "겁쟁이들을 위한" 복수형 표기
+            int dsel = link != null ? link.DifficultyIndex : 0;
+            GUI.Label(R(0f, DiffY, panel.width, 24f),
+                NM.IsHost ? L.T("난이도", "difficulty") : L.T("난이도 (호스트가 선택)", "difficulty (host picks)"), hSmall);
+            for (int i = 0; i < 2; i++)
+            {
+                var r = DiffBtn(i);
+                bool hov = NM.IsHost && r.Contains(gm);
+                string dn = Difficulty.Name(DiffOf(i), true);
+                GUI.Label(r, dn, mapItem);
+                if (((int)DiffOf(i) == dsel || hov) && HandUI.Underline != null)
+                {
+                    float tw = Mathf.Min(mapItem.CalcSize(new GUIContent(dn)).x + 8f, r.width);
+                    GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw, 12f), HandUI.Underline, ScaleMode.StretchToFill);
+                }
             }
 
             if (NM.IsHost) HandBtn(R(0f, ActionY, 300f, 48f), sel >= 0 ? L.T("게임 시작", "start game") : L.T("게임 시작 (맵 선택!)", "start (pick a map!)"), gm);
