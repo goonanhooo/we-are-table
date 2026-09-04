@@ -14,6 +14,12 @@ public class FallRespawn : MonoBehaviour
     [Tooltip("지면 스캔 시작 높이 — 리스폰 지점이 실내(천장 아래)면 천장보다 낮게(예: 34)")]
     public float scanFromY = 500f;
     public float cooldown = 4f;
+    [Header("★2026-09-04 지하 동굴 구간(IceCavern) — 테이블 z가 caveMaxZ보다 뒤(-z)면 이 값 사용")]
+    [Tooltip("동굴 구간 판정: 테이블 z < 이 값이면 동굴")] public float caveMaxZ = -19f;
+    public bool caveOverride = false;
+    public float caveKillY = -215f;
+    public Vector2 caveRespawnXZ = new Vector2(0f, -391f);
+    public float caveScanFromY = -112f;
 
     Transform board;
     float ignoreUntil;
@@ -27,9 +33,13 @@ public class FallRespawn : MonoBehaviour
     void Update()
     {
         if (board == null || Time.time < ignoreUntil) return;
-        if (board.position.y >= killY) return;
+        bool cave = caveOverride && board.position.z < caveMaxZ;
+        float ky = cave ? caveKillY : killY;
+        if (board.position.y >= ky) return;
         ignoreUntil = Time.time + cooldown;
         var art = Object.FindAnyObjectByType<ArtSceneReset>();
-        if (art != null) art.ResetPoseAtXZ(respawnXZ.x, respawnXZ.y, scanFromY);
+        if (art == null) return;
+        if (cave) art.ResetPoseAtXZ(caveRespawnXZ.x, caveRespawnXZ.y, caveScanFromY);
+        else art.ResetPoseAtXZ(respawnXZ.x, respawnXZ.y, scanFromY);
     }
 }

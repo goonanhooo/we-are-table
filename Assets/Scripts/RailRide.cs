@@ -15,6 +15,7 @@ public class RailRide : MonoBehaviour
     [Tooltip("탑승 후: 마지막 광차보다 이만큼 아래로 떨어지면 광차 위로 복구")] public float fallBelow = 8f;
     [Tooltip("탑승 전: 정거장보다 이만큼 아래(동굴 바닥)로 떨어지면 정거장으로 복구 — 시작 방 바닥(-12m)은 걸리지 않게")] public float fallBelowStation = 20f;
     public float recoverCooldown = 3f;
+    [Tooltip("테이블 z가 이 값보다 앞(+z)이면 광차 구간 밖(눈사람 동굴) → 낙하 복구 안 함")] public float rideMaxZ = -19f;
     [Tooltip("★멀티 게스트: 호스트가 보낸 u만 따라감(붙음 판정/전진/낙하 복구 없음). NetStageSync가 켬")]
     [HideInInspector] public bool netRemote;
     float[] netTarget;
@@ -79,7 +80,10 @@ public class RailRide : MonoBehaviour
             else if (player == null && pitchOverridden) RestorePitch();
         }
 
-        if (board == null || root == null || Time.time - lastRecover < recoverCooldown) return;
+        if (board == null || root == null) return;
+        // ★도착 후 눈사람 동굴(z>rideMaxZ)로 나가면 광차 기준 낙하 복구 종료(슬로프에서 되돌아오지 않게)
+        if (player == null && board.position.z > rideMaxZ) { lastPlayer = null; return; }   // 붙어 있는 동안(문 통과 중)은 유지 — 매 프레임 lastPlayer를 지우면 출발 대기가 계속 리셋돼 광차가 문에서 멈춤
+        if (Time.time - lastRecover < recoverCooldown) return;
         foreach (var c in carts) if (c != null && c.Attached) return;
         Vector3 refPos = lastPlayer != null ? lastPlayer.transform.position + Vector3.up * 1.2f : (station != null ? station.position + Vector3.up * 1.5f : Vector3.zero);
         float limit = lastPlayer != null ? fallBelow : fallBelowStation;

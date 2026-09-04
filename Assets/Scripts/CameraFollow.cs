@@ -29,6 +29,17 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("시작 시 커서를 잠글지 여부. (ESC는 PauseMenu 일시정지가 담당)")]
     public bool lockCursor = true;
 
+    [Header("★2026-09-04 카메라 충돌 — 벽/경사면 안으로 파고들지 않게(구체 캐스트로 당김)")]
+    public bool collide = true;
+    public float collisionRadius = 0.3f;
+    public LayerMask collisionMask = ~0;
+    [Tooltip("막힘이 풀릴 때 원래 거리로 돌아가는 속도(m/s)")] public float collisionRecover = 8f;
+    float curDist = -1f;
+
+    /// <summary>[검증/컷씬용] 시점 각도 직접 설정.</summary>
+    public void SetYawPitch(float y, float p) { yaw = y; pitch = Mathf.Clamp(p, minPitch, maxPitch); }
+    public float Yaw => yaw;
+
     // 휠 줌(상수 — 모든 씬 공통). distance를 이 범위로 조절.
     const float ZoomSpeed = 0.01f;
     const float MinDistance = 2.5f;
@@ -89,7 +100,24 @@ public class CameraFollow : MonoBehaviour
         // ★대상(테이블)이 NaN/폭발로 비정상 위치가 되면 카메라를 따라보내지 않는다(이전 위치 유지).
         //   안 그러면 카메라/오디오리스너가 non-finite가 되어 'IsFinite(distanceAlongView)','Invalid worldAABB' 어설션 폭주.
         if (!Sane(pivot)) return;
-        Vector3 pos = pivot - rot * Vector3.forward * distance;
+        float useDist = distance;
+        if (collide)
+        {
+            // 피벗에서 카메라 방향으로 구체 캐스트 — 테이블 자신은 제외, 트리거 제외
+            Vector3 dir = -(rot * Vector3.forward);
+            float blocked = distance;
+            var hits = Physics.SphereCastAll(pivot, collisionRadius, dir, distance, collisionMask, QueryTriggerInteraction.Ignore);
+            foreach (var h in hits)
+            {
+                if (h.collider == null || h.collider.transform.root == target.root) continue;
+                if (h.distance <= 0f) continue;   // 시작점부터 겹침(피벗이 이미 벽 속) — 무시
+                if (h.distance < blocked) blocked = h.distance;
+            }
+            if (curDist < 0f) curDist = distance;
+            curDist = blocked < curDist ? blocked : Mathf.MoveTowards(curDist, blocked, collisionRecover * Time.deltaTime);
+            useDist = Mathf.Max(0.6f, curDist);
+        }
+        Vector3 pos = pivot - rot * Vector3.forward * useDist;
         if (!Sane(pos)) return;
         if (Time.time < blendUntil)
         {

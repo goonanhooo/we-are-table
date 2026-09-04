@@ -165,7 +165,9 @@ public static class IceCavernBuilder
                 Vector3 a = vring[k, i], b = vring[k, i + 1], c = vring[k + 1, i + 1], d = vring[k + 1, i];
                 Vector3 cen = (a + b + c + d) * 0.25f; float minZ = Mathf.Min(a.z, b.z, c.z, d.z), maxZ = Mathf.Max(a.z, b.z, c.z, d.z);
                 if (allIn(insideH, a, b, c, d)) { skipH++; continue; }
-                if (maxZ >= CLIPZ - 0.6f && minZ >= CLIPZ - 2.5f && Mathf.Abs(cen.x) < 6.5f && cen.y > 91f && cen.y < 108f) { skipDoor++; continue; }
+                // 문 구멍: 앞벽에 닿는(모서리 포함) 사각형 중 구멍 상자(x±7, y 91..108)와 겹치면 제거 — 레일 y100 광차(~103)가 걸리지 않게
+                { float minX = Mathf.Min(a.x, b.x, c.x, d.x), maxX = Mathf.Max(a.x, b.x, c.x, d.x), minY = Mathf.Min(a.y, b.y, c.y, d.y), maxY = Mathf.Max(a.y, b.y, c.y, d.y);
+                  if (maxZ >= CLIPZ - 3f && maxX > -7f && minX < 7f && maxY > 91f && minY < 108f) { skipDoor++; continue; } }
                 Vector3 cenU = (vringU[k, i] + vringU[k, i + 1] + vringU[k + 1, i + 1] + vringU[k + 1, i]) * 0.25f;
                 tube.Quad(a, b, c, d, new Vector3(0f, Mathf.Min(cenU.y, VTOP), VZ) - cenU, ByPos);
             }
