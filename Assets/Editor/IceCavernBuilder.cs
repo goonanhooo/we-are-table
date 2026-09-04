@@ -99,8 +99,10 @@ public static class IceCavernBuilder
         int ZN = 400; float[] tcy = new float[ZN], tw = new float[ZN], th = new float[ZN]; for (int i = 0; i < ZN; i++) tw[i] = -1f;
         for (int i = 0; i < cl.Count; i++) { int zi = Mathf.Clamp(Mathf.RoundToInt(cl[i].z + 400f), 0, ZN - 1); tcy[zi] = cl[i].y; tw[zi] = cw[i]; th[zi] = chh[i]; }
         for (int i = 1; i < ZN; i++) if (tw[i] < 0f && tw[i - 1] > 0f) { tw[i] = tw[i - 1]; th[i] = th[i - 1]; tcy[i] = tcy[i - 1]; }
-        System.Func<Vector3, bool> insideH = p => { if (p.z < FARZ || p.z > -78f) return false; int zi = Mathf.Clamp(Mathf.RoundToInt(p.z + 400f), 0, ZN - 1); if (tw[zi] <= 0f) return false; float ex = p.x / (tw[zi] * 0.97f), ey = (p.y - tcy[zi]) / (th[zi] * 0.97f); return ex * ex + ey * ey < 1f; };
-        System.Func<Vector3, bool> insideV = p => { if (p.y < VBOT || p.y > VTOP + 6f || p.z > CLIPZ + 1f) return false; float yy = Mathf.Min(p.y, VTOP); float ex = p.x / (Wv(yy) * 0.97f), ez = (p.z - VZ) / (Hv(yy) * 0.97f); return ex * ex + ez * ez < 1f; };
+        System.Func<Vector3, bool> insideH = p => { if (p.z < FARZ || p.z > -78f) return false; int zi = Mathf.Clamp(Mathf.RoundToInt(p.z + 400f), 0, ZN - 1); if (tw[zi] <= 0f) return false; float ex = p.x / tw[zi], ey = (p.y - tcy[zi]) / th[zi]; return ex * ex + ey * ey < 1f; };
+        System.Func<Vector3, bool> insideV = p => { if (p.y < VBOT || p.y > VTOP + 6f || p.z > CLIPZ + 1f) return false; float yy = Mathf.Min(p.y, VTOP); float ex = p.x / Wv(yy), ez = (p.z - VZ) / Hv(yy); return ex * ex + ez * ez < 1f; };
+        // ★경계 빈 칸 방지: 네 꼭짓점이 '전부' 상대 볼륨 안일 때만 제거(중심점 기준이면 경계에 구멍이 뜯긴 듯 남음)
+        System.Func<System.Func<Vector3, bool>, Vector3, Vector3, Vector3, Vector3, bool> allIn = (f, a, b, c, d) => f(a) && f(b) && f(c) && f(d);
 
         var rc = new List<Vector3>(); var rw = new List<float>(); var rhh = new List<float>(); float accum = 999f;
         for (int i = 0; i < cl.Count; i++) { if (i > 0) accum += (cl[i] - cl[i - 1]).magnitude; if (accum < 5f && i != cl.Count - 1) continue; accum = 0f; rc.Add(cl[i]); rw.Add(cw[i]); rhh.Add(chh[i]); }
@@ -129,7 +131,7 @@ public static class IceCavernBuilder
                 Vector3 a = ring[k, i], b = ring[k, i + 1], c = ring[k + 1, i + 1], d = ring[k + 1, i];
                 Vector3 cen = (a + b + c + d) * 0.25f; float minZ = Mathf.Min(a.z, b.z, c.z, d.z);
                 if (minZ <= FARZ + 0.6f && Mathf.Abs(cen.x) < 26f && cen.y > -141f && cen.y < -100f) { skipAlc++; continue; }
-                if (insideV(cen)) { skipV++; continue; }
+                if (allIn(insideV, a, b, c, d)) { skipV++; continue; }
                 Vector3 cenU = (ringU[k, i] + ringU[k, i + 1] + ringU[k + 1, i + 1] + ringU[k + 1, i]) * 0.25f;
                 tube.Quad(a, b, c, d, (rc[k] + rc[k + 1]) * 0.5f - cenU, ByPos);
             }
@@ -162,12 +164,12 @@ public static class IceCavernBuilder
             {
                 Vector3 a = vring[k, i], b = vring[k, i + 1], c = vring[k + 1, i + 1], d = vring[k + 1, i];
                 Vector3 cen = (a + b + c + d) * 0.25f; float minZ = Mathf.Min(a.z, b.z, c.z, d.z), maxZ = Mathf.Max(a.z, b.z, c.z, d.z);
-                if (insideH(cen)) { skipH++; continue; }
+                if (allIn(insideH, a, b, c, d)) { skipH++; continue; }
                 if (maxZ >= CLIPZ - 0.6f && minZ >= CLIPZ - 2.5f && Mathf.Abs(cen.x) < 6.5f && cen.y > 91f && cen.y < 108f) { skipDoor++; continue; }
                 Vector3 cenU = (vringU[k, i] + vringU[k, i + 1] + vringU[k + 1, i + 1] + vringU[k + 1, i]) * 0.25f;
                 tube.Quad(a, b, c, d, new Vector3(0f, Mathf.Min(cenU.y, VTOP), VZ) - cenU, ByPos);
             }
-        { Vector3 cen0 = new Vector3(0f, VBOT, VZ); for (int i = 0; i < NA; i++) { Vector3 a = vring[0, i], b = vring[0, i + 1]; if (insideH((cen0 + a + b) / 3f)) continue; tube.Tri(cen0, a, b, Vector3.up, Rock()); } }
+        { Vector3 cen0 = new Vector3(0f, VBOT, VZ); for (int i = 0; i < NA; i++) { Vector3 a = vring[0, i], b = vring[0, i + 1]; if (insideH(cen0) && insideH(a) && insideH(b)) continue; tube.Tri(cen0, a, b, Vector3.up, Rock()); } }
         { float ty = 999f; for (int i = 0; i < NA; i++) ty = Mathf.Min(ty, vring[NV - 1, i].y); Vector3 cen = new Vector3(0f, Mathf.Min(ty + 1.2f, 113.6f), VZ); for (int i = 0; i < NA; i++) tube.Tri(cen, vring[NV - 1, i], vring[NV - 1, i + 1], Vector3.down, Ice()); }
         sb.Append("H rings=" + NR + " tris=" + hTris + " skipInsideV=" + skipV + "; V rings=" + NV + " tris=" + (tube.t.Count / 3 - hTris) + " skipInsideH=" + skipH + " skipDoor=" + skipDoor + "\n");
         System.Func<Vector3, string> bucket = p => p.z < -90f ? "z" + Mathf.FloorToInt((p.z + 400f) / 40f) : "y" + Mathf.FloorToInt((p.y + 220f) / 45f);
@@ -202,7 +204,7 @@ public static class IceCavernBuilder
         System.Func<Vector3, float> railDistXZ = p => { float m = 9999f; foreach (var q in railPts) { float d = new Vector2(p.x - q.x, p.z - q.z).magnitude; if (d < m) m = d; } return m; };
         var sup = new MB(); int spires = 0;
         foreach (var tr in new[] { trA, trB }) { float step = 42f / tr.Length; for (float u = 0.12f; u < 0.98f; u += step) { Vector3 p = tr.PosAt(u); if (p.z > -125f) break; if (!Physics.Raycast(p + Vector3.down * 1.5f, Vector3.down, out rh, 300f) || !isTube(rh.collider)) continue; Vector3 baseP = rh.point + Vector3.down * 2f; Cone(sup, baseP, Vector3.up, (p.y - 0.6f) - baseP.y, Mathf.Lerp(4f, 7f, R01()), 0.9f, 7, Rock, 0.12f); spires++; } }
-        SplitMake(sup, "RailSpires", decor.transform, mat, p => "all");
+        SplitMake(sup, "RailSpires", decor.transform, mat, bucket);   // ★조명 한도(오브젝트당 8개) 때문에 위치별 분할
         var sta = new MB(); int stal = 0, stam = 0;
         for (int k = 0; k < 1000 && stal < 140; k++)
         {
@@ -237,9 +239,10 @@ public static class IceCavernBuilder
             Vector3 b0 = p + u1 * bw + u2 * RS(bw * 0.5f), b1 = p + (u1 * -0.5f + u2 * 0.87f) * bw, b2 = p + (u1 * -0.5f - u2 * 0.87f) * bw, apex = p + inward * size + u1 * RS(size * 0.3f) + u2 * RS(size * 0.3f);
             Vector3 cen = (b0 + b1 + b2 + apex) * 0.25f;
             shm.Tri(b0, b1, apex, (b0 + b1 + apex) / 3f - cen, Ice()); shm.Tri(b1, b2, apex, (b1 + b2 + apex) / 3f - cen, Ice()); shm.Tri(b2, b0, apex, (b2 + b0 + apex) / 3f - cen, Ice());
+            shm.Tri(b0, b2, b1, (b0 + b1 + b2) / 3f - cen, Ice());   // ★밑면 닫기(닫힌 사면체)
             shards++;
         }
-        SplitMake(shm, "IceShards", decor.transform, mat, p => "all");
+        SplitMake(shm, "IceShards", decor.transform, mat, p => (p.z < -90f ? "z" + Mathf.FloorToInt((p.z + 400f) / 40f) : "y" + Mathf.FloorToInt((p.y + 220f) / 30f)));   // ★한 메시면 조명 8개 한도로 검게 보임
         // 결정 군집 + 라이트
         var amber = AssetDatabase.LoadAssetAtPath<Material>("Assets/Guide/Cavern/CavernCrystalAmber.mat"); var iceC = AssetDatabase.LoadAssetAtPath<Material>("Assets/Guide/Cavern/CavernCrystalIce.mat");
         var cry = new GameObject("Crystals"); cry.transform.SetParent(root.transform, false);
@@ -258,7 +261,7 @@ public static class IceCavernBuilder
             {
                 float s = size * Mathf.Lerp(0.5f, 1f, R01()); Vector3 oo = pp + u1 * RS(size * 0.5f) + u2 * RS(size * 0.5f); Vector3 dd = (up + u1 * RS(0.5f) + u2 * RS(0.5f)).normalized;
                 Vector3 a = oo + u1 * s * 0.35f, b = oo + (u1 * -0.18f + u2 * 0.3f) * s, c = oo + (u1 * -0.18f - u2 * 0.3f) * s, apex = oo + dd * s * 1.6f; Vector3 cen = (a + b + c + apex) * 0.25f;
-                foreach (var tri in new[] { new[] { a, b, apex }, new[] { b, c, apex }, new[] { c, a, apex } }) { Vector3 A = tri[0], B = tri[1], C = tri[2]; bool flip = Vector3.Dot(Vector3.Cross(B - A, C - A), (A + B + C) / 3f - cen) < 0f; int i0 = vv.Count; vv.Add(A); vv.Add(flip ? C : B); vv.Add(flip ? B : C); tt.Add(i0); tt.Add(i0 + 1); tt.Add(i0 + 2); }
+                foreach (var tri in new[] { new[] { a, b, apex }, new[] { b, c, apex }, new[] { c, a, apex }, new[] { a, c, b } }) { Vector3 A = tri[0], B = tri[1], C = tri[2]; bool flip = Vector3.Dot(Vector3.Cross(B - A, C - A), (A + B + C) / 3f - cen) < 0f; int i0 = vv.Count; vv.Add(A); vv.Add(flip ? C : B); vv.Add(flip ? B : C); tt.Add(i0); tt.Add(i0 + 1); tt.Add(i0 + 2); }
             }
             if (lg != null) { var L = new GameObject("Crystal_" + placed).AddComponent<Light>(); L.transform.SetParent(lg, false); L.transform.position = rh.point + rh.normal * (size * 1.2f); L.type = LightType.Point; L.range = Mathf.Lerp(45f, 80f, R01()); L.intensity = Mathf.Lerp(0.9f, 1.6f, R01()); L.color = ice ? cold : warm; }
             placed++;

@@ -19,6 +19,7 @@ Shader "Custom/VertexColorCave"
         {
             Name "ForwardLit"
             Tags { "LightMode"="UniversalForward" }
+            Cull Off   // ★2026-09-04 양면: 접힌 면/이음새가 검게 비지 않게(뒷면은 법선을 뒤집어 조명)
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -66,9 +67,10 @@ Shader "Custom/VertexColorCave"
                 return OUT;
             }
 
-            half4 frag (Varyings IN) : SV_Target
+            half4 frag (Varyings IN, bool isFront : SV_IsFrontFace) : SV_Target
             {
                 float3 N = normalize(IN.normalWS);
+                if (!isFront) N = -N;
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
                 float ndotl = saturate(dot(N, normalize(mainLight.direction)));
