@@ -5,7 +5,8 @@ using UnityEngine;
 /// ★2026-09-05 우주 맵 도입 컷씬(v2 — 시네마틱 추격). 씬 GO `SpaceIntro`에 부착, 참조는 전부 인스펙터(씬 오브젝트).
 ///  ① 추격(chaseShots 합계 ≈15s): 의자가 탄 우주선(chairShip, 앞·위)을 테이블이 탄 로켓(tableShip, 뒤)이 pathStart→pathBreak로 뒤쫓음.
 ///     카메라는 `chaseShots` 샷 리스트를 순서대로 — 월드 고정 샷(옆에서 스쳐 지나감)과 TableShip 자식 마커(옆/앞 3/4/위 등) 혼합.
-///     두 우주선 위에 손글씨 말풍선("의자가 타고 있어요" / "테이블이 타고 있어요")을 labelSeconds 동안 표시.
+///     두 우주선 위에 동그란 손그림 말풍선(bubbleTex) + 의자/테이블 렌더 아이콘(chairIcon/tableIcon)을 labelSeconds 동안 표시.
+///     샷에 orbitDeg를 주면 holdSeconds 동안 고정 후 시선점 중심으로 서서히 공전(옆에서 오래 보다가 천천히 도는 연출). 불꽃은 Flicker()로 일렁임.
 ///  ② 충돌: pathBreak의 소행성(crashAsteroid)에 테이블선이 부딪혀 섬광+파편(debris/debrisSparks), 로켓 모델 off, 숨겨둔 테이블이 나타나 무중력 표류.
 ///     의자선은 chairEscape로 가속 이탈.
 ///  ③ 바라보기(watchSeconds): 테이블 옆·뒤(watchOffset)에서 멀어지는 의자선을 바라봄.
@@ -25,6 +26,8 @@ public class SpaceIntroCutscene : MonoBehaviour
         public LookAt look = LookAt.Midpoint;
         public float seconds = 3f;
         public float fov = 45f;
+        [Tooltip("이 시간 동안 고정 후 서서히 공전 시작")] public float holdSeconds = 0f;
+        [Tooltip("시선점을 중심으로 공전할 각도(0=고정, 음수=뒤쪽으로)")] public float orbitDeg = 0f;
     }
 
     [Header("배우")]
@@ -36,6 +39,12 @@ public class SpaceIntroCutscene : MonoBehaviour
     public Transform orb;                  // 힘 구슬(비활성 시작)
     public ParticleSystem debris, debrisSparks;
     public Light flashLight;
+    [Tooltip("두 우주선의 불꽃(일렁임)")] public Transform tableFlame, chairFlame;
+    public float flameFlicker = 0.35f, flameFlickerSpeed = 11f;
+
+    [Header("탑승 말풍선(동그란 말풍선 + 의자/테이블 이미지)")]
+    public Texture2D bubbleTex, chairIcon, tableIcon;
+    [Tooltip("말풍선 높이(화면 높이 비율)")] public float bubbleSize = 0.21f;
 
     [Header("경로/마커")]
     public Transform pathStart, pathBreak, chairEscape;
@@ -69,6 +78,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     string bubbleText = "", hintText = ""; float flashAlpha; bool showLabels;
     GUIStyle bubbleStyle, hintStyle, labelStyle;
     Vector3 shipDir = Vector3.forward;
+    Vector3 tableFlameBase = Vector3.one, chairFlameBase = Vector3.one; Quaternion tableFlameRot = Quaternion.identity, chairFlameRot = Quaternion.identity;
 
     void Start()
     {
@@ -78,6 +88,8 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (debrisSparks != null) debrisSparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         if (flashLight != null) flashLight.enabled = false;
         if (pathStart != null && pathBreak != null) shipDir = (pathBreak.position - pathStart.position).normalized;
+        if (tableFlame != null) { tableFlameBase = tableFlame.localScale; tableFlameRot = tableFlame.localRotation; }
+        if (chairFlame != null) { chairFlameBase = chairFlame.localScale; chairFlameRot = chairFlame.localRotation; }
         PlaceShips(0f, 0f);
         if (!netRemoteDriven) Play();
     }
@@ -109,6 +121,19 @@ public class SpaceIntroCutscene : MonoBehaviour
         Vector3 off = Vector3.Lerp(chairOffsetStart, chairOffsetEnd, u);
         Vector3 sway2 = right * Mathf.Sin(t * 1.1f + 2f) * 2.2f + Vector3.up * Mathf.Cos(t * 0.8f) * 1.0f;
         if (chairShip != null) { chairShip.position = Vector3.Lerp(a, b, u) + shipDir * off.z + Vector3.up * off.y + right * off.x + sway2; chairShip.rotation = Quaternion.LookRotation(shipDir + right * Mathf.Cos(t * 1.1f + 2f) * 0.05f); }
+        Flicker(tableFlame, tableFlameBase, tableFlameRot, t, 0f);
+        Flicker(chairFlame, chairFlameBase, chairFlameRot, t, 3.1f);
+    }
+
+    /// <summary>불꽃 일렁임: 펄린 노이즈로 길이(±flameFlicker)·굵기(±¼)·끝 흔들림(±4°).</summary>
+    void Flicker(Transform f, Vector3 baseScale, Quaternion baseRot, float t, float phase)
+    {
+        if (f == null) return;
+        float n1 = Mathf.PerlinNoise(t * flameFlickerSpeed + phase, 0.37f) - 0.5f;
+        float n2 = Mathf.PerlinNoise(0.81f, t * flameFlickerSpeed * 0.7f + phase) - 0.5f;
+        float n3 = Mathf.PerlinNoise(t * flameFlickerSpeed * 1.3f + phase * 2f, 5.2f) - 0.5f;
+        f.localScale = new Vector3(baseScale.x * (1f + n1 * flameFlicker * 0.5f), baseScale.y * (1f + n2 * flameFlicker * 2f), baseScale.z * (1f + n1 * flameFlicker * 0.5f));
+        f.localRotation = baseRot * Quaternion.Euler(n3 * 8f, n1 * 8f, 0f);
     }
 
     Vector3 LookPoint(LookAt l)
@@ -151,6 +176,7 @@ public class SpaceIntroCutscene : MonoBehaviour
             var shot = shotCount > 0 ? chaseShots[si] : null;
             float dur = shot != null ? Mathf.Max(0.1f, shot.seconds) : total;
             Quaternion lookRot = cam != null ? cam.rotation : Quaternion.identity; bool firstFrame = true;
+            bool orbit = shot != null && Mathf.Abs(shot.orbitDeg) > 0.01f; Vector3 orbitLocal0 = Vector3.zero;
             for (float st = 0f; st < dur; st += Time.deltaTime, t += Time.deltaTime)
             {
                 float u = Mathf.Clamp01(t / total);
@@ -158,8 +184,19 @@ public class SpaceIntroCutscene : MonoBehaviour
                 if (!remote && tableRoot != null && tableShip != null) tableRoot.TeleportRoot(tableShip.position, tableShip.rotation);
                 if (cam != null)
                 {
-                    if (shot != null && shot.cam != null) cam.position = shot.cam.position;
                     Vector3 look = LookPoint(shot != null ? shot.look : LookAt.Midpoint);
+                    if (shot != null && shot.cam != null)
+                    {
+                        if (orbit)
+                        {
+                            // 시선점을 중심으로 서서히 공전(진행 방향 기준 프레임, holdSeconds 뒤 SmoothStep 가감속)
+                            Quaternion frame = Quaternion.LookRotation(shipDir, Vector3.up);
+                            if (firstFrame) orbitLocal0 = Quaternion.Inverse(frame) * (shot.cam.position - look);
+                            float p = Mathf.Clamp01((st - shot.holdSeconds) / Mathf.Max(0.1f, dur - shot.holdSeconds));
+                            cam.position = look + frame * (Quaternion.AngleAxis(shot.orbitDeg * Mathf.SmoothStep(0f, 1f, p), Vector3.up) * orbitLocal0);
+                        }
+                        else cam.position = shot.cam.position;
+                    }
                     Quaternion want = Quaternion.LookRotation(look - cam.position, Vector3.up);
                     lookRot = firstFrame ? want : Quaternion.Slerp(lookRot, want, Time.deltaTime * 6f);
                     cam.rotation = lookRot;
@@ -329,6 +366,7 @@ public class SpaceIntroCutscene : MonoBehaviour
             float u = t / chairEscapeSeconds; u = u * u * u;
             chairShip.position = Vector3.Lerp(c0, c1, u) + right * Mathf.Sin(t * 1.5f) * 2f;
             chairShip.rotation = Quaternion.LookRotation((c1 - c0).normalized);
+            Flicker(chairFlame, chairFlameBase, chairFlameRot, Time.time, 3.1f);
             yield return null;
         }
         chairShip.gameObject.SetActive(false);
@@ -352,6 +390,24 @@ public class SpaceIntroCutscene : MonoBehaviour
         GUI.Label(r, text, style);
     }
 
+    /// <summary>동그란 손그림 말풍선(bubbleTex: 512×640, 꼬리 끝 (262,606), 원 중심 (256,262) 반지름 226) + 아이콘.</summary>
+    void DrawIconBubble(Vector3 world, Texture2D icon)
+    {
+        if (Camera.main == null || bubbleTex == null) return;
+        Vector3 sp = Camera.main.WorldToScreenPoint(world);
+        if (sp.z <= 0f) return;
+        float h = Screen.height * bubbleSize, w = h * bubbleTex.width / bubbleTex.height;
+        float ax = sp.x, ay = Screen.height - sp.y;
+        var r = new Rect(ax - w * (262f / 512f), ay - h * (606f / 640f), w, h);
+        r.x = Mathf.Clamp(r.x, 4f, Screen.width - w - 4f); r.y = Mathf.Clamp(r.y, 4f, Screen.height - h - 4f);
+        GUI.DrawTexture(r, bubbleTex, ScaleMode.StretchToFill, true);
+        if (icon != null)
+        {
+            float cx = r.x + w * (256f / 512f), cy = r.y + h * (262f / 640f), rad = h * (226f / 640f), s = rad * 1.36f;
+            GUI.DrawTexture(new Rect(cx - s * 0.5f, cy - s * 0.5f, s, s), icon, ScaleMode.ScaleToFit, true);
+        }
+    }
+
     void OnGUI()
     {
         if (!started) return;
@@ -365,8 +421,8 @@ public class SpaceIntroCutscene : MonoBehaviour
         }
         if (showLabels)
         {
-            if (chairShip != null && chairShip.gameObject.activeSelf) DrawBubble(chairShip.position + Vector3.up * 1.6f, L.T("의자가 타고 있어요", "the chair is aboard"), labelStyle, 42f);
-            if (tableShip != null && tableShip.gameObject.activeSelf) DrawBubble(tableShip.position + Vector3.up * 1.6f, L.T("테이블이 타고 있어요", "the table is aboard"), labelStyle, 42f);
+            if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + Vector3.up * 1.6f, chairIcon);
+            if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + Vector3.up * 1.6f, tableIcon);
         }
         if (!string.IsNullOrEmpty(bubbleText) && squidHead != null) DrawBubble(squidHead.position + Vector3.up * 0.6f, bubbleText, bubbleStyle, 30f);
         if (!string.IsNullOrEmpty(hintText))
