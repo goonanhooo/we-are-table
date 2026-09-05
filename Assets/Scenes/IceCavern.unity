@@ -7082,10 +7082,12 @@ MonoBehaviour:
   startU: 0.2
   cartSpeed: 12
   watchSeconds: 11
-  camUp: 1.3
+  shoulderOffset: {x: -1.4, y: 1.7, z: -3}
+  pushIn: 1.6
+  blendIn: 1.3
+  zoomHold: 1.5
   fovStart: 55
   fovEnd: 12
-  blendIn: 0.6
   netRemoteDriven: 0
 --- !u!4 &177535543
 Transform:
