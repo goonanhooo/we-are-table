@@ -31,6 +31,9 @@ public class NetStageSync : NetworkBehaviour
     readonly NetworkVariable<float> cartU0 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<float> cartU1 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<float> cartU2 = new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-05 빙산 결말 로켓 발사 컷씬(호스트 트리거 → 게스트 PlayRemote)
+    readonly NetworkVariable<bool> rocketLaunched = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -41,6 +44,8 @@ public class NetStageSync : NetworkBehaviour
     FrameHallStage frame;
     FrameHallClimb climb;
     RailRide rail;
+    RocketLaunchCutscene rocketLaunch;
+    bool guestRocket;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
@@ -56,6 +61,7 @@ public class NetStageSync : NetworkBehaviour
         frame = FindAnyObjectByType<FrameHallStage>();
         climb = FindAnyObjectByType<FrameHallClimb>();
         rail = FindAnyObjectByType<RailRide>();
+        rocketLaunch = FindAnyObjectByType<RocketLaunchCutscene>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -72,6 +78,7 @@ public class NetStageSync : NetworkBehaviour
             if (snowman != null) snowman.netRemoteDriven = true;
             if (climb != null) climb.netGuest = true;
             if (rail != null) rail.netRemote = true;
+            if (rocketLaunch != null) rocketLaunch.netRemoteDriven = true;
         }
     }
 
@@ -90,6 +97,7 @@ public class NetStageSync : NetworkBehaviour
                 if (cm != carriedMask.Value) carriedMask.Value = cm;
                 if (climb.CutsceneStarted && !climbCutscene.Value) climbCutscene.Value = true;
             }
+            if (rocketLaunch != null && rocketLaunch.Started && !rocketLaunched.Value) rocketLaunched.Value = true;
             if (rail != null)
             {
                 float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
@@ -115,6 +123,7 @@ public class NetStageSync : NetworkBehaviour
                 if (climbCutscene.Value && !guestClimb) { guestClimb = true; climb.PlayRemote(); }
             }
             if (rail != null) { rail.NetApply(0, cartU0.Value); rail.NetApply(1, cartU1.Value); rail.NetApply(2, cartU2.Value); }
+            if (rocketLaunched.Value && !guestRocket) { guestRocket = true; if (rocketLaunch != null) rocketLaunch.PlayRemote(); }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)
