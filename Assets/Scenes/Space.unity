@@ -2803,8 +2803,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MoonCapture
   moon: {fileID: 152079010}
   moonRadius: 130
-  captureRadius: 320
-  gravityMu: 540000
+  captureRadius: 375
+  gravityMu: 700000
   tangentialDamping: 0.6
   tumbleDegPerSec: {x: 12, y: 25, z: 8}
   surfaceFactor: 1.12
