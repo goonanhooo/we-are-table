@@ -71,8 +71,10 @@ public class MoonCapture : MonoBehaviour
             }
             yield return null;
         }
+        // ★게스트도 페이드 인 예약(호스트가 씬을 옮기면 게스트 화면도 다시 밝아져야 함) — 로드는 호스트만
+        if (!string.IsNullOrEmpty(nextScene)) ScreenFader.FadeInAfterNextLoad(0.4f, 1.5f);
         if (remote) yield break;
-        if (!string.IsNullOrEmpty(nextScene)) { ScreenFader.FadeInAfterNextLoad(0.4f, 1.5f); NetScene.Load(nextScene); }
+        if (!string.IsNullOrEmpty(nextScene)) NetScene.Load(nextScene);
     }
 
     void OnDrawGizmosSelected()

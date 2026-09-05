@@ -8,7 +8,7 @@ using UnityEngine;
 /// 해금 방식은 미정 — 지금은 우주 씬(SpaceStage)이 입장 시 active=true 부여, 치트는 unlocked만.
 /// active 동안 전 바디 useGravity=false + 표류 감쇠(driftDamping) 적용, 끄면 원복.
 /// ⚠️기린 모드와 같은 키를 쓰므로 우주 씬은 GiraffeMode.locked=true(SpaceStage가 설정).
-/// 멀티: 물리는 호스트 전용(NetLegLink.ApplyGuestMode가 이 컴포넌트를 끔) — 게스트 분사 이펙트 동기화는 TODO.
+/// 멀티: 물리는 호스트 전용 — 게스트는 netVisualOnly(NetLegLink.ApplyGuestMode)로 분사 파티클만 호스트 마스크(NetVisualSync.VState.squid)대로 표시.
 /// </summary>
 public class SquidMode : MonoBehaviour, ICheatUnlockable
 {
@@ -19,6 +19,12 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     [HideInInspector] public bool thrustLocked;
     /// <summary>한 번이라도 켜졌는가 — PauseMenu 조작법에 '우주오징어' 페이지 노출용(GiraffeMode.Unlocked 패턴).</summary>
     public static bool Unlocked;
+    /// <summary>★2026-09-06 멀티 게스트: 물리 없이 분사 파티클만(호스트가 NetVisualSync로 보낸 마스크). NetLegLink.ApplyGuestMode가 설정.</summary>
+    [HideInInspector] public bool netVisualOnly;
+    [HideInInspector] public int netJetMask;
+    /// <summary>호스트: 지금 분사 중인 다리 비트마스크(NetVisualSync가 발행).</summary>
+    public int JetMask { get; private set; }
+    public void NetApplyVisual(bool on, int mask) { netJetMask = on ? mask : 0; }
     [Tooltip("다리 하나가 내는 추진력(N). 4다리 동시 분사 = ×4. 테이블 총질량 ~7.6kg.")]
     public float thrustForce = 12f;
     [Tooltip("무중력 표류 감쇠(linearDamping) — 0이면 순수 관성이라 멈추기 힘들다.")]
@@ -88,26 +94,42 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
+        if (netVisualOnly)
+        {
+            // 게스트: 다리 포즈는 NetworkTransform, 분사 여부는 호스트 마스크 — 물리/무중력 설정은 건드리지 않음
+            if (jets == null) return;
+            for (int i = 0; i < legs.Length; i++) { if (jets[i] == null) continue; PlaceJet(i); SetRate(jets[i], (netJetMask & (1 << i)) != 0 ? 110f : 0f); }
+            return;
+        }
         if (!active)
         {
             if (applied) Restore();
             if (jets != null) foreach (var j in jets) if (j != null) SetRate(j, 0f);
+            JetMask = 0;
             return;
         }
         if (!applied) ApplyZeroG();
         Unlocked = true;   // 켜진 순간부터 조작법 메뉴에 오징어 페이지 노출
         if (ti == null) ti = TableInput.Of(this);
 
+        int mask = 0;
         for (int i = 0; i < legs.Length; i++)
         {
             bool on = !thrustLocked && ti != null && ti.Get(legs[i].controlSet).longer;
+            if (on) mask |= 1 << i;
             if (jets[i] == null) continue;
-            // 분사구 = 발끝, 분사 방향 = 다리 바깥(-meshUp). 매 프레임 추적(다리 스윙/스핀 따라 회전).
-            Vector3 up = meshes[i].up;
-            if (up.sqrMagnitude > 1e-6f)
-                jets[i].transform.SetPositionAndRotation(meshes[i].TransformPoint(0f, -0.5f, 0f), Quaternion.LookRotation(-up));
+            PlaceJet(i);
             SetRate(jets[i], on ? 110f : 0f);
         }
+        JetMask = mask;
+    }
+
+    // 분사구 = 발끝, 분사 방향 = 다리 바깥(-meshUp). 매 프레임 추적(다리 스윙/스핀 따라 회전).
+    void PlaceJet(int i)
+    {
+        Vector3 up = meshes[i].up;
+        if (up.sqrMagnitude > 1e-6f)
+            jets[i].transform.SetPositionAndRotation(meshes[i].TransformPoint(0f, -0.5f, 0f), Quaternion.LookRotation(-up));
     }
 
     static void SetRate(ParticleSystem ps, float rate)
@@ -118,7 +140,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
     void FixedUpdate()
     {
-        if (!active || !applied || ti == null || thrustLocked) return;
+        if (netVisualOnly || !active || !applied || ti == null || thrustLocked) return;
         for (int i = 0; i < legs.Length; i++)
         {
             if (legAbs[i] == null || !legAbs[i].enabled) continue;

@@ -256,7 +256,7 @@ public class NetLegLink : NetworkBehaviour
         Toggle<SceneReset>(root, false);
         Toggle<ArtSceneReset>(root, false);   // ★ 게스트: '1' 리셋/워치독도 호스트 전용(TeleportRoot 충돌 방지)
         Toggle<NaNBlackBox>(root, false);
-        Toggle<SquidMode>(root, false);       // 우주오징어 추진도 호스트 물리 전용(분사 이펙트 동기화는 TODO)
+        foreach (var s in root.GetComponentsInChildren<SquidMode>(true)) s.netVisualOnly = true;   // ★우주오징어: 물리는 호스트, 분사 파티클만 호스트 마스크로 표시
         foreach (var g in root.GetComponentsInChildren<GiraffeMode>(true)) g.netVisualOnly = true;
         foreach (var p in root.GetComponentsInChildren<IcePower>(true)) p.netVisualOnly = true;
         foreach (var t in root.GetComponentsInChildren<TennisMode>(true)) t.netVisualOnly = true;   // ★테니스공: 시각만(붙기 물리는 호스트)

@@ -14,14 +14,15 @@ public class NetVisualSync : NetworkBehaviour
     {
         public bool giraffe, ice, tennis;
         public byte stuck;   // ★2026-08-20 테니스공 붙은 다리 비트마스크
+        public byte squid;   // ★2026-09-06 우주오징어 분사 중인 다리 비트마스크(0=없음)
         public float l0, l1, l2, l3;
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
-            s.SerializeValue(ref giraffe); s.SerializeValue(ref ice); s.SerializeValue(ref tennis); s.SerializeValue(ref stuck);
+            s.SerializeValue(ref giraffe); s.SerializeValue(ref ice); s.SerializeValue(ref tennis); s.SerializeValue(ref stuck); s.SerializeValue(ref squid);
             s.SerializeValue(ref l0); s.SerializeValue(ref l1); s.SerializeValue(ref l2); s.SerializeValue(ref l3);
         }
         public bool Equals(VState o) =>
-            giraffe == o.giraffe && ice == o.ice && tennis == o.tennis && stuck == o.stuck
+            giraffe == o.giraffe && ice == o.ice && tennis == o.tennis && stuck == o.stuck && squid == o.squid
             && Mathf.Abs(l0 - o.l0) < 1e-4f && Mathf.Abs(l1 - o.l1) < 1e-4f
             && Mathf.Abs(l2 - o.l2) < 1e-4f && Mathf.Abs(l3 - o.l3) < 1e-4f;
     }
@@ -32,12 +33,14 @@ public class NetVisualSync : NetworkBehaviour
     GiraffeMode gm;
     IcePower ip;
     TennisMode tm;
+    SquidMode sm;
 
     public override void OnNetworkSpawn()
     {
         gm = transform.root.GetComponentInChildren<GiraffeMode>(true);
         ip = transform.root.GetComponentInChildren<IcePower>(true);
         tm = transform.root.GetComponentInChildren<TennisMode>(true);
+        sm = transform.root.GetComponentInChildren<SquidMode>(true);
     }
 
     void Update()
@@ -51,6 +54,7 @@ public class NetVisualSync : NetworkBehaviour
                 ice = ip != null && ip.active,
                 tennis = tm != null && tm.active,
                 stuck = (byte)(tm != null ? tm.StuckMask : 0),
+                squid = (byte)(sm != null && sm.active ? sm.JetMask : 0),
                 l0 = gm != null ? gm.GetLen(0) : 0f,
                 l1 = gm != null ? gm.GetLen(1) : 0f,
                 l2 = gm != null ? gm.GetLen(2) : 0f,
@@ -64,6 +68,7 @@ public class NetVisualSync : NetworkBehaviour
             if (gm != null) gm.NetApplyVisual(s.giraffe, s.l0, s.l1, s.l2, s.l3);
             if (ip != null) ip.NetSetIceVisual(s.ice);
             if (tm != null) tm.NetApplyVisual(s.tennis, s.stuck);
+            if (sm != null) sm.NetApplyVisual(true, s.squid);
         }
     }
 }

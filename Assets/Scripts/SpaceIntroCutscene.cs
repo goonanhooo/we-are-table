@@ -76,9 +76,13 @@ public class SpaceIntroCutscene : MonoBehaviour
     public Color glowColor = new Color(0.7f, 0.4f, 1.5f);
 
     [HideInInspector] public bool netRemoteDriven;
+    /// <summary>테스트용: true면 세션 없이도 게스트처럼 동작(Start에서 자동 재생 안 함 → PlayRemote(skip) 수동 호출).</summary>
+    public static bool debugForceRemote;
     public bool Started => started;
+    /// <summary>호스트가 Play()한 서버 시각(NetworkManager.ServerTime) — NetStageSync가 발행, 게스트는 경과분만큼 건너뛰어 재생.</summary>
+    public double StartServerTime { get; private set; }
 
-    bool started, remote;
+    bool started, remote; float remoteSkip;
     ArticulationBody tableRoot; Renderer[] tableRenderers;   // 컷씬 시작 시 켜져 있던 테이블 렌더러만(테니스공/분사 등 꺼진 것은 제외)
     Transform cam; Camera camC; CameraFollow camFollow;
     string bubbleText = "", hintText = ""; float flashAlpha; bool showLabels;
@@ -97,11 +101,41 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (tableFlame != null) { tableFlameBase = tableFlame.localScale; tableFlameRot = tableFlame.localRotation; }
         if (chairFlame != null) { chairFlameBase = chairFlame.localScale; chairFlameRot = chairFlame.localRotation; }
         PlaceShips(0f, 0f);
-        if (!netRemoteDriven) Play();
+        // ★멀티 게스트: NetStageSync.OnNetworkSpawn(netRemoteDriven=true)이 이 Start보다 늦게 올 수 있어 세션 상태로도 판정.
+        //   게스트는 호스트의 시작 신호(PlayRemote(경과초))를 기다리고, 그동안 테이블(호스트 위치로 텔레포트 중)은 숨긴다.
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        if (debugForceRemote || (nm != null && nm.IsListening && !nm.IsServer)) netRemoteDriven = true;
+        if (netRemoteDriven) PrepareRemote(); else Play();
     }
 
-    public void Play() { if (started) return; started = true; remote = false; StartCoroutine(Run()); }
-    public void PlayRemote() { if (started) return; started = true; remote = true; StartCoroutine(Run()); }
+    public void Play()
+    {
+        if (started) return; started = true; remote = false;
+        var nm = Unity.Netcode.NetworkManager.Singleton;
+        StartServerTime = nm != null && nm.IsListening ? nm.ServerTime.Time : 0.0;
+        StartCoroutine(Run());
+    }
+    /// <param name="skipSeconds">호스트가 시작한 뒤 흐른 시간 — 그만큼 추격을 건너뛰어 호스트와 타임라인을 맞춤</param>
+    public void PlayRemote(float skipSeconds = 0f) { if (started) return; started = true; remote = true; remoteSkip = Mathf.Max(0f, skipSeconds); StartCoroutine(Run()); }
+
+    /// <summary>테이블 루트/렌더러 수집(1회). 렌더러는 '지금 켜져 있는 MeshRenderer'만 — 테니스공/분사 등 꺼진 것은 제외.</summary>
+    void CollectTable()
+    {
+        if (tableRenderers != null) return;
+        var asr = Object.FindAnyObjectByType<ArtSceneReset>(FindObjectsInactive.Include);
+        if (asr == null) { tableRenderers = new Renderer[0]; return; }
+        foreach (var ab in asr.GetComponentsInChildren<ArticulationBody>(true)) if (ab.isRoot) { tableRoot = ab; break; }
+        var all = asr.transform.root.GetComponentsInChildren<Renderer>(false);
+        var list = new System.Collections.Generic.List<Renderer>();
+        foreach (var r in all) if (r != null && r.enabled && r is MeshRenderer) list.Add(r);
+        tableRenderers = list.ToArray();
+    }
+
+    void PrepareRemote()
+    {
+        CollectTable();
+        foreach (var r in tableRenderers) if (r != null) r.enabled = false;
+    }
 
     void Update()
     {
@@ -157,15 +191,7 @@ public class SpaceIntroCutscene : MonoBehaviour
 
     IEnumerator Run()
     {
-        var asr = Object.FindAnyObjectByType<ArtSceneReset>(FindObjectsInactive.Include);
-        if (asr != null)
-        {
-            foreach (var ab in asr.GetComponentsInChildren<ArticulationBody>(true)) if (ab.isRoot) { tableRoot = ab; break; }
-            var all = asr.transform.root.GetComponentsInChildren<Renderer>(false);
-            var list = new System.Collections.Generic.List<Renderer>();
-            foreach (var r in all) if (r != null && r.enabled && r is MeshRenderer) list.Add(r);
-            tableRenderers = list.ToArray();
-        }
+        CollectTable();
         var squidMode = Object.FindAnyObjectByType<SquidMode>();
         if (squidMode != null) squidMode.thrustLocked = true;
         StageTimer.Suppress = true;   // 컷씬 동안 초 표시 숨김
@@ -175,16 +201,19 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (mainCam != null) { cam = mainCam.transform; camC = mainCam; camFollow = mainCam.GetComponent<CameraFollow>(); if (camFollow != null) camFollow.enabled = false; }
         float baseFov = camC != null ? camC.fieldOfView : 60f;
 
-        // ① 추격 — 샷 리스트
-        float total = ChaseTotal(); float t = 0f; showLabels = true;
+        // ① 추격 — 샷 리스트 (게스트는 remoteSkip만큼 건너뛰어 호스트 타임라인에 맞춤)
+        float total = ChaseTotal(); float t = Mathf.Clamp(remoteSkip, 0f, total); showLabels = t < labelSeconds;
         int shotCount = chaseShots != null ? chaseShots.Length : 0;
+        float shotStart = 0f;
         for (int si = 0; si < Mathf.Max(1, shotCount); si++)
         {
             var shot = shotCount > 0 ? chaseShots[si] : null;
             float dur = shot != null ? Mathf.Max(0.1f, shot.seconds) : total;
+            float skipIn = t - shotStart; shotStart += dur;
+            if (skipIn >= dur) continue;   // 이미 지난 샷
             Quaternion lookRot = cam != null ? cam.rotation : Quaternion.identity; bool firstFrame = true;
             bool orbit = shot != null && Mathf.Abs(shot.orbitDeg) > 0.01f; Vector3 orbitLocal0 = Vector3.zero;
-            for (float st = 0f; st < dur; st += Time.deltaTime, t += Time.deltaTime)
+            for (float st = Mathf.Max(0f, skipIn); st < dur; st += Time.deltaTime, t += Time.deltaTime)
             {
                 float u = Mathf.Clamp01(t / total);
                 PlaceShips(u, t);

@@ -39,6 +39,11 @@ public class NetStageSync : NetworkBehaviour
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<bool> moonCaptured = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-06 도입 컷씬 시작 서버 시각(게스트가 늦게 합류한 만큼 건너뛰어 재생) / 타이머 맵 CLEAR(달·트랙 등 — 게스트는 트리거 물리가 없어 직접 판정 불가)
+    readonly NetworkVariable<double> spaceIntroStartTime = new(0.0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<bool> stageCleared = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -52,7 +57,8 @@ public class NetStageSync : NetworkBehaviour
     RocketLaunchCutscene rocketLaunch;
     SpaceIntroCutscene spaceIntro;
     MoonCapture moonCapture;
-    bool guestRocket, guestSpaceIntro, guestMoon;
+    StageTimer stageTimer;
+    bool guestRocket, guestSpaceIntro, guestMoon, guestCleared;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
@@ -71,6 +77,7 @@ public class NetStageSync : NetworkBehaviour
         rocketLaunch = FindAnyObjectByType<RocketLaunchCutscene>();
         spaceIntro = FindAnyObjectByType<SpaceIntroCutscene>();
         moonCapture = FindAnyObjectByType<MoonCapture>();
+        stageTimer = FindAnyObjectByType<StageTimer>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -109,8 +116,9 @@ public class NetStageSync : NetworkBehaviour
                 if (climb.CutsceneStarted && !climbCutscene.Value) climbCutscene.Value = true;
             }
             if (rocketLaunch != null && rocketLaunch.Started && !rocketLaunched.Value) rocketLaunched.Value = true;
-            if (spaceIntro != null && spaceIntro.Started && !spaceIntroStarted.Value) spaceIntroStarted.Value = true;
+            if (spaceIntro != null && spaceIntro.Started && !spaceIntroStarted.Value) { spaceIntroStartTime.Value = spaceIntro.StartServerTime; spaceIntroStarted.Value = true; }
             if (moonCapture != null && moonCapture.Started && !moonCaptured.Value) moonCaptured.Value = true;
+            if (stageTimer != null && stageTimer.Cleared && !stageCleared.Value) stageCleared.Value = true;
             if (rail != null)
             {
                 float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
@@ -137,8 +145,17 @@ public class NetStageSync : NetworkBehaviour
             }
             if (rail != null) { rail.NetApply(0, cartU0.Value); rail.NetApply(1, cartU1.Value); rail.NetApply(2, cartU2.Value); }
             if (rocketLaunched.Value && !guestRocket) { guestRocket = true; if (rocketLaunch != null) rocketLaunch.PlayRemote(); }
-            if (spaceIntroStarted.Value && !guestSpaceIntro) { guestSpaceIntro = true; if (spaceIntro != null) spaceIntro.PlayRemote(); }
+            if (spaceIntroStarted.Value && !guestSpaceIntro)
+            {
+                guestSpaceIntro = true;
+                if (spaceIntro != null)
+                {
+                    float elapsed = spaceIntroStartTime.Value > 0.0 ? (float)(NetworkManager.ServerTime.Time - spaceIntroStartTime.Value) : 0f;
+                    spaceIntro.PlayRemote(Mathf.Clamp(elapsed, 0f, 120f));
+                }
+            }
             if (moonCaptured.Value && !guestMoon) { guestMoon = true; if (moonCapture != null) moonCapture.PlayRemote(); }
+            if (stageCleared.Value && !guestCleared) { guestCleared = true; if (stageTimer != null && !stageTimer.Cleared) stageTimer.Clear(); }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

@@ -212,11 +212,11 @@ public class RocketLaunchCutscene : MonoBehaviour
             yield return null;
         }
 
-        // ⑤ 다음 씬(호스트/1인) — 게스트는 호스트의 씬 전환을 기다림
+        // ⑤ 다음 씬 — ★게스트도 '다음 로드 후 페이드 인'은 예약해야 함(안 하면 호스트가 씬을 옮긴 뒤 검은 화면), 로드 자체는 호스트만
+        if (!string.IsNullOrEmpty(nextScene)) ScreenFader.FadeInAfterNextLoad(0.4f, 1.6f);
         if (remote) yield break;
         if (!string.IsNullOrEmpty(nextScene))
         {
-            ScreenFader.FadeInAfterNextLoad(0.4f, 1.6f);
             NetScene.Load(nextScene);
             yield break;
         }
