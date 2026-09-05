@@ -519,3 +519,11 @@
 - **불꽃 메시** `Assets/Guide/Space/FlameDrop.asset`(478정점): 노즐 쪽(+Y, 로컬 up=우주선 forward)에 캡 높이 0.244의 타원 돔(스케일 x1.0/y4.5에서 반구로 보임) + 뒤로 (1-t)^0.8 테이퍼 → 물방울. Flame 로컬 (0,0,-0.35) 스케일 (1,4.5,1). 로켓 발사 컷씬의 FlameCone은 그대로. ⚠️프로파일을 Vector2(y,r)로 두면 .x=y·.y=r — 조건식에서 헷갈려 링이 다 빠진 적 있음(스파이크 모양이면 이것).
 - **충돌 샷** = TableShip 자식 `Shot_ImpactOTS` (2.6,2.4,-9.5), LookAt.Midpoint, 4.2s, fov52 — 어깨 너머로 앞의 의자선·다가오는 CrashAsteroid가 보이다 노즈가 박힘. 충돌 직후 `impactShake`(0.45m, 0.7s 감쇠) 카메라 흔들림. PathStart (0,6,-395)(19.7s).
 - **우주선 밝기**: 전용 재질 `Guide/Space/RocketShipBright.mat`(RocketWhite 복제, _BaseColor 1.3, smooth 0.5, metal 0.1 — IceMountain 로켓은 원본 유지) + 우주선마다 자식 `ShipLight`(포인트, 강도 24, 범위 18, (-3,3.5,1.5), 그림자 X). 측면 캡처 몸체 밝기 실측 0.65(이전 ~0.45). URP 포인트 라이트는 역제곱이라 4m 거리에 강도 5는 거의 무효 — 20대 필요.
+
+### 2026-09-05 우주 도입 컷씬 v5 — 타이머 삭제·창문·원경 컷·정중앙 충돌·클로즈업/허탈/느린 오징어(사용자 피드백)
+- **타이머**: Space.unity의 StageTimer GO 삭제(MoonCapture의 Clear 호출은 null 가드). StageTimer.Suppress/RestartClock 코드는 남아 있음(다른 씬에서 재사용 가능).
+- **창문**: 로켓 FBX의 창문은 모델 로컬 -Y — 두 우주선 `RocketModel` localRotation (0,0,-90)으로 굴려 측면 카메라(-x) 쪽에 창문이 보이게. (빙산 로켓 (270,180,0)과는 무관.)
+- **샷**: [측면 6.5s 고정→-150° 공전 15.5s] → [원경 `ChaseShots/Shot_FarWide` (-230,75,-191) 월드 고정 3.5s fov40 — 우주선 두 대가 점처럼] → [어깨 너머 OTS 4.2s] = 23.2s, PathStart (0,6,-458). 말풍선 앵커 = 피벗+forward×`bubbleAnchorForward`(3)+up×`bubbleAnchorUp`(2.6) = 우주선 가운데 위.
+- **충돌**: CrashAsteroid scale 16, 위치 PathBreak+forward×(5+16×0.62×0.9)=(0,6,-31) — 경로 정중앙(y=6). 테이블은 `breakBounce`(right 1.5, up 3.0, back 0.8)로 위·옆으로 튕겨 표류(그래야 큰 소행성 위로 의자선 시야가 열림). ChairEscape (0,90,720), 탈출 14s·지수 `chairEscapePow` 2.2(처음 느리고 나중 빠름 — 클로즈업 동안 30→330m).
+- **파괴 뒤 비트**: `driftSeconds` 3.5(파편이 퍼질 때까지 그 자리에서, 흔들림 포함) → 클로즈업 `watchSeconds` 6(어깨 너머에서 의자선을 바라보며 FOV 50→`watchZoomFov` 10) → 허탈 `floatSeconds` 5(줌아웃 FOV 52, 홀로 떠다니는 테이블 주위를 `floatArcDeg` 40° 천천히) → 오징어 `squidArriveSeconds` 4(SmoothStep, 카메라도 같은 시간에 블렌드). 전체 컷씬 ≈ 50s.
+- **소행성 확대**: 142개 전부 s' = clamp(1.4·s·(s/8)^0.3, 3, 55) — 작은 건 거의 그대로, 큰 건 2배 가까이(3.2~55). 후처리 10회 반복: 추격 경로(x=0,y=6, z -480..-20) 반경+12 클리어, 스폰(0,2,0) r+40, 표류/오징어 구역(0,12,-45) r+30, 충돌 소행성과 r+6, 상호 겹침 (r1+r2)×1.05 밀어내기(r=0.62·scale). ⚠️달 앞 코리도어가 더 빽빽해져 비행 난도 상승 — 의도된 요청.

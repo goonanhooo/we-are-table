@@ -9,8 +9,8 @@ using UnityEngine;
 ///     샷에 orbitDeg를 주면 holdSeconds 동안 고정 후 시선점 중심으로 서서히 공전(옆에서 오래 보다가 천천히 도는 연출). 불꽃은 Flicker()로 일렁임.
 ///  ② 충돌: pathBreak의 소행성(crashAsteroid)에 테이블선이 부딪혀 섬광+파편(debris/debrisSparks), 로켓 모델 off, 숨겨둔 테이블이 나타나 무중력 표류.
 ///     의자선은 chairEscape로 가속 이탈.
-///  ③ 바라보기(watchSeconds): 테이블 옆·뒤(watchOffset)에서 멀어지는 의자선을 바라봄.
-///  ④ 우주오징어(squid, SquidDummy)가 squidFrom에서 갑자기(squidArriveSeconds 짧게) 테이블 곁(squidStopOffset)으로 나타나 말풍선 2줄 → 힘 구슬(orb) → 테이블 보랏빛 발광 → SquidMode.thrustLocked 해제 + 조작 힌트.
+///  ③ driftSeconds 동안 파괴 연출을 지켜본 뒤 → 클로즈업(watchSeconds: 어깨 너머에서 멀어지는 의자선을 FOV watchZoomFov까지 당김) → 허탈(floatSeconds: 줌아웃, 홀로 떠다니는 테이블 주위를 천천히 돎).
+///  ④ 우주오징어(squid, SquidDummy)가 squidFrom에서 천천히(squidArriveSeconds, SmoothStep) 테이블 곁(squidStopOffset)으로 스윽 나타나 말풍선 2줄 → 힘 구슬(orb) → 테이블 보랏빛 발광 → SquidMode.thrustLocked 해제 + 조작 힌트.
 ///     대화 카메라는 테이블 기준 squidCamOffset(표류하는 테이블을 따라감).
 ///  ⑤ 오징어 퇴장, CameraFollow.BlendFrom 복귀.
 /// 로켓 모델 노즈=로컬 +Z. 멀티: 호스트 → NetStageSync가 게스트 PlayRemote()(테이블 조작 생략).
@@ -45,23 +45,28 @@ public class SpaceIntroCutscene : MonoBehaviour
     [Header("탑승 말풍선(동그란 말풍선 + 의자/테이블 이미지)")]
     public Texture2D bubbleTex, chairIcon, tableIcon;
     [Tooltip("말풍선 높이(화면 높이 비율)")] public float bubbleSize = 0.21f;
+    [Tooltip("말풍선 앵커: 우주선 피벗(꼬리)에서 앞으로 / 위로")] public float bubbleAnchorForward = 3f, bubbleAnchorUp = 2.6f;
 
     [Header("경로/마커")]
     public Transform pathStart, pathBreak, chairEscape;
     [Tooltip("의자선 오프셋(테이블선 기준, 로컬 XYZ — z=앞서는 거리)")] public Vector3 chairOffsetStart = new Vector3(0f, 5f, 18f), chairOffsetEnd = new Vector3(0f, 6f, 30f);
     public ChaseShot[] chaseShots;
     public Transform squidFrom, squidExit;
-    [Tooltip("바라보기 카메라: 테이블 기준 오프셋(x=옆, y=위, z=뒤가 음수) — 어깨 너머")] public Vector3 watchOffset = new Vector3(-3.5f, 1.8f, -7f);
-    [Tooltip("바라보기 시선점: 테이블 앞쪽 거리 / 위")] public float watchLookAhead = 14f, watchLookUp = 1f;
+    [Tooltip("클로즈업 카메라: 테이블 기준 오프셋(x=옆, y=위, z=뒤가 음수) — 어깨 너머")] public Vector3 watchOffset = new Vector3(-3.5f, 1.8f, -7f);
+    [Tooltip("충돌 튕김 속도(우주선 기준 right/up/forward)")] public Vector3 breakBounce = new Vector3(1.5f, 3.0f, -0.8f);
+    [Tooltip("클로즈업 끝 FOV(멀어지는 의자선을 점점 당겨 봄)")] public float watchZoomFov = 10f;
+    [Tooltip("허탈 비트 동안 테이블 주위를 도는 각도")] public float floatArcDeg = 40f;
     [Tooltip("오징어 정지 위치(테이블 기준 월드축 오프셋)")] public Vector3 squidStopOffset = new Vector3(5f, 0.3f, 3.5f);
     [Tooltip("오징어 대화 카메라(테이블 기준 오프셋)")] public Vector3 squidCamOffset = new Vector3(-1.2f, 1.8f, -6.5f);
 
     [Header("타이밍")]
     public float labelSeconds = 10f;
-    public float driftSeconds = 1.2f;
-    public float watchSeconds = 4.5f;
-    public float chairEscapeSeconds = 9f;
-    public float squidArriveSeconds = 1.3f;
+    [Tooltip("파괴 연출을 지켜보는 시간(파편이 다 퍼질 때까지)")] public float driftSeconds = 3.5f;
+    [Tooltip("멀어지는 의자선 클로즈업 시간")] public float watchSeconds = 6f;
+    [Tooltip("둥둥 떠다니는 허탈 비트 시간")] public float floatSeconds = 5f;
+    public float chairEscapeSeconds = 14f;
+    [Tooltip("의자선 탈출 가속 지수(클수록 처음 느리고 나중 빠름)")] public float chairEscapePow = 2.2f;
+    [Tooltip("오징어 등장 시간(스윽 — SmoothStep)")] public float squidArriveSeconds = 4f;
     public float lineSeconds = 2.2f;
     public float orbSeconds = 1.4f;
     public float glowSeconds = 1.8f;
@@ -225,7 +230,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         {
             tableRoot.TeleportRoot(breakPos - shipDir * 5f + Vector3.up * 1.2f, Quaternion.LookRotation(shipDir));
             tableRoot.immovable = false;
-            tableRoot.linearVelocity = -shipDir * 0.8f + Vector3.up * 0.5f + right2 * 0.3f;   // 튕겨나며 천천히 표류
+            tableRoot.linearVelocity = right2 * breakBounce.x + Vector3.up * breakBounce.y + shipDir * breakBounce.z;   // 소행성에 튕겨 위·옆으로 표류
             tableRoot.angularVelocity = new Vector3(0.15f, 0.35f, 0.1f);
         }
         StartCoroutine(ChairEscape());
@@ -244,20 +249,41 @@ public class SpaceIntroCutscene : MonoBehaviour
         }
         if (cam != null) cam.position = driftCam;
 
-        // ③ 바라보기: 테이블 어깨 너머에서 멀어지는 의자선을
+        // ③-a 클로즈업: 테이블 어깨 너머에서 멀어지는 의자선을 점점 당겨 봄(FOV 50 → watchZoomFov)
+        float fovA = camC != null ? camC.fieldOfView : 50f;
         {
             Vector3 camA = cam != null ? cam.position : breakPos; Quaternion camRA = cam != null ? cam.rotation : Quaternion.identity;
             for (float w = 0f; w < watchSeconds; w += Time.deltaTime)
             {
-                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(w / 1.2f));
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(w / 1.4f));
+                float z = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(w / watchSeconds));
                 Vector3 tp = tableRoot != null ? tableRoot.transform.position : breakPos;
                 Vector3 desired = tp + right2 * watchOffset.x + Vector3.up * watchOffset.y + shipDir * watchOffset.z;
-                Vector3 lookAt = tp + shipDir * watchLookAhead + Vector3.up * watchLookUp;
+                Vector3 lookAt = chairShip != null && chairShip.gameObject.activeSelf ? chairShip.position : tp + shipDir * 300f + Vector3.up * 40f;
                 if (cam != null)
                 {
                     cam.position = Vector3.Lerp(camA, desired, u);
                     cam.rotation = Quaternion.Slerp(camRA, Quaternion.LookRotation(lookAt - cam.position, Vector3.up), u);
-                    if (camC != null) camC.fieldOfView = Mathf.Lerp(camC.fieldOfView, 50f, Time.deltaTime * 3f);
+                    if (camC != null) camC.fieldOfView = Mathf.Lerp(fovA, watchZoomFov, z);
+                }
+                yield return null;
+            }
+        }
+        // ③-b 허탈: 줌아웃하며 홀로 둥둥 떠다니는 테이블로 시선을 돌리고, 천천히 주위를 돈다
+        {
+            Vector3 tp0 = tableRoot != null ? tableRoot.transform.position : breakPos;
+            Vector3 off0 = cam != null ? cam.position - tp0 : right2 * watchOffset.x + Vector3.up * watchOffset.y + shipDir * watchOffset.z;
+            Quaternion camRA = cam != null ? cam.rotation : Quaternion.identity;
+            for (float w = 0f; w < floatSeconds; w += Time.deltaTime)
+            {
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(w / 1.4f));
+                Vector3 tp = tableRoot != null ? tableRoot.transform.position : breakPos;
+                Vector3 off = Quaternion.AngleAxis(floatArcDeg * Mathf.SmoothStep(0f, 1f, w / floatSeconds), Vector3.up) * off0;
+                if (cam != null)
+                {
+                    cam.position = tp + off;
+                    cam.rotation = Quaternion.Slerp(camRA, Quaternion.LookRotation((tp + Vector3.up * 0.3f) - cam.position, Vector3.up), u);
+                    if (camC != null) camC.fieldOfView = Mathf.Lerp(watchZoomFov, 52f, u);
                 }
                 yield return null;
             }
@@ -271,12 +297,12 @@ public class SpaceIntroCutscene : MonoBehaviour
             Vector3 camA = cam != null ? cam.position : breakPos; Quaternion camRA = cam != null ? cam.rotation : Quaternion.identity;
             for (float a2 = 0f; a2 < squidArriveSeconds; a2 += Time.deltaTime)
             {
-                float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(a2 / squidArriveSeconds), 3f);   // 확 들어와서 급정지
+                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a2 / squidArriveSeconds));   // 스윽(부드럽게 들어와 멈춤)
                 Vector3 tp = tableRoot != null ? tableRoot.transform.position : breakPos;
                 Vector3 s1 = tp + squidStopOffset;
                 squid.position = Vector3.Lerp(s0, s1, u) + Vector3.up * Mathf.Sin(a2 * 6f) * 0.25f * (1f - u);
                 squid.rotation = Quaternion.Slerp(squid.rotation, Quaternion.LookRotation((tp - squid.position).normalized, Vector3.up), Time.deltaTime * 6f);
-                SquidCam(camA, camRA, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a2 / (squidArriveSeconds * 0.8f))));
+                SquidCam(camA, camRA, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a2 / squidArriveSeconds)));
                 yield return null;
             }
             bubbleText = L.T("내 힘을 줄게!", "I'll give you my power!");
@@ -374,7 +400,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, shipDir).normalized;
         for (float t = 0f; t < chairEscapeSeconds; t += Time.deltaTime)
         {
-            float u = t / chairEscapeSeconds; u = u * u * u;
+            float u = Mathf.Pow(Mathf.Clamp01(t / chairEscapeSeconds), chairEscapePow);
             chairShip.position = Vector3.Lerp(c0, c1, u) + right * Mathf.Sin(t * 1.5f) * 2f;
             chairShip.rotation = Quaternion.LookRotation((c1 - c0).normalized);
             Flicker(chairFlame, chairFlameBase, chairFlameRot, Time.time, 3.1f);
@@ -432,8 +458,8 @@ public class SpaceIntroCutscene : MonoBehaviour
         }
         if (showLabels)
         {
-            if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + Vector3.up * 1.6f, chairIcon);
-            if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + Vector3.up * 1.6f, tableIcon);
+            if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + chairShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, chairIcon);
+            if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + tableShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, tableIcon);
         }
         if (!string.IsNullOrEmpty(bubbleText) && squidHead != null) DrawBubble(squidHead.position + Vector3.up * 0.6f, bubbleText, bubbleStyle, 30f);
         if (!string.IsNullOrEmpty(hintText))
