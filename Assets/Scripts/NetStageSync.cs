@@ -34,6 +34,11 @@ public class NetStageSync : NetworkBehaviour
     // ★2026-09-05 빙산 결말 로켓 발사 컷씬(호스트 트리거 → 게스트 PlayRemote)
     readonly NetworkVariable<bool> rocketLaunched = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-05 우주 맵: 도입 컷씬(로켓 파괴→오징어)·달 흡수
+    readonly NetworkVariable<bool> spaceIntroStarted = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<bool> moonCaptured = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -45,7 +50,9 @@ public class NetStageSync : NetworkBehaviour
     FrameHallClimb climb;
     RailRide rail;
     RocketLaunchCutscene rocketLaunch;
-    bool guestRocket;
+    SpaceIntroCutscene spaceIntro;
+    MoonCapture moonCapture;
+    bool guestRocket, guestSpaceIntro, guestMoon;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
@@ -62,6 +69,8 @@ public class NetStageSync : NetworkBehaviour
         climb = FindAnyObjectByType<FrameHallClimb>();
         rail = FindAnyObjectByType<RailRide>();
         rocketLaunch = FindAnyObjectByType<RocketLaunchCutscene>();
+        spaceIntro = FindAnyObjectByType<SpaceIntroCutscene>();
+        moonCapture = FindAnyObjectByType<MoonCapture>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -79,6 +88,8 @@ public class NetStageSync : NetworkBehaviour
             if (climb != null) climb.netGuest = true;
             if (rail != null) rail.netRemote = true;
             if (rocketLaunch != null) rocketLaunch.netRemoteDriven = true;
+            if (spaceIntro != null) spaceIntro.netRemoteDriven = true;
+            if (moonCapture != null) moonCapture.netRemoteDriven = true;
         }
     }
 
@@ -98,6 +109,8 @@ public class NetStageSync : NetworkBehaviour
                 if (climb.CutsceneStarted && !climbCutscene.Value) climbCutscene.Value = true;
             }
             if (rocketLaunch != null && rocketLaunch.Started && !rocketLaunched.Value) rocketLaunched.Value = true;
+            if (spaceIntro != null && spaceIntro.Started && !spaceIntroStarted.Value) spaceIntroStarted.Value = true;
+            if (moonCapture != null && moonCapture.Started && !moonCaptured.Value) moonCaptured.Value = true;
             if (rail != null)
             {
                 float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
@@ -124,6 +137,8 @@ public class NetStageSync : NetworkBehaviour
             }
             if (rail != null) { rail.NetApply(0, cartU0.Value); rail.NetApply(1, cartU1.Value); rail.NetApply(2, cartU2.Value); }
             if (rocketLaunched.Value && !guestRocket) { guestRocket = true; if (rocketLaunch != null) rocketLaunch.PlayRemote(); }
+            if (spaceIntroStarted.Value && !guestSpaceIntro) { guestSpaceIntro = true; if (spaceIntro != null) spaceIntro.PlayRemote(); }
+            if (moonCaptured.Value && !guestMoon) { guestMoon = true; if (moonCapture != null) moonCapture.PlayRemote(); }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

@@ -15,6 +15,8 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("켜짐 여부(평소 꺼짐 — SpaceStage가 씬 입장 시 켬).")]
     public bool active;
     public bool unlocked;
+    /// <summary>★2026-09-05 우주 도입 컷씬용: true면 무중력(active)은 유지하되 분사 입력만 막음(오징어가 힘을 주기 전).</summary>
+    [HideInInspector] public bool thrustLocked;
     /// <summary>한 번이라도 켜졌는가 — PauseMenu 조작법에 '우주오징어' 페이지 노출용(GiraffeMode.Unlocked 패턴).</summary>
     public static bool Unlocked;
     [Tooltip("다리 하나가 내는 추진력(N). 4다리 동시 분사 = ×4. 테이블 총질량 ~7.6kg.")]
@@ -98,7 +100,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
         for (int i = 0; i < legs.Length; i++)
         {
-            bool on = ti != null && ti.Get(legs[i].controlSet).longer;
+            bool on = !thrustLocked && ti != null && ti.Get(legs[i].controlSet).longer;
             if (jets[i] == null) continue;
             // 분사구 = 발끝, 분사 방향 = 다리 바깥(-meshUp). 매 프레임 추적(다리 스윙/스핀 따라 회전).
             Vector3 up = meshes[i].up;
@@ -116,7 +118,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
     void FixedUpdate()
     {
-        if (!active || !applied || ti == null) return;
+        if (!active || !applied || ti == null || thrustLocked) return;
         for (int i = 0; i < legs.Length; i++)
         {
             if (legAbs[i] == null || !legAbs[i].enabled) continue;

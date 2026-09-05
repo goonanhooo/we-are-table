@@ -11,7 +11,9 @@ public class SpaceStage : MonoBehaviour
     void Start()
     {
         var squid = FindAnyObjectByType<SquidMode>();
-        if (squid != null) { squid.unlocked = true; squid.active = true; }
+        // ★2026-09-05 도입 컷씬(SpaceIntroCutscene)이 있으면 무중력만 켜고 분사는 잠금 — 오징어가 힘을 주면 해제
+        bool intro = FindAnyObjectByType<SpaceIntroCutscene>() != null;
+        if (squid != null) { squid.unlocked = true; squid.active = true; squid.thrustLocked = intro; }
         var g = FindAnyObjectByType<GiraffeMode>();
         if (g != null) g.locked = true;
     }
