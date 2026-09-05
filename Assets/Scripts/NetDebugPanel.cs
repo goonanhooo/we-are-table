@@ -85,6 +85,8 @@ public class NetDebugPanel : MonoBehaviour
 
     bool InSession => NM != null && (NM.IsHost || NM.IsConnectedClient);
     bool InLobby => InSession && Link != null && !Link.Started;
+    /// <summary>★2026-09-06 로비(클릭 UI)가 열려 있는가 — CameraFollow가 커서 재잠금을 미루는 데 사용.</summary>
+    public static bool LobbyOpen { get; private set; }
 
     // ★2026-07-14 로비 = 왼쪽 열(홈 메뉴 계층에 포함, 가운데 창 폐지 — 사용자 요청)
     const float MapRowY = 352f;                                                // 맵 목록 시작 y
@@ -105,6 +107,7 @@ public class NetDebugPanel : MonoBehaviour
 
         var kb = Keyboard.current;
         if (kb != null && kb.f9Key.wasPressedThisFrame) visible = !visible;
+        LobbyOpen = InLobby;
         if (!visible && !InLobby) return;       // 로비는 항상 표시(다리 선택 필수), 미니 패널만 F9 숨김
 
         var m = Mouse.current;

@@ -28,6 +28,8 @@ public class CameraFollow : MonoBehaviour
     public float maxPitch = 75f;
     [Tooltip("시작 시 커서를 잠글지 여부. (ESC는 PauseMenu 일시정지가 담당)")]
     public bool lockCursor = true;
+    [Tooltip("★2026-09-06 커서가 풀렸을 때(알트탭/스팀 오버레이/컷씬 뒤) 게임 화면을 클릭하면 다시 잠가 마우스 시점 회전 복구 — 멀티에서 각자 자기 마우스로 시점 조작")]
+    public bool clickToRelock = true;
 
     [Header("★2026-09-04 카메라 충돌 — 벽/경사면 안으로 파고들지 않게(구체 캐스트로 당김)")]
     public bool collide = true;
@@ -72,13 +74,33 @@ public class CameraFollow : MonoBehaviour
         SetCursor(lockCursor);
     }
 
+    PauseMenu pauseMenu; bool pauseMenuLooked;
+
+    /// <summary>커서를 다시 잠가도 되는 상태인가 — 메뉴/편지/로비 같은 클릭 UI가 열려 있으면 안 됨.</summary>
+    public bool CanRelock()
+    {
+        if (!lockCursor || !clickToRelock) return false;
+        if (!Application.isFocused) return false;
+        if (Time.timeScale == 0f) return false;                       // 일시정지 메뉴
+        if (LetterOverlay.IsOpen) return false;                        // 편지 오버레이
+        if (!pauseMenuLooked) { pauseMenu = FindAnyObjectByType<PauseMenu>(); pauseMenuLooked = true; }
+        if (pauseMenu != null && pauseMenu.IsOpen) return false;
+        if (NetDebugPanel.LobbyOpen) return false;                     // 멀티 로비(다리 선택 클릭 UI)
+        if (FindAnyObjectByType<StartScreenMenu>() != null) return false;   // 시작 화면(커서 항상 표시)
+        return true;
+    }
+
     void LateUpdate()
     {
         // ESC는 PauseMenu(일시정지)가 담당. 여기서 커서를 건드리지 않는다.
         if (target == null) return;
 
-        // 커서가 잠겨 있을 때만 마우스로 시점 회전
+        // ★커서가 풀려 있으면(알트탭/오버레이/컷씬) 게임 화면 클릭으로 다시 잠금 — 각 클라이언트가 자기 마우스로 시점 회전
         Mouse mouse = Mouse.current;
+        if (mouse != null && Cursor.lockState != CursorLockMode.Locked && mouse.leftButton.wasPressedThisFrame && CanRelock())
+            SetCursor(true);
+
+        // 커서가 잠겨 있을 때만 마우스로 시점 회전
         if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
         {
             Vector2 d = mouse.delta.ReadValue();
