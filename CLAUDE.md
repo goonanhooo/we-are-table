@@ -499,3 +499,11 @@
 - 멀티: `NetStageSync.spaceIntroStarted/moonCaptured` — Space.unity에 NetStageSync GO(NetworkObject) 심음, 게스트는 PlayRemote()(테이블 조작 생략). 실기기 2대 미확인.
 - 검증(플레이 샘플러+스크린샷): 추격→파괴(5.5s)→오징어 도착(9s)→말풍선→구슬→thrustLocked 해제(18s)→카메라 복귀·오징어 퇴장(21s) ✓ / 달 205m 안 텔레포트 → 흡수 3.3s → **Moon 씬 로드**(중력 -1.62) ✓.
 - ⚠️함정: 컷씬 카메라 마커를 움직이는 배우의 자식으로 둘 때는 부모가 회전/이동해도 되는 것만(CamChase는 의도). 로켓 FBX 노즈 방향 = 로컬 +Z(빙산에선 (270,180,0)으로 세움). 소품/파티클 재질은 URP Particles/Lit 불투명+정점색(로우폴리 파편도 동일 규칙).
+
+### 2026-09-05 우주 도입 컷씬 v2 — 시네마틱 추격·말풍선·소행성 충돌(사용자 피드백)
+- `SpaceIntroCutscene` 재작성: 추격 16s를 **샷 리스트 `chaseShots[]`(cam 마커 + LookAt{ChairShip/TableShip/Midpoint/ShipToAsteroid} + seconds + fov)** 로 — Shot0 월드 고정 측면(SpaceIntro/ChaseShots/Shot0_SideWorld, 우주선이 화면을 가로질러 지나감) → TableShip 자식 추적 마커 Shot1 측면(-28,4,15) / Shot2 앞 3/4(22,9,62) / Shot3 뒤·위(5,9,-20, 의자선 응시) / Shot4 아래 측면(26,-8,15, fov55) → Shot5 충돌(월드 (-26,9,-70), 시선=테이블선↔소행성 0.35). 경로 PathStart (0,6,-330)→PathBreak (0,6,-45), 의자선은 `chairOffsetStart/End`(앞 18→30, 위 5→6)로 항상 앞.
+- **의자 큐브 삭제 → 손글씨 말풍선**("의자가 타고 있어요"/"테이블이 타고 있어요", `labelSeconds` 9.5, DrawBubble = HandUI.Paper + 짧은 꼬리선, 화면 안 클램프). 오징어 대사도 같은 DrawBubble.
+- **소행성 충돌**: `CrashAsteroid`(기존 소행성 복제, scale 9, PathBreak+(1.5,-3.5,10.5) — 노즈(피벗+Z 5m)가 윗부분에 박히는 순간 파괴). breakPos = 노즈 위치, 테이블은 로켓 자리에 나타나 천천히 표류(v (-0.8z,+0.5y,+0.3x), 각속도 0.15/0.35/0.1).
+- **바라보기 비트** `watchSeconds` 4.5: 카메라 = 테이블 어깨 너머(`watchOffset` (-3.5,1.8,-7)) → 시선 = 테이블 앞 `watchLookAhead` 14 + 위 1 → 전경 테이블, 멀어지는 의자선(불꽃)·달·충돌 소행성이 한 프레임. 의자선 탈출 9s(u³).
+- **오징어는 테이블 기준**: `squidStopOffset`(5,0.3,3.5)·`squidCamOffset`(-1.2,1.8,-6.5)로 표류하는 테이블을 따라감(`SquidHold()` 매 프레임 — 대화/구슬/발광 내내), CamSquid/CamSquidLook/SquidStop 마커는 삭제. SquidFrom(50,14,-25)/SquidExit(85,40,70)만 월드 마커.
+- ⚠️교훈: 측면 샷은 두 우주선이 30m 떨어져 있어 **카메라 거리 ≥28m + fov 50~55** 아니면 한쪽이 잘림(각도 계산: atan(tan(fov/2)×1.78)=수평 반시야). 바라보기/대화처럼 표류하는 물리 배우를 찍는 샷은 월드 마커 대신 **배우 기준 오프셋**이 안전. 검증은 sceneLoaded 훅으로 t0 잡는 EditorApplication.update 샘플러 + ScreenCapture 타임라인(r3_*).
