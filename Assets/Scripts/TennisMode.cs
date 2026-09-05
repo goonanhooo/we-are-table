@@ -51,6 +51,13 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         get { int m = 0; if (joints != null) for (int i = 0; i < joints.Length; i++) if (joints[i] != null) m |= 1 << i; return m; }
     }
 
+    /// <summary>★2026-09-05 동적 물체(눈사람 머리처럼 움직이는 Rigidbody)를 하나라도 잡고 있으면 true — 이때는 무게 상쇄 없음
+    /// (상쇄가 있으면 물건을 든 채 몸이 둥실 떠 물건을 옮기는 감각이 깨짐). 벽/키네마틱(광차 등) 붙기만 등반 보조.</summary>
+    public bool AnyDynamicStuck
+    {
+        get { if (joints == null || stuckDynamic == null) return false; for (int i = 0; i < joints.Length; i++) if (joints[i] != null && stuckDynamic[i]) return true; return false; }
+    }
+
     /// <summary>게스트 시각 적용: 공 표시 on/off + 붙은 다리 주황(멱등, 매 프레임 호출 무해).</summary>
     public void NetApplyVisual(bool on, int stuckMask) { active = on; netStuckMask = stuckMask; }
 
@@ -62,6 +69,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     MeshRenderer[] ballRs;
     Joint[] joints;
     GameObject[] anchors;
+    bool[] stuckDynamic;            // ★2026-09-05 다리별: 동적(비키네마틱) 강체(눈사람 머리·상자 등)에 붙었나 — 무게 상쇄 제외 판정
     bool[] prevLonger, prevShorter;
     readonly Collider[] overlap = new Collider[16];
 
@@ -86,8 +94,8 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
 
     void FixedUpdate()
     {
-        // ★붙은 다리가 하나라도 있으면 무게 상쇄(게스트/비활성 제외)
-        if (!active || netVisualOnly || allBodies == null || weightCancelWhenStuck <= 0f || StuckMask == 0) return;
+        // ★붙은 다리가 하나라도 있으면 무게 상쇄(게스트/비활성 제외). ★2026-09-05 동적 물체(눈사람 머리 등)를 잡고 있으면 상쇄 없음(사용자 요청)
+        if (!active || netVisualOnly || allBodies == null || weightCancelWhenStuck <= 0f || StuckMask == 0 || AnyDynamicStuck) return;
         Vector3 lift = -Physics.gravity * weightCancelWhenStuck;
         foreach (var ab in allBodies)
             if (ab != null && ab.enabled && ab.useGravity) ab.AddForce(lift * ab.mass, ForceMode.Force);
@@ -105,6 +113,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
         ballRs = new MeshRenderer[n];
         joints = new Joint[n];
         anchors = new GameObject[n];
+        stuckDynamic = new bool[n];
         prevLonger = new bool[n];
         prevShorter = new bool[n];
         for (int i = 0; i < n; i++)
@@ -201,6 +210,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             j.connectedArticulationBody = legAbs[i];
             j.enableCollision = false;   // 공 콜라이더와 물건이 서로 밀며 떨지 않게(조인트가 고정)
             joints[i] = j;
+            stuckDynamic[i] = !best.attachedRigidbody.isKinematic;   // 키네마틱(광차 등)은 벽처럼 취급
         }
         else
         {
@@ -221,6 +231,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
             j.connectedAnchor = legAbs[i].transform.InverseTransformPoint(ballPt);
             joints[i] = j;
             anchors[i] = a;
+            stuckDynamic[i] = false;
         }
     }
 
@@ -228,6 +239,7 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     {
         if (joints[i] != null) Destroy(joints[i]);
         joints[i] = null;
+        if (stuckDynamic != null) stuckDynamic[i] = false;
         if (anchors[i] != null) Destroy(anchors[i]);
         anchors[i] = null;
     }

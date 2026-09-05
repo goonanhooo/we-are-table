@@ -486,3 +486,5 @@
 - ⚠️URP Particles/Unlit에 내장 Default-Particle 텍스처를 쓰니 연기가 **검은 먹구름**처럼 나옴 → 직접 만든 흰 RGB+방사 알파 `SoftDot.png` + `_ColorMode 0`으로 해결. 가산/알파 투명은 `_Surface 1/_Blend/_SrcBlend/_DstBlend/_ZWrite 0/_SURFACE_TYPE_TRANSPARENT/queue 3000` 직접 세팅.
 - 멀티: `NetStageSync.rocketLaunched` — 호스트 `Started` 발행 → 게스트 `PlayRemote()`(테이블 텔레포트 생략, 렌더러 숨김·연출만), 게스트는 `netRemoteDriven`으로 트리거 무시. 씬 전환은 호스트 NetScene.Load.
 - IceCavern에도 동일 세팅(같은 착지 구간). 검증(플레이 샘플러+스크린샷): 탑승 원 진입→창문 도달(14,11.3,279.4)·렌더러 off→카운트다운→발사·상승 y190→페이드→**Space 로드** 확인. nextScene 비운 데모 모드도 원위치 복구·재발동 없음 확인.
+
+- **테니스 무게 상쇄 예외(2026-09-05, 사용자 요청)**: `TennisMode.stuckDynamic[]` — 붙은 대상이 **비키네마틱 Rigidbody(눈사람 머리·상자 등 움직이는 물건)** 이면 표시, `AnyDynamicStuck`이 true인 동안 FixedUpdate 무게 상쇄를 건너뜀(물건을 든 채 둥실 뜨는 것 방지). 벽 앵커(정적)와 키네마틱 RB(광차)는 예전대로 등반 보조. 검증: 머리 잡기 → jointGO=SnowmanHead·AnyDynamicStuck=True, 바닥 잡기 → False·StuckMask≠0. ⚠️검증 팁: DebugGrab은 발끝(Tip, private)에서 가장 가까운 콜라이더를 잡으므로 대상 공이 발끝을 감싸게 놓아야 바닥 대신 잡힌다.
