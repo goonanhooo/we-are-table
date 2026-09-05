@@ -5,7 +5,7 @@ using UnityEngine;
 /// ★2026-09-05 우주 맵 도입 컷씬(v2 — 시네마틱 추격). 씬 GO `SpaceIntro`에 부착, 참조는 전부 인스펙터(씬 오브젝트).
 ///  ① 추격(chaseShots 합계 ≈15s): 의자가 탄 우주선(chairShip, 앞·위)을 테이블이 탄 로켓(tableShip, 뒤)이 pathStart→pathBreak로 뒤쫓음.
 ///     카메라는 `chaseShots` 샷 리스트를 순서대로 — 월드 고정 샷(옆에서 스쳐 지나감)과 TableShip 자식 마커(옆/앞 3/4/위 등) 혼합.
-///     두 우주선 위에 동그란 손그림 말풍선(bubbleTex) + 의자/테이블 렌더 아이콘(chairIcon/tableIcon)을 labelSeconds 동안 표시.
+///     두 우주선 위에 동그란 손그림 말풍선(bubbleTex) + 의자/테이블 렌더 아이콘(chairIcon/tableIcon) — 우주선이 있는 동안 계속, 거리·FOV에 비례해 작아지다 사라짐.
 ///     샷에 orbitDeg를 주면 holdSeconds 동안 고정 후 시선점 중심으로 서서히 공전(옆에서 오래 보다가 천천히 도는 연출). 불꽃은 Flicker()로 일렁임.
 ///  ② 충돌: pathBreak의 소행성(crashAsteroid)에 테이블선이 부딪혀 섬광+파편(debris/debrisSparks), 로켓 모델 off, 숨겨둔 테이블이 나타나 무중력 표류.
 ///     의자선은 chairEscape로 가속 이탈.
@@ -46,6 +46,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     public Texture2D bubbleTex, chairIcon, tableIcon;
     [Tooltip("말풍선 높이(화면 높이 비율)")] public float bubbleSize = 0.21f;
     [Tooltip("말풍선 앵커: 우주선 피벗(꼬리)에서 앞으로 / 위로")] public float bubbleAnchorForward = 3f, bubbleAnchorUp = 2.6f;
+    [Tooltip("말풍선 기준 거리(m): 카메라가 이 거리(측면 샷)일 때 bubbleSize, 멀어지면 거리·FOV에 비례해 작아지고 20% 아래부터 사라짐")] public float bubbleRefDistance = 30f;
 
     [Header("경로/마커")]
     public Transform pathStart, pathBreak, chairEscape;
@@ -60,7 +61,6 @@ public class SpaceIntroCutscene : MonoBehaviour
     [Tooltip("오징어 대화 카메라(테이블 기준 오프셋)")] public Vector3 squidCamOffset = new Vector3(-1.2f, 1.8f, -6.5f);
 
     [Header("타이밍")]
-    public float labelSeconds = 10f;
     [Tooltip("파괴 연출을 지켜보는 시간(파편이 다 퍼질 때까지)")] public float driftSeconds = 3.5f;
     [Tooltip("멀어지는 의자선 클로즈업 시간")] public float watchSeconds = 6f;
     [Tooltip("둥둥 떠다니는 허탈 비트 시간")] public float floatSeconds = 5f;
@@ -85,7 +85,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     bool started, remote; float remoteSkip;
     ArticulationBody tableRoot; Renderer[] tableRenderers;   // 컷씬 시작 시 켜져 있던 테이블 렌더러만(테니스공/분사 등 꺼진 것은 제외)
     Transform cam; Camera camC; CameraFollow camFollow;
-    string bubbleText = "", hintText = ""; float flashAlpha; bool showLabels;
+    string bubbleText = "", hintText = ""; float flashAlpha;
     GUIStyle bubbleStyle, hintStyle, labelStyle;
     Vector3 shipDir = Vector3.forward;
     Vector3 tableFlameBase = Vector3.one, chairFlameBase = Vector3.one; Quaternion tableFlameRot = Quaternion.identity, chairFlameRot = Quaternion.identity;
@@ -202,7 +202,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         float baseFov = camC != null ? camC.fieldOfView : 60f;
 
         // ① 추격 — 샷 리스트 (게스트는 remoteSkip만큼 건너뛰어 호스트 타임라인에 맞춤)
-        float total = ChaseTotal(); float t = Mathf.Clamp(remoteSkip, 0f, total); showLabels = t < labelSeconds;
+        float total = ChaseTotal(); float t = Mathf.Clamp(remoteSkip, 0f, total);
         int shotCount = chaseShots != null ? chaseShots.Length : 0;
         float shotStart = 0f;
         for (int si = 0; si < Mathf.Max(1, shotCount); si++)
@@ -238,12 +238,10 @@ public class SpaceIntroCutscene : MonoBehaviour
                     cam.rotation = lookRot;
                     if (camC != null) camC.fieldOfView = shot != null ? shot.fov : baseFov;
                 }
-                if (t > labelSeconds) showLabels = false;
                 firstFrame = false;
                 yield return null;
             }
         }
-        showLabels = false;
         PlaceShips(1f, t);
 
         // ② 소행성 충돌 → 파괴
@@ -456,13 +454,19 @@ public class SpaceIntroCutscene : MonoBehaviour
         GUI.Label(r, text, style);
     }
 
-    /// <summary>동그란 손그림 말풍선(bubbleTex: 512×640, 꼬리 끝 (262,606), 원 중심 (256,262) 반지름 226) + 아이콘.</summary>
+    /// <summary>동그란 손그림 말풍선(bubbleTex: 512×640, 꼬리 끝 (262,606), 원 중심 (256,262) 반지름 226) + 아이콘.
+    /// 크기 = bubbleSize × (bubbleRefDistance/거리) × (50/FOV), 최대 1 — 우주선의 화면 크기에 비례해 멀어지면 작아지고 20% 아래부터 페이드.</summary>
     void DrawIconBubble(Vector3 world, Texture2D icon)
     {
-        if (Camera.main == null || bubbleTex == null) return;
-        Vector3 sp = Camera.main.WorldToScreenPoint(world);
+        var mainCam = Camera.main;
+        if (mainCam == null || bubbleTex == null) return;
+        Vector3 sp = mainCam.WorldToScreenPoint(world);
         if (sp.z <= 0f) return;
-        float h = Screen.height * bubbleSize, w = h * bubbleTex.width / bubbleTex.height;
+        float k = Mathf.Clamp((bubbleRefDistance / Mathf.Max(1f, sp.z)) * (50f / Mathf.Max(5f, mainCam.fieldOfView)), 0.01f, 1f);
+        float alpha = Mathf.InverseLerp(0.06f, 0.2f, k);
+        if (alpha <= 0.01f) return;
+        var prevColor = GUI.color; GUI.color = new Color(1f, 1f, 1f, alpha);
+        float h = Screen.height * bubbleSize * k, w = h * bubbleTex.width / bubbleTex.height;
         float ax = sp.x, ay = Screen.height - sp.y;
         var r = new Rect(ax - w * (262f / 512f), ay - h * (606f / 640f), w, h);
         r.x = Mathf.Clamp(r.x, 4f, Screen.width - w - 4f); r.y = Mathf.Clamp(r.y, 4f, Screen.height - h - 4f);
@@ -472,6 +476,7 @@ public class SpaceIntroCutscene : MonoBehaviour
             float cx = r.x + w * (256f / 512f), cy = r.y + h * (262f / 640f), rad = h * (226f / 640f), s = rad * 1.36f;
             GUI.DrawTexture(new Rect(cx - s * 0.5f, cy - s * 0.5f, s, s), icon, ScaleMode.ScaleToFit, true);
         }
+        GUI.color = prevColor;
     }
 
     void OnGUI()
@@ -485,11 +490,9 @@ public class SpaceIntroCutscene : MonoBehaviour
             labelStyle = HandUI.Style(26, HandUI.Ink, TextAnchor.MiddleCenter);
             hintStyle = HandUI.Style(24, HandUI.Ink, TextAnchor.MiddleCenter);
         }
-        if (showLabels)
-        {
-            if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + chairShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, chairIcon);
-            if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + tableShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, tableIcon);
-        }
+        // 탑승 말풍선: 우주선이 있는 동안 계속(의자선은 멀어지며 비례해 작아지다 사라짐)
+        if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + chairShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, chairIcon);
+        if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + tableShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, tableIcon);
         if (!string.IsNullOrEmpty(bubbleText) && squidHead != null) DrawBubble(squidHead.position + Vector3.up * 0.6f, bubbleText, bubbleStyle, 30f);
         if (!string.IsNullOrEmpty(hintText))
         {
