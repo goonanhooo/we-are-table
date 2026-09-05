@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 public static class Progress
 {
     // 진행 체인(스테이지 선택 기본 목록 순서) — ★2026-07-15 액자 맵(FrameHall)을 정글과 빙산 사이에 삽입
-    static readonly string[] Chain = { "Hallway", "Jungle", "IceMountain" };   // ★2026-09-03 테니스 구간은 빙산 하부에 통합
+    static readonly string[] Chain = { "Hallway", "Jungle", "IceCavern", "IceMountain", "Space", "Moon" };   // ★2026-09-06 복도→정글→동굴(광차)→빙산(눈사람 동굴 시작)→우주→달
     static readonly string[] MenuScenes = { "StartScreen", "NewStartScreen" };
 
     static string prevScene;

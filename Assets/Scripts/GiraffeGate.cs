@@ -25,7 +25,7 @@ public class GiraffeGate : MonoBehaviour
     public Vector3 cornerLocal = new Vector3(-22f, 24f, 30f);
 
     [Header("낙하 → 다음 씬")]
-    public string nextScene = "IceMountain";   // ★2026-09-03 정글 다음 = 빙산(테니스 구간은 빙산 하부 얼음 방에 통합; 씬 인스턴스도 갱신됨)
+    public string nextScene = "IceCavern";   // ★2026-09-06 정글 다음 = 광차 동굴(IceCavern) → 눈사람 동굴 도착 시 빙산(IceMountain). 씬 인스턴스도 갱신됨
     public float fallTriggerY = 5f;
     public float holeRadius = 2.5f;
 

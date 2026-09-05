@@ -21,17 +21,16 @@ public class LevelSelect : MonoBehaviour
 
     public Level[] levels =   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
     {
-        new Level { label = "시작", scene = "Hallway",     thumb = "Thumbs/hallway" },
+        // ★2026-09-06 전체 흐름 순서: 복도→정글→동굴(광차)→빙산(눈사람 동굴 시작)→우주→달 (Progress.Chain과 동일)
+        new Level { label = "복도", scene = "Hallway",     thumb = "Thumbs/hallway" },
         new Level { label = "정글", scene = "Jungle",      thumb = "Thumbs/jungle"  },
+        new Level { label = "동굴", scene = "IceCavern",   thumb = "Thumbs/cavern"  },
         new Level { label = "빙산", scene = "IceMountain", thumb = "Thumbs/ice"     },
+        new Level { label = "우주", scene = "Space",       thumb = "Thumbs/space"   },
+        new Level { label = "달",   scene = "Moon",        thumb = "Thumbs/moon"    },
     };
     [Tooltip("'구현중인 맵들' 버튼을 눌러야 보이는 목록")]
-    public Level[] wipLevels =
-    {
-        new Level { label = "우주", scene = "Space", thumb = "Thumbs/space" },
-        new Level { label = "등반", scene = "Climb", thumb = "Thumbs/climb" },
-        new Level { label = "달",   scene = "Moon",  thumb = "Thumbs/moon"  },
-    };
+    public Level[] wipLevels = { };   // ★2026-09-06 비움 — 우주/달은 기본 목록으로, 등반/트랙/모험은 흐름 밖(메뉴 미노출)
 
     public bool Showing { get; private set; }
 
@@ -110,8 +109,9 @@ public class LevelSelect : MonoBehaviour
         if (L.Korean) return lv.label;
         switch (lv.scene)
         {
-            case "Hallway": return "start";
+            case "Hallway": return "hallway";
             case "Jungle": return "jungle";
+            case "IceCavern": return "cave";
             case "FrameHall": return "gallery";
             case "TennisCourt": return "tennis court";
             case "IceMountain": return "iceberg";
@@ -390,7 +390,7 @@ public class LevelSelect : MonoBehaviour
         y += 8f;
         if (!showWip)
         {
-            if (WhiteBtn(new Rect(lx, y, 250f, 52f), L.T("구현중인 맵들 ▶", "wip maps ▶"), backStyle))
+            if (wipLevels.Length > 0 && WhiteBtn(new Rect(lx, y, 250f, 52f), L.T("구현중인 맵들 ▶", "wip maps ▶"), backStyle))
             { showWip = true; if (preview != null) preview.HideAll(); previewHover = -1; }
             y += 62f;
         }

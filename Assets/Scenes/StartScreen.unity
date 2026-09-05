@@ -1423,25 +1423,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LevelSelect
   levels:
-  - label: "\uC2DC\uC791"
+  - label: "\uBCF5\uB3C4"
     scene: Hallway
     thumb: Thumbs/hallway
   - label: "\uC815\uAE00"
     scene: Jungle
     thumb: Thumbs/jungle
+  - label: "\uB3D9\uAD74"
+    scene: IceCavern
+    thumb: Thumbs/cavern
   - label: "\uBE59\uC0B0"
     scene: IceMountain
     thumb: Thumbs/ice
-  wipLevels:
   - label: "\uC6B0\uC8FC"
     scene: Space
     thumb: Thumbs/space
-  - label: "\uB4F1\uBC18"
-    scene: Climb
-    thumb: Thumbs/climb
   - label: "\uB2EC"
     scene: Moon
     thumb: Thumbs/moon
+  wipLevels: []
   miniatures: {fileID: 0}
   preview: {fileID: 0}
 --- !u!4 &1453674153

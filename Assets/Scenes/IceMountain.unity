@@ -2599,7 +2599,7 @@ Transform:
   m_GameObject: {fileID: 82571025}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 120.2, z: -34}
+  m_LocalPosition: {x: 0, y: 100.2, z: -12}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -34050,6 +34050,7 @@ MonoBehaviour:
   minPitch: -10
   maxPitch: 75
   lockCursor: 1
+  clickToRelock: 1
   collide: 1
   collisionRadius: 0.3
   collisionMask:
@@ -41031,7 +41032,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
     - serializedVersion: 2
       time: 0.2
@@ -41089,7 +41090,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 1
@@ -59380,11 +59381,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9100000001, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 117
+      value: 97
       objectReference: {fileID: 0}
     - target: {fileID: 9100000001, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -34
+      value: -12
       objectReference: {fileID: 0}
     - target: {fileID: 9100000001, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: m_LocalRotation.w

@@ -543,3 +543,10 @@
 - ⚠️테스트 함정: 테이블을 captureRadius 안으로 **바로 텔레포트하면 CameraFollow가 따라오기 전에 캡처가 시작**돼 카메라가 원래 자리(800m 뒤)에 남는다 — 밖(390m)에 놓고 속도를 줘 자연 진입시킬 것.
 - **달 맵 지형 색(2026-09-06)**: `Assets/Guide/MoonTerrain.asset` 정점색을 회색(0.565)에서 우주 달과 같은 색조로 재착색 — 밝기(그레이) 보존 × (0.63,0.59,0.46)/0.565 → 평균 (0.636,0.596,0.465), 렌더 실측 지면 (0.74,0.70,0.61)(우주 달 lit (0.67,0.63,0.48)과 같은 베이지-노랑 계열, 달 맵 태양이 밝아 조금 환함). 달 바위(AsteroidMat 회색)는 그대로.
 - **흡수 시작 거리(2026-09-06)**: `captureRadius` 320→**375**(소행성 지대 안쪽 끝 = 달 중심 432m → 지대를 벗어나 ~45m 지나면 시작), `gravityMu` 540000→**700000**(더 먼 거리에서 시작해도 속도감 유지). 실측: 375m 진입 → 표면까지 6.4s, Moon 로드 +7.3s.
+
+## 2026-09-06 전체 흐름 확정 + 로비/스테이지 목록 재구성(사용자 요청 "로비 맵 선택을 지금 구조에 맞게")
+- **흐름**: 로비(StartScreen) → 복도(Hallway) → 정글(Jungle) → **동굴(IceCavern: 테니스 방·광차·샤프트)** → **빙산(IceMountain: 눈사람 동굴에서 시작 → 슬라이드 → 로켓)** → 우주(Space) → 달(Moon). 사용자 선택: "동굴에서 눈사람 동굴 도착 시 빙산 씬으로 전환".
+- **씬 연결**: Jungle `GiraffeGate.nextScene`=IceCavern(기본값+씬 인스턴스). IceCavern에 `CaveExit` GO(`CaveExitToMountain.cs`): 테이블이 눈사람 동굴 바닥 구역(y 94.5~98.8, z -17~24, |x|≤17 — 광차에 매달린 y≥100.9는 제외)에 0.4s 머물면 페이드→IceMountain 로드(멀티: 전원 로컬 페이드+페이드 인 예약, 로드는 호스트). IceCavern의 IceChairCutscene은 비활성(빙산 씬이 담당). **IceMountain 시작점 = 눈사람 동굴 안 (0,97,-12)**(TablePlayer·RespawnPoint 이동, 바닥 96 확인) — 하부 얼음 방/테니스/스폰 튜브는 남아 있지만 흐름에서 닿지 않음(동굴 씬이 담당).
+- **진행 체인** `Progress.Chain` = Hallway, Jungle, IceCavern, IceMountain, Space, Moon(다음 맵으로 넘어가면 클리어).
+- **스테이지 목록(LevelSelect)**: 기본 6개 복도/정글/동굴/빙산/우주/달(스크립트 기본값+StartScreen 직렬화), `wipLevels` 비움(등반/트랙/모험은 메뉴 미노출, '구현중인 맵들' 버튼은 목록이 비면 숨김). 영문 hallway/jungle/cave/iceberg/space/moon. 동굴 썸네일 `Resources/Thumbs/cavern.png`(정거장에서 선로 안쪽, 640×400 에디터 렌더).
+- **멀티 로비(NetDebugPanel)**: 복도/정글/동굴/빙산/우주/달 + 경주(대전)/축구(대전) 8개(3열 그리드 자동). 테니스장/트랙/모험/등반 제외.
