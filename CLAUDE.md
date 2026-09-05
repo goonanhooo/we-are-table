@@ -513,3 +513,9 @@
 - **카메라**: chaseShots = [측면 추적(TableShip/Shot1_SideTrack (-28,4,15), Midpoint, 15.5s, fov50, **holdSeconds 6.5 → orbitDeg -150**), 충돌(Shot5_Impact (-26,9,-70), ShipToAsteroid, 2.4s)]. 공전은 시선점(두 우주선 중간) 중심, 진행방향 프레임에서 SmoothStep — 옆에서 6.5s 고정 후 뒤쪽(달을 향해 나는 두 우주선)을 지나 반대편 뒤 1/4까지 서서히. 다른 샷 마커는 삭제. PathStart (0,6,-363)(17.9s × 17.8m/s).
 - **불꽃**: `tableFlame/chairFlame` 참조 + `Flicker()`(펄린: 길이 ±35%, 굵기 ±9%, 끝 ±4°, flameFlickerSpeed 11) — PlaceShips·ChairEscape 매 프레임.
 - **달**: `Assets/Editor/SpaceMoonBuilder.cs`(Tools/Space/Rebuild Moon Mesh — 이십면체 6단 40,962정점, 정점 공유 스무스 노멀, 사발+림 크레이터 84개, '바다' 얼룩, 미세 펄린) → MoonMesh.asset 교체. ⚠️우주 조명(보라 필+파란 앰비언트)이 정점색의 따뜻함을 죽임 — 정점색 (0.84,0.78,0.62)만으론 회청색 → **MoonMat `_Tint` (1.22,1.12,0.80)**(HDR 틴트, 렌더 실측 lit 평균 (0.67,0.63,0.48) 연노랑). 달 맵 지형 정점색은 회색(0.565)이고 따뜻한 태양(1,0.98,0.94)×1.5로 보이는 색이 (0.70,0.69,0.67).
+
+### 2026-09-05 우주 도입 컷씬 v4 — 타이머 숨김·물방울 불꽃·어깨 너머 충돌·밝은 우주선(사용자 피드백)
+- **타이머**: `StageTimer.Suppress`(정적, Awake에서 false) + `RestartClock()` — SpaceIntroCutscene.Run 시작에 Suppress=true, 카메라 복귀 시 false+RestartClock(컷씬 뒤 0부터). 다른 컷씬에서도 같은 패턴으로 쓰면 됨.
+- **불꽃 메시** `Assets/Guide/Space/FlameDrop.asset`(478정점): 노즐 쪽(+Y, 로컬 up=우주선 forward)에 캡 높이 0.244의 타원 돔(스케일 x1.0/y4.5에서 반구로 보임) + 뒤로 (1-t)^0.8 테이퍼 → 물방울. Flame 로컬 (0,0,-0.35) 스케일 (1,4.5,1). 로켓 발사 컷씬의 FlameCone은 그대로. ⚠️프로파일을 Vector2(y,r)로 두면 .x=y·.y=r — 조건식에서 헷갈려 링이 다 빠진 적 있음(스파이크 모양이면 이것).
+- **충돌 샷** = TableShip 자식 `Shot_ImpactOTS` (2.6,2.4,-9.5), LookAt.Midpoint, 4.2s, fov52 — 어깨 너머로 앞의 의자선·다가오는 CrashAsteroid가 보이다 노즈가 박힘. 충돌 직후 `impactShake`(0.45m, 0.7s 감쇠) 카메라 흔들림. PathStart (0,6,-395)(19.7s).
+- **우주선 밝기**: 전용 재질 `Guide/Space/RocketShipBright.mat`(RocketWhite 복제, _BaseColor 1.3, smooth 0.5, metal 0.1 — IceMountain 로켓은 원본 유지) + 우주선마다 자식 `ShipLight`(포인트, 강도 24, 범위 18, (-3,3.5,1.5), 그림자 X). 측면 캡처 몸체 밝기 실측 0.65(이전 ~0.45). URP 포인트 라이트는 역제곱이라 4m 거리에 강도 5는 거의 무효 — 20대 필요.

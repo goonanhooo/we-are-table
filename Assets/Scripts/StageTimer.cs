@@ -10,6 +10,8 @@ using UnityEngine.SceneManagement;
 public class StageTimer : MonoBehaviour
 {
     public static StageTimer Instance { get; private set; }
+    /// <summary>★2026-09-05 컷씬 동안 칩 숨김(정적 — 컷씬이 켜고 끔, Awake에서 초기화).</summary>
+    public static bool Suppress;
 
     [Tooltip("클리어 오버레이에 표시할 맵 이름(비면 씬 이름).")]
     public string mapLabel = "";
@@ -28,12 +30,16 @@ public class StageTimer : MonoBehaviour
     void Awake()
     {
         Instance = this;
+        Suppress = false;
         startTime = Time.time;
         string k = Key();
         if (PlayerPrefs.HasKey(k)) best = PlayerPrefs.GetFloat(k);
     }
 
     void OnDestroy() { if (Instance == this) Instance = null; }
+
+    /// <summary>컷씬이 끝나고 조작이 시작될 때 0부터 다시 재기.</summary>
+    public void RestartClock() { if (!cleared) startTime = Time.time; }
 
     string Key() => "besttime_" + SceneManager.GetActiveScene().name;
     string Label() => string.IsNullOrEmpty(mapLabel) ? SceneManager.GetActiveScene().name : mapLabel;
@@ -60,6 +66,7 @@ public class StageTimer : MonoBehaviour
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
+        if (Suppress && !cleared) return;
         float t = cleared ? clearTime : Time.time - startTime;
         var chip = UiKit.Chip(Screen.width * 0.5f, 10f, 150f, 34f);
         GUI.Label(chip, Fmt(t), UiKit.Btn);

@@ -67,6 +67,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     public float glowSeconds = 1.8f;
     public float squidLeaveSeconds = 2.6f;
     public float hintSeconds = 6f;
+    [Tooltip("충돌 순간 카메라 흔들림(m) / 지속(s)")] public float impactShake = 0.45f, impactShakeSeconds = 0.7f;
     public Color glowColor = new Color(0.7f, 0.4f, 1.5f);
 
     [HideInInspector] public bool netRemoteDriven;
@@ -162,6 +163,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         }
         var squidMode = Object.FindAnyObjectByType<SquidMode>();
         if (squidMode != null) squidMode.thrustLocked = true;
+        StageTimer.Suppress = true;   // 컷씬 동안 초 표시 숨김
         if (tableRenderers != null) foreach (var r in tableRenderers) if (r != null) r.enabled = false;
         if (!remote && tableRoot != null) tableRoot.immovable = true;
         var mainCam = Camera.main;
@@ -227,12 +229,20 @@ public class SpaceIntroCutscene : MonoBehaviour
             tableRoot.angularVelocity = new Vector3(0.15f, 0.35f, 0.1f);
         }
         StartCoroutine(ChairEscape());
-        // 충돌 직후 잠깐: 카메라는 그 자리에서 파편/테이블을 봄
+        // 충돌 직후 잠깐: 카메라는 그 자리에서(흔들리며) 파편/테이블을 봄
+        Vector3 driftCam = cam != null ? cam.position : breakPos;
         for (float d = 0f; d < driftSeconds; d += Time.deltaTime)
         {
-            if (cam != null) { Vector3 target = tableRoot != null ? tableRoot.transform.position : breakPos; cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(target - cam.position, Vector3.up), Time.deltaTime * 4f); }
+            if (cam != null)
+            {
+                float k = impactShakeSeconds > 0f ? Mathf.Clamp01(1f - d / impactShakeSeconds) : 0f;
+                cam.position = driftCam + Random.insideUnitSphere * impactShake * k * k;
+                Vector3 target = tableRoot != null ? tableRoot.transform.position : breakPos;
+                cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(target - driftCam, Vector3.up), Time.deltaTime * 4f);
+            }
             yield return null;
         }
+        if (cam != null) cam.position = driftCam;
 
         // ③ 바라보기: 테이블 어깨 너머에서 멀어지는 의자선을
         {
@@ -314,9 +324,10 @@ public class SpaceIntroCutscene : MonoBehaviour
                        "hold a leg's stretch key (E · Y · O · ]) to thrust from that foot — aim your legs to fly!");
         StartCoroutine(HideHint());
 
-        // ⑥ 오징어 퇴장 + 카메라 복귀
+        // ⑥ 오징어 퇴장 + 카메라 복귀 (+ 타이머 다시 표시·0부터)
         if (camC != null) camC.fieldOfView = baseFov;
         if (camFollow != null) { camFollow.BlendFrom(1.4f); camFollow.enabled = true; }
+        StageTimer.Suppress = false; if (StageTimer.Instance != null) StageTimer.Instance.RestartClock();
         if (squid != null)
         {
             Vector3 e0 = squid.position, e1 = squidExit != null ? squidExit.position : e0 + new Vector3(80f, 30f, 60f);
