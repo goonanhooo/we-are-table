@@ -20,7 +20,8 @@ public class RocketLaunchCutscene : MonoBehaviour
     [Tooltip("빛기둥(원→창문). 비활성으로 시작")] public Transform beam;
     [Tooltip("불꽃 콘(로켓 밑). 비활성으로 시작")] public Transform flame;
     public Light flameLight;
-    public ParticleSystem smoke;
+    [Tooltip("지면 확산 뭉게연기(발사대 주변, 월드 시뮬)")] public ParticleSystem smoke;
+    [Tooltip("로켓 꼬리 연기(노즐을 따라감, 월드 시뮬)")] public ParticleSystem plume;
     public Transform camBoard, camBoardLook, camLaunch, camLaunchLook;
 
     [Header("타이밍")]
@@ -36,8 +37,13 @@ public class RocketLaunchCutscene : MonoBehaviour
 
     [Header("마커 연출")]
     public Color ringEmission = new Color(0.25f, 0.85f, 1.2f);
-    public float ringPulseSpeed = 2.2f;
-    public float ringSpin = 25f;
+    [Tooltip("밝기 맥동 속도")] public float ringPulseSpeed = 1.4f;
+    [Tooltip("회전 속도(도/초)")] public float ringSpin = 12f;
+    [Tooltip("크기 숨쉬기 진폭(0.12 = ±12%)")] public float ringScalePulse = 0.12f;
+    [Tooltip("크기 숨쉬기 속도")] public float ringScaleSpeed = 1.1f;
+
+    [Header("발사 연출")]
+    [Tooltip("발사 카메라 진동 최대 진폭(m)")] public float cameraShake = 0.35f;
 
     [HideInInspector] public bool netRemoteDriven;   // 게스트: 트리거 무시(NetStageSync가 PlayRemote)
     public bool Started => started;
@@ -65,6 +71,7 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flame != null) flame.gameObject.SetActive(false);
         if (flameLight != null) flameLight.enabled = false;
         if (smoke != null) smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (plume != null) plume.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
     }
 
     void Update()
@@ -76,6 +83,9 @@ public class RocketLaunchCutscene : MonoBehaviour
             mpb.SetColor("_EmissionColor", ringEmission * k);
             ring.SetPropertyBlock(mpb);
             ring.transform.Rotate(0f, ringSpin * Time.deltaTime, 0f, Space.World);
+            // 천천히 커졌다 작아지는 숨쉬기
+            float sc = 1f + ringScalePulse * Mathf.Sin(Time.time * ringScaleSpeed);
+            ring.transform.localScale = new Vector3(sc, 1f, sc);
         }
         if (started && flame != null && flame.gameObject.activeSelf && rocket != null)
         {
@@ -83,6 +93,7 @@ public class RocketLaunchCutscene : MonoBehaviour
             float g = 0.8f + 0.45f * Mathf.PerlinNoise(0.7f, Time.time * 31f);
             flame.localScale = new Vector3(flameBase.x * f, flameBase.y * g, flameBase.z * f);
             flame.position = rocket.position + flameOffset;
+            if (plume != null) plume.transform.position = rocket.position + flameOffset + Vector3.down * 0.8f;
             if (flameLight != null)
             {
                 flameLight.transform.position = rocket.position + flameOffset + Vector3.down * 1.2f;
@@ -163,8 +174,10 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flame != null) flame.gameObject.SetActive(true);
         if (flameLight != null) flameLight.enabled = true;
         if (smoke != null) smoke.Play(true);
+        if (plume != null) plume.Play(true);
         float v = 0f, elapsed = 0f, total = shakeSeconds + liftSeconds;
         Vector3 basePos = rocket != null ? rocket.position : Vector3.zero;
+        Vector3 camBase = cam != null ? cam.position : Vector3.zero;
         fading = false;
         while (elapsed < total)
         {
@@ -177,11 +190,17 @@ public class RocketLaunchCutscene : MonoBehaviour
                 rocket.position = basePos + new Vector3(Random.Range(-a, a), 0f, Random.Range(-a, a));
             }
             if (elapsed > shakeSeconds + 1.2f) countdownText = "";
-            if (smoke != null && elapsed > shakeSeconds + 2.5f && smoke.isEmitting) smoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (smoke != null && elapsed > shakeSeconds + 3.5f && smoke.isEmitting) smoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (plume != null && elapsed > total - 0.8f && plume.isEmitting) plume.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             if (cam != null && rocket != null)
             {
+                // 진동: 점화 중 커졌다가 상승하며 서서히 잦아듦
+                float amp = elapsed < shakeSeconds ? cameraShake * (elapsed / shakeSeconds)
+                                                   : cameraShake * Mathf.Clamp01(1f - (elapsed - shakeSeconds) / (liftSeconds * 0.8f));
+                cam.position = camBase + Random.insideUnitSphere * amp;
                 Vector3 look = rocket.position + Vector3.up * 5f;
-                cam.rotation = Quaternion.Slerp(cam.rotation, Quaternion.LookRotation(look - cam.position), dt * 6f);
+                Quaternion aim = Quaternion.LookRotation(look - camBase);
+                cam.rotation = Quaternion.Slerp(cam.rotation, aim, dt * 6f) * Quaternion.Euler(Random.Range(-amp, amp) * 1.5f, Random.Range(-amp, amp) * 1.5f, 0f);
             }
             if (!fading && elapsed > total - fadeSeconds) { fading = true; ScreenFader.FadeOut(fadeSeconds); }
             yield return null;
@@ -208,6 +227,8 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flame != null) { flame.gameObject.SetActive(false); flame.localScale = flameBase; }
         if (flameLight != null) flameLight.enabled = false;
         if (smoke != null) smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (plume != null) plume.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (ring != null) ring.transform.localScale = Vector3.one;
         if (tableRenderers != null) foreach (var r in tableRenderers) if (r != null) r.enabled = true;
         if (!remote && tableRoot != null)
         {
