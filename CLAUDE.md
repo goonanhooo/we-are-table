@@ -473,3 +473,8 @@
 - **원복된 시안(커밋 89a564b → 되돌림)**: 손그림 도넛 줄 HUD(PoseDonutUI)·금색 토러스 충전 링(PoseRing, 4개 씬 배치)·누적 무상한 충전·NetStageSync 링/도넛 동기화·정글 CoinPiles 삭제 — 전부 b4d00e5 상태로 복구(파이 UI·pose_pie_0~3·CoinPickup·CoinPiles 복원, AddPoseResets는 최대치 캡). 이력은 git에 남아 있음.
 - 검증: 로컬 호스트에서 SetDifficulty(1)→전원 Coward, Shutdown→-1 ✓ · 시작 화면 난이도 단계/로비 난이도 줄 스크린샷 ✓. 게스트 측은 실기기 2대 확인 필요.
 - 검증 팁: 플레이 중 `ScreenCapture.CaptureScreenshot`가 파일을 씀(IMGUI HUD 포함) — 게임 뷰가 살아있으면 이 방법이 가장 빠름. HallwayStage 컷씬(~25s)이 끝나야 TeleportRoot가 먹음(`root.immovable` 확인).
+
+## 2026-09-05 빙산 착지 플랫폼 끝 로켓 발사대 배치(사용자 요청)
+- 사용자가 넣어 둔 `LandingZone/LandingPad_L·LandingPad_R`(Assets/Models/IceLanding/SciFi Landing Pad.fbx, 월드 크기 14.5×13.3×15.2)·`Rocket`(Red White Rocket.fbx)이 루트 오프셋(0,6.87,-207.87)+스케일 1.888 때문에 플랫폼 중간 위 9m 공중에 떠 있었음 → 루트를 원점·스케일 1로 되돌리고(자식 lossyScale 1510.6/1133 유지) 발사대를 **플랫폼 끝 좌우** (∓14, 2.5, 283)에, 로켓은 오른쪽 발사대 위(+1.89)에. 빙산에서 보면 왼쪽=−x, 오른쪽=+x. 셋 다 MeshCollider 추가.
+- 착지 플랫폼(`SlideCourse/JumpTarget`) 폭 42→56(Pad/PadBrake/RimB x 스케일, RimL/R x ±28) — 발사대 두 개(각 14.5 폭)가 나란히 들어가게. 브레이크 존 정지 범위(z236~253)와 발사대(z275~291)는 겹치지 않음. IceMountain·IceCavern 둘 다 동일 적용.
+- ⚠️FBX 임포트 루트(localScale 800)를 부모 스케일로 키우면 위치까지 같이 밀린다 — 크기 조절은 자식 localScale로, 부모는 원점 유지할 것.
