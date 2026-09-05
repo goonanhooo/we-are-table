@@ -22,6 +22,7 @@ public class RocketLaunchCutscene : MonoBehaviour
     public Light flameLight;
     [Tooltip("지면 확산 뭉게연기(발사대 주변, 월드 시뮬)")] public ParticleSystem smoke;
     [Tooltip("로켓 꼬리 연기(노즐을 따라감, 월드 시뮬)")] public ParticleSystem plume;
+    [Tooltip("점화 불꽃 파편(발사대에서 사방으로 튐)")] public ParticleSystem sparks;
     public Transform camBoard, camBoardLook, camLaunch, camLaunchLook;
 
     [Header("타이밍")]
@@ -31,6 +32,7 @@ public class RocketLaunchCutscene : MonoBehaviour
     public float shakeSeconds = 1.3f;
     public float liftSeconds = 5.5f;
     [Tooltip("상승 가속도(m/s²)")] public float liftAccel = 12f;
+    [Tooltip("이륙 순간 초기 속도(m/s) — 확 튀어오르는 킥")] public float liftKick = 5f;
     public float fadeSeconds = 1.5f;
     [Tooltip("발사 후 로드할 씬. 비우면 원위치 복구(데모)")] public string nextScene = "Space";
     public float boardCamFov = 42f, launchCamFov = 50f;
@@ -72,6 +74,7 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flameLight != null) flameLight.enabled = false;
         if (smoke != null) smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         if (plume != null) plume.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (sparks != null) sparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
     }
 
     void Update()
@@ -94,6 +97,7 @@ public class RocketLaunchCutscene : MonoBehaviour
             flame.localScale = new Vector3(flameBase.x * f, flameBase.y * g, flameBase.z * f);
             flame.position = rocket.position + flameOffset;
             if (plume != null) plume.transform.position = rocket.position + flameOffset + Vector3.down * 0.8f;
+            if (sparks != null && rocket.position.y - rocketStart.y < 6f) sparks.transform.position = rocket.position + flameOffset + Vector3.down * 0.5f;
             if (flameLight != null)
             {
                 flameLight.transform.position = rocket.position + flameOffset + Vector3.down * 1.2f;
@@ -175,7 +179,8 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flameLight != null) flameLight.enabled = true;
         if (smoke != null) smoke.Play(true);
         if (plume != null) plume.Play(true);
-        float v = 0f, elapsed = 0f, total = shakeSeconds + liftSeconds;
+        if (sparks != null) sparks.Play(true);
+        float v = 0f, elapsed = 0f, total = shakeSeconds + liftSeconds; bool lifted = false;
         Vector3 basePos = rocket != null ? rocket.position : Vector3.zero;
         Vector3 camBase = cam != null ? cam.position : Vector3.zero;
         fading = false;
@@ -186,12 +191,13 @@ public class RocketLaunchCutscene : MonoBehaviour
             {
                 float a;
                 if (elapsed < shakeSeconds) a = 0.10f * (elapsed / shakeSeconds);
-                else { v += liftAccel * dt; basePos += Vector3.up * v * dt; a = 0.03f; }
+                else { if (!lifted) { lifted = true; v = liftKick; } v += liftAccel * dt; basePos += Vector3.up * v * dt; a = 0.03f; }
                 rocket.position = basePos + new Vector3(Random.Range(-a, a), 0f, Random.Range(-a, a));
             }
             if (elapsed > shakeSeconds + 1.2f) countdownText = "";
             if (smoke != null && elapsed > shakeSeconds + 3.5f && smoke.isEmitting) smoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             if (plume != null && elapsed > total - 0.8f && plume.isEmitting) plume.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (sparks != null && elapsed > shakeSeconds + 2.2f && sparks.isEmitting) sparks.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             if (cam != null && rocket != null)
             {
                 // 진동: 점화 중 커졌다가 상승하며 서서히 잦아듦
@@ -228,6 +234,7 @@ public class RocketLaunchCutscene : MonoBehaviour
         if (flameLight != null) flameLight.enabled = false;
         if (smoke != null) smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         if (plume != null) plume.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        if (sparks != null) sparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         if (ring != null) ring.transform.localScale = Vector3.one;
         if (tableRenderers != null) foreach (var r in tableRenderers) if (r != null) r.enabled = true;
         if (!remote && tableRoot != null)
