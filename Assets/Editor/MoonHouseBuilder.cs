@@ -33,6 +33,24 @@ public static class MoonHouseBuilder
         return m;
     }
 
+    /// <summary>연기/김 재질(URP Particles Unlit, 알파 블렌드, 부드러운 원 텍스처) — 오징어 분사(Custom/AdditiveTex, 청색 가산)와 달리 회백색 반투명.</summary>
+    static Material SmokeMat()
+    {
+        if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder("Assets/Guide", "Moon");
+        string path = MatDir + "/HouseSmoke.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        var sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (m == null) { m = new Material(sh); AssetDatabase.CreateAsset(m, path); } else m.shader = sh;
+        m.SetTexture("_BaseMap", AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd"));
+        m.SetColor("_BaseColor", new Color(0.92f, 0.92f, 0.94f, 1f));
+        m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 0f); m.SetFloat("_ColorMode", 0f);
+        m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); m.SetFloat("_ZWrite", 0f);
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.DisableKeyword("_ALPHAPREMULTIPLY_ON"); m.DisableKeyword("_ALPHAMODULATE_ON");
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
     static GameObject Prim(PrimitiveType type, string name, Transform parent, Vector3 lp, Vector3 ls, Material m, bool collider = true, Vector3? euler = null)
     {
         var g = GameObject.CreatePrimitive(type); g.name = name;
@@ -62,7 +80,7 @@ public static class MoonHouseBuilder
         return g;
     }
 
-    static ParticleSystem Puffs(string n, Transform p, Vector3 lp, Color c, float rate, float size, float speed, float life)
+    static ParticleSystem Puffs(string n, Transform p, Vector3 lp, Color c, float rate, float size, float speed, float life, Material mat)
     {
         var g = new GameObject(n); g.transform.SetParent(p, false); g.transform.localPosition = lp; g.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         var ps = g.AddComponent<ParticleSystem>();
@@ -73,7 +91,7 @@ public static class MoonHouseBuilder
         grad.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.25f), new GradientAlphaKey(0f, 1f) });
         col.color = grad;
         var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.5f, 1f, 1.6f));
-        var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Guide/SquidJet.mat"); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var r = g.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return ps;
     }
 
@@ -101,6 +119,7 @@ public static class MoonHouseBuilder
         var jarC = Mat("HouseJarC", new Color(0.80f, 0.50f, 0.50f), 0f, 0.6f);
         var canvas = Mat("HouseCanvas", new Color(0.80f, 0.86f, 0.92f), 0f, 0.2f);
         var bulb = Mat("HouseBulb", new Color(1f, 0.95f, 0.8f), 0f, 0.5f, new Color(2.2f, 1.8f, 1.1f));
+        var smokeMat = SmokeMat();
 
         // 위치/회전(문이 원점=스폰 쪽) + 바닥 높이(네 모서리 지형 최고점)
         Vector3 pos = HousePos; Vector3 toSpawn = new Vector3(-pos.x, 0f, -pos.z).normalized;
@@ -127,17 +146,21 @@ public static class MoonHouseBuilder
         Box("WallFrontL", H, new Vector3(-2.6625f, wy, 3.5f), new Vector3(2.925f, 3f, 0.25f), wall);
         Box("WallFrontR", H, new Vector3(2.6625f, wy, 3.5f), new Vector3(2.925f, 3f, 0.25f), wall);
         Box("Lintel", H, new Vector3(0f, 0.12f + 2.8f, 3.5f), new Vector3(2.4f, 0.4f, 0.25f), wall);
-        // 지붕(박공): 용마루 y 4.92, 처마 y 3.0(x ±4.6)
-        float ridgeY = 0.12f + 4.8f, eaveY = 0.12f + 2.95f; float half = 4.6f; float ang = Mathf.Atan2(ridgeY - eaveY, half) * Mathf.Rad2Deg; float slope = Mathf.Sqrt(half * half + (ridgeY - eaveY) * (ridgeY - eaveY));
+        // 지붕(박공): 용마루 y 6.32(★2026-09-06 사용자 "지붕 높여줘": 벽 위 1.8→3.2m, 경사 35°), 처마 y 3.07(x ±4.6)
+        float ridgeY = 0.12f + 6.2f, eaveY = 0.12f + 2.95f; float half = 4.6f; float ang = Mathf.Atan2(ridgeY - eaveY, half) * Mathf.Rad2Deg; float slope = Mathf.Sqrt(half * half + (ridgeY - eaveY) * (ridgeY - eaveY));
         // 왼쪽 슬랩: x가 커질수록(용마루 쪽) 높아져야 → +Z축 회전 양수(+x가 +y로), 오른쪽은 음수
         Box("RoofL", H, new Vector3(-half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, ang));
         Box("RoofR", H, new Vector3(half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, -ang));
         Box("Ridge", H, new Vector3(0f, ridgeY + 0.02f, 0f), new Vector3(0.35f, 0.2f, 8.25f), roof, false);
         Gable("GableFront", H, 3.5f, 4.25f, 0.12f + 3f, ridgeY - 0.05f, wall);
         Gable("GableBack", H, -3.5f, 4.25f, 0.12f + 3f, ridgeY - 0.05f, wall);
-        // 굴뚝 + 연기
-        Box("Chimney", H, new Vector3(2.4f, ridgeY - 0.2f, -1.4f), new Vector3(0.6f, 1.6f, 0.6f), roof);
-        Puffs("ChimneySmoke", H, new Vector3(2.4f, ridgeY + 0.65f, -1.4f), new Color(0.85f, 0.85f, 0.9f, 0.5f), 4f, 0.7f, 0.5f, 5f);
+        // 굴뚝 + 연기 — 앞쪽 오른쪽 지붕면(문 쪽에서 다가올 때 보이게), 지붕면을 뚫고 1.6m 솟음
+        float chX = 1.9f, chZ = 1.1f; float roofAt = ridgeY - (Mathf.Abs(chX) / half) * (ridgeY - eaveY);
+        float chTop = roofAt + 1.6f, chBottom = roofAt - 0.35f;   // 지붕면 아래로는 이음새만 가릴 만큼(실내로 안 튀어나오게)
+        Box("Chimney", H, new Vector3(chX, (chTop + chBottom) * 0.5f, chZ), new Vector3(0.7f, chTop - chBottom, 0.7f), roof);
+        Box("ChimneyCap", H, new Vector3(chX, chTop + 0.06f, chZ), new Vector3(0.9f, 0.12f, 0.9f), dark, false);
+        var smoke = Puffs("ChimneySmoke", H, new Vector3(chX, chTop + 0.15f, chZ), new Color(0.92f, 0.92f, 0.95f, 0.6f), 14f, 1.7f, 0.7f, 7f, smokeMat);   // 뭉게뭉게(크고 느리게, 반투명)
+        var smokeMain = smoke.main; smokeMain.gravityModifier = -0.02f;   // 살짝 떠오르며 퍼짐
         // 열린 문(왼쪽 경첩, 바깥으로 110°)
         var hinge = Marker("DoorHinge", H, new Vector3(-1.2f, 0.12f, 3.5f), new Vector3(0f, -110f, 0f));
         Box("Door", hinge, new Vector3(0.575f, 1.25f, 0f), new Vector3(1.15f, 2.5f, 0.08f), wood);
@@ -175,7 +198,7 @@ public static class MoonHouseBuilder
         Ball("Kettle", K, new Vector3(-0.68f, 0.12f + 1.15f, -3.1f), 0.34f, kettle);
         Cyl("KettleSpout", K, new Vector3(-0.50f, 0.12f + 1.24f, -3.02f), new Vector3(0.05f, 0.12f, 0.05f), kettle, false, new Vector3(0f, 0f, -55f));
         Ball("KettleLid", K, new Vector3(-0.68f, 0.12f + 1.32f, -3.1f), 0.08f, dark);
-        var steam = Puffs("Steam", K, new Vector3(-0.44f, 0.12f + 1.36f, -3.0f), new Color(0.95f, 0.95f, 1f, 0.5f), 5f, 0.22f, 0.35f, 2.2f);
+        var steam = Puffs("Steam", K, new Vector3(-0.44f, 0.12f + 1.36f, -3.0f), new Color(0.95f, 0.95f, 1f, 0.6f), 5f, 0.22f, 0.35f, 2.2f, smokeMat);
         // 선반 + 병
         Box("Shelf", K, new Vector3(-2.0f, 0.12f + 1.85f, -3.22f), new Vector3(2.8f, 0.05f, 0.3f), wood, false);
         Cyl("JarA", K, new Vector3(-3.0f, 0.12f + 2.0f, -3.22f), new Vector3(0.2f, 0.13f, 0.2f), jarA);
@@ -197,7 +220,8 @@ public static class MoonHouseBuilder
         var tablePlace = Marker("TablePlace", K, new Vector3(0.9f, 0.12f, 0.6f), Vector3.zero);
         var chairSeat = Marker("ChairSeat", K, new Vector3(0.9f, 0.12f, 0.6f + 0.85f), Vector3.zero);          // 의자 등받이가 +Z → 테이블(−Z)을 봄, 좌석 앞이 상판 아래로 15cm
         var chairWait = Marker("ChairWait", K, new Vector3(2.55f, 0.12f, 1.5f), new Vector3(0f, -55f, 0f));
-        Cyl("LampCord", K, new Vector3(0.9f, 0.12f + 2.72f, 0.6f), new Vector3(0.02f, 0.2f, 0.02f), dark);
+        float shadeTop = 0.12f + 2.48f; float roofUnder = ridgeY - (0.9f / half) * (ridgeY - eaveY) - 0.25f;   // 램프 줄: 갓 위에서 지붕 안쪽까지
+        Cyl("LampCord", K, new Vector3(0.9f, (shadeTop + roofUnder) * 0.5f, 0.6f), new Vector3(0.02f, (roofUnder - shadeTop) * 0.5f, 0.02f), dark);
         Cyl("LampShade", K, new Vector3(0.9f, 0.12f + 2.42f, 0.6f), new Vector3(0.6f, 0.12f, 0.6f), counter);
         Ball("LampBulb", K, new Vector3(0.9f, 0.12f + 2.3f, 0.6f), 0.13f, bulb);
         var lamp = new GameObject("LampLight").AddComponent<Light>(); lamp.transform.SetParent(K, false); lamp.transform.localPosition = new Vector3(0.9f, 0.12f + 2.2f, 0.6f);

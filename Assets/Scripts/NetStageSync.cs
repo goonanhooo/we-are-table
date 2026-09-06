@@ -50,6 +50,9 @@ public class NetStageSync : NetworkBehaviour
     // ★2026-09-06 달 맵 결말(집·부엌·의자) 컷씬
     readonly NetworkVariable<bool> moonEndingStarted = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-06 바로서기 횟수(호스트 ArtSceneReset.PoseResetCount → 게스트 표시용)
+    readonly NetworkVariable<int> poseResets = new(0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -133,6 +136,7 @@ public class NetStageSync : NetworkBehaviour
             if (stageTimer != null && stageTimer.Cleared && !stageCleared.Value) stageCleared.Value = true;
             if (cavernChair != null && cavernChair.Started && !cavernChairStarted.Value) cavernChairStarted.Value = true;
             if (moonEnding != null && moonEnding.Started && !moonEndingStarted.Value) moonEndingStarted.Value = true;
+            if (ArtSceneReset.PoseResetCount != poseResets.Value) poseResets.Value = ArtSceneReset.PoseResetCount;
             if (rail != null)
             {
                 float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
@@ -172,6 +176,7 @@ public class NetStageSync : NetworkBehaviour
             if (stageCleared.Value && !guestCleared) { guestCleared = true; if (stageTimer != null && !stageTimer.Cleared) stageTimer.Clear(); }
             if (cavernChairStarted.Value && !guestCavernChair) { guestCavernChair = true; if (cavernChair != null) cavernChair.PlayRemote(); }
             if (moonEndingStarted.Value && !guestMoonEnding) { guestMoonEnding = true; if (moonEnding != null) moonEnding.PlayRemote(); }
+            ArtSceneReset.PoseResetCount = poseResets.Value;   // 게스트: 호스트 횟수 표시
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

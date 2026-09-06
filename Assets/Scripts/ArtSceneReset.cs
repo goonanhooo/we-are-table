@@ -70,6 +70,7 @@ public class ArtSceneReset : MonoBehaviour
         legs = GetComponentsInChildren<ArtLegController>(true);
         if (root != null) initPos = root.transform.position;
         poseResetsLeft = poseResetMax;   // 맵당 충전(씬 로드마다 새 인스턴스)
+        PoseResetCount = 0;
         MeasureGeometry();
     }
 
@@ -81,6 +82,8 @@ public class ArtSceneReset : MonoBehaviour
 
     /// <summary>바로서기 무제한 여부 — 치트(CheatMode.Active) 또는 겁쟁이 난이도(Difficulty.Coward).</summary>
     public static bool Unlimited => CheatMode.Active || Difficulty.Coward;
+    /// <summary>★2026-09-06 이번 맵에서 바로서기('1')를 실제로 쓴 횟수(씬 로드마다 0). StageTimer CLEAR 오버레이에 표시, 멀티는 NetStageSync가 호스트 값을 게스트에 복사.</summary>
+    public static int PoseResetCount;
 
     /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트/겁쟁이 난이도면 무제한.</summary>
     public void TryPoseReset()
@@ -89,6 +92,7 @@ public class ArtSceneReset : MonoBehaviour
         bool cheat = Unlimited;
         if (!cheat && poseResetsLeft <= 0) return;   // 다 씀 — 맵의 충전 아이템(추후)으로 회복
         ResetPoseInPlace();
+        PoseResetCount++;
         if (!cheat) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1);
     }
 

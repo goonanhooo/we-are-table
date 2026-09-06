@@ -24,6 +24,8 @@ public class StageTimer : MonoBehaviour
     bool newBest;
     float best = -1f;
     bool checkpoint;
+    // ★2026-09-06 클리어 시 바로서기 횟수(이번 판) + 최소 기록(PlayerPrefs "bestresets_<씬>")
+    int resetsAtClear; int bestResets = -1; bool newBestResets;
 
     public bool Cleared => cleared;
     public bool CheckpointPassed => checkpoint;
@@ -36,6 +38,7 @@ public class StageTimer : MonoBehaviour
         startTime = Time.time;
         string k = Key();
         if (PlayerPrefs.HasKey(k)) best = PlayerPrefs.GetFloat(k);
+        if (PlayerPrefs.HasKey(ResetsKey())) bestResets = PlayerPrefs.GetInt(ResetsKey());
     }
 
     void OnDestroy() { if (Instance == this) Instance = null; }
@@ -44,6 +47,7 @@ public class StageTimer : MonoBehaviour
     public void RestartClock() { if (!cleared) startTime = Time.time; }
 
     string Key() => "besttime_" + SceneManager.GetActiveScene().name;
+    string ResetsKey() => "bestresets_" + SceneManager.GetActiveScene().name;
     string Label() => string.IsNullOrEmpty(mapLabel) ? SceneManager.GetActiveScene().name : mapLabel;
 
     public void Clear()
@@ -55,8 +59,14 @@ public class StageTimer : MonoBehaviour
         {
             best = clearTime; newBest = true;
             PlayerPrefs.SetFloat(Key(), best);
-            PlayerPrefs.Save();
         }
+        resetsAtClear = ArtSceneReset.PoseResetCount;
+        if (bestResets < 0 || resetsAtClear < bestResets)
+        {
+            bestResets = resetsAtClear; newBestResets = true;
+            PlayerPrefs.SetInt(ResetsKey(), bestResets);
+        }
+        PlayerPrefs.Save();
     }
 
     public static string Fmt(float t)
@@ -74,12 +84,16 @@ public class StageTimer : MonoBehaviour
         GUI.Label(chip, Fmt(t), UiKit.Btn);
         if (!cleared) return;
 
-        float w = 460f, h = 180f;
+        float w = 460f, h = 214f;
         var r = new Rect((Screen.width - w) * 0.5f, Screen.height * 0.26f, w, h);
         UiKit.Panel(r, 0.97f);
         GUI.Label(new Rect(r.x, r.y + 16f, w, 42f), "CLEAR!", UiKit.Title);
         GUI.Label(new Rect(r.x, r.y + 70f, w, 30f), Label() + "  —  " + Fmt(clearTime), UiKit.Btn);
-        GUI.Label(new Rect(r.x, r.y + 108f, w, 26f), newBest ? "★ 신기록!" : "최고 기록  " + Fmt(best), UiKit.Center);
-        GUI.Label(new Rect(r.x, r.y + 142f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? "계속 돌아다녀도 돼요 · ESC = 메뉴" : FooterOverride, UiKit.Small);
+        GUI.Label(new Rect(r.x, r.y + 104f, w, 26f), newBest ? "★ 신기록!" : "최고 기록  " + Fmt(best), UiKit.Center);
+        // ★2026-09-06 바로서기 횟수(이번 판) + 최소 기록
+        string resets = L.T("바로서기 ", "pose resets ") + resetsAtClear + L.T("회", "");
+        resets += newBestResets ? L.T("  ★ 최소 기록!", "  ★ fewest!") : L.T("  (최소 ", "  (best ") + bestResets + L.T("회)", ")");
+        GUI.Label(new Rect(r.x, r.y + 134f, w, 26f), resets, UiKit.Center);
+        GUI.Label(new Rect(r.x, r.y + 176f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? "계속 돌아다녀도 돼요 · ESC = 메뉴" : FooterOverride, UiKit.Small);
     }
 }
