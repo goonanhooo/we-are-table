@@ -47,6 +47,9 @@ public class NetStageSync : NetworkBehaviour
     // ★2026-09-06 광차 동굴 정거장 도착 컷씬(의자 광차)
     readonly NetworkVariable<bool> cavernChairStarted = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    // ★2026-09-06 달 맵 결말(집·부엌·의자) 컷씬
+    readonly NetworkVariable<bool> moonEndingStarted = new(false,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>디버그/검증용: 현재 발행된 편지 비트마스크.</summary>
     public int LetterBitsDebug => letterBits.Value;
@@ -62,7 +65,8 @@ public class NetStageSync : NetworkBehaviour
     MoonCapture moonCapture;
     StageTimer stageTimer;
     CavernChairCutscene cavernChair;
-    bool guestRocket, guestSpaceIntro, guestMoon, guestCleared, guestCavernChair;
+    MoonHomeEnding moonEnding;
+    bool guestRocket, guestSpaceIntro, guestMoon, guestCleared, guestCavernChair, guestMoonEnding;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
     LetterPickup[] letters;
@@ -83,6 +87,7 @@ public class NetStageSync : NetworkBehaviour
         moonCapture = FindAnyObjectByType<MoonCapture>();
         stageTimer = FindAnyObjectByType<StageTimer>();
         cavernChair = FindAnyObjectByType<CavernChairCutscene>();
+        moonEnding = FindAnyObjectByType<MoonHomeEnding>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
@@ -103,6 +108,7 @@ public class NetStageSync : NetworkBehaviour
             if (spaceIntro != null) spaceIntro.netRemoteDriven = true;
             if (moonCapture != null) moonCapture.netRemoteDriven = true;
             if (cavernChair != null) cavernChair.netRemoteDriven = true;
+            if (moonEnding != null) moonEnding.netRemoteDriven = true;
         }
     }
 
@@ -126,6 +132,7 @@ public class NetStageSync : NetworkBehaviour
             if (moonCapture != null && moonCapture.Started && !moonCaptured.Value) moonCaptured.Value = true;
             if (stageTimer != null && stageTimer.Cleared && !stageCleared.Value) stageCleared.Value = true;
             if (cavernChair != null && cavernChair.Started && !cavernChairStarted.Value) cavernChairStarted.Value = true;
+            if (moonEnding != null && moonEnding.Started && !moonEndingStarted.Value) moonEndingStarted.Value = true;
             if (rail != null)
             {
                 float u0 = rail.CartU(0), u1 = rail.CartU(1), u2 = rail.CartU(2);
@@ -164,6 +171,7 @@ public class NetStageSync : NetworkBehaviour
             if (moonCaptured.Value && !guestMoon) { guestMoon = true; if (moonCapture != null) moonCapture.PlayRemote(); }
             if (stageCleared.Value && !guestCleared) { guestCleared = true; if (stageTimer != null && !stageTimer.Cleared) stageTimer.Clear(); }
             if (cavernChairStarted.Value && !guestCavernChair) { guestCavernChair = true; if (cavernChair != null) cavernChair.PlayRemote(); }
+            if (moonEndingStarted.Value && !guestMoonEnding) { guestMoonEnding = true; if (moonEnding != null) moonEnding.PlayRemote(); }
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;
             if (fresh != 0)

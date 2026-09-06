@@ -10,7 +10,8 @@ using UnityEngine;
 ///  ② 충돌: pathBreak의 소행성(crashAsteroid)에 테이블선이 부딪혀 섬광+파편(debris/debrisSparks), 로켓 모델 off, 숨겨둔 테이블이 나타나 무중력 표류.
 ///     의자선은 chairEscape로 가속 이탈.
 ///  ③ driftSeconds 동안 파괴 연출을 지켜본 뒤 → 클로즈업(watchSeconds: 어깨 너머에서 멀어지는 의자선을 FOV watchZoomFov까지 당김) → 허탈(floatSeconds: 줌아웃, 홀로 떠다니는 테이블 주위를 천천히 돎).
-///  ④ 우주오징어(squid, SquidDummy)가 squidFrom에서 천천히(squidArriveSeconds, SmoothStep) 테이블 곁(squidStopOffset)으로 스윽 나타나 말풍선 2줄 → 힘 구슬(orb) → 테이블 보랏빛 발광 → SquidMode.thrustLocked 해제 + 조작 힌트.
+///  ④ 우주오징어(squid, SquidDummy)가 화면 밖 먼 곳(등장 시작 순간 카메라 기준 squidEnterOffset, 약 180m)에서 발끝 분사로 날아와
+///     오른쪽에서 화면 안으로 들어오는 곡선(squidEnterMid)을 그리며 감속, 테이블 곁(squidStopOffset)에 스윽 멈춰 말풍선 2줄 → 힘 구슬(orb) → 테이블 보랏빛 발광 → SquidMode.thrustLocked 해제 + 조작 힌트.
 ///     대화 카메라는 테이블 기준 squidCamOffset(표류하는 테이블을 따라감).
 ///  ⑤ 오징어 퇴장, CameraFollow.BlendFrom 복귀.
 /// 로켓 모델 노즈=로컬 +Z. 멀티: 호스트 → NetStageSync가 게스트 PlayRemote()(테이블 조작 생략).
@@ -52,13 +53,18 @@ public class SpaceIntroCutscene : MonoBehaviour
     public Transform pathStart, pathBreak, chairEscape;
     [Tooltip("의자선 오프셋(테이블선 기준, 로컬 XYZ — z=앞서는 거리)")] public Vector3 chairOffsetStart = new Vector3(0f, 5f, 18f), chairOffsetEnd = new Vector3(0f, 6f, 30f);
     public ChaseShot[] chaseShots;
-    public Transform squidFrom, squidExit;
+    public Transform squidExit;
     [Tooltip("클로즈업 카메라: 테이블 기준 오프셋(x=옆, y=위, z=뒤가 음수) — 어깨 너머")] public Vector3 watchOffset = new Vector3(-3.5f, 1.8f, -7f);
     [Tooltip("충돌 튕김 속도(우주선 기준 right/up/forward)")] public Vector3 breakBounce = new Vector3(1.5f, 3.0f, -0.8f);
     [Tooltip("클로즈업 끝 FOV(멀어지는 의자선을 점점 당겨 봄)")] public float watchZoomFov = 10f;
     [Tooltip("허탈 비트 동안 테이블 주위를 도는 각도")] public float floatArcDeg = 40f;
     [Tooltip("오징어 정지 위치(테이블 기준 월드축 오프셋)")] public Vector3 squidStopOffset = new Vector3(5f, 0.3f, 3.5f);
     [Tooltip("오징어 대화 카메라(테이블 기준 오프셋)")] public Vector3 squidCamOffset = new Vector3(-1.2f, 1.8f, -6.5f);
+    [Tooltip("오징어 등장 시작점 — 대화 카메라 기준(x=오른쪽, y=위, z=앞). 오른쪽 가장자리 바로 바깥 먼 곳(약 47°, 200m) — 화면 안이면 자동으로 더 오른쪽")] public Vector3 squidEnterOffset = new Vector3(150f, 25f, 140f);
+    [Tooltip("등장 경로 중간 제어점(같은 카메라 기준) — 화면 안 먼 곳을 지나 정면으로 다가오는 곡선")] public Vector3 squidEnterMid = new Vector3(45f, 8f, 90f);
+    [Tooltip("등장 감속 지수(클수록 처음 빠르고 끝에서 천천히)")] public float squidEnterPow = 1.6f;
+    [Tooltip("오징어 등장 전 카메라가 먼저 대화 구도로 옮겨가는 시간")] public float squidCamBlendSeconds = 1.4f;
+    [Tooltip("대화 카메라 시선: 테이블에서 오징어 쪽으로 최대 이 거리까지만(멀리 있을 땐 테이블을 놓치지 않게)")] public float squidLookMax = 6f;
 
     [Header("타이밍")]
     [Tooltip("파괴 연출을 지켜보는 시간(파편이 다 퍼질 때까지)")] public float driftSeconds = 3.5f;
@@ -316,22 +322,45 @@ public class SpaceIntroCutscene : MonoBehaviour
             }
         }
 
-        // ④ 오징어 갑자기 등장
+        // ④ 오징어 등장 — 화면 밖 먼 곳에서 분사하며 날아와 오른쪽에서 화면 안으로, 감속하며 테이블 곁에 스윽 정지
+        var squidDummy = squid != null ? squid.GetComponent<SquidDummy>() : null;
         if (squid != null)
         {
-            squid.gameObject.SetActive(true);
-            Vector3 s0 = squidFrom != null ? squidFrom.position : breakPos + new Vector3(40f, 8f, 10f);
+            // 카메라가 먼저 대화 구도로(테이블 홀로) → 그 카메라 프레임 기준으로 오른쪽 가장자리 바깥 먼 곳에서 오징어 출발
             Vector3 camA = cam != null ? cam.position : breakPos; Quaternion camRA = cam != null ? cam.rotation : Quaternion.identity;
+            for (float a1 = 0f; a1 < squidCamBlendSeconds; a1 += Time.deltaTime) { SquidCam(camA, camRA, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a1 / squidCamBlendSeconds))); yield return null; }
+            Vector3 camP = cam != null ? cam.position : breakPos; Quaternion camR = cam != null ? cam.rotation : Quaternion.identity;
+            Vector3 enterOff = squidEnterOffset;
+            Vector3 s0 = camP + camR * enterOff;
+            for (int k = 0; k < 6 && camC != null; k++)
+            {   // 화면 안(가장자리 포함)이면 더 오른쪽으로 — 종횡비가 넓어도 프레임 밖 보장
+                Vector3 vp = camC.WorldToViewportPoint(s0);
+                if (vp.z > 0f && vp.x > -0.08f && vp.x < 1.08f && vp.y > -0.08f && vp.y < 1.08f) { enterOff.x *= 1.2f; s0 = camP + camR * enterOff; } else break;
+            }
+            Vector3 sMid = camP + camR * squidEnterMid;
+            squid.position = s0;
+            squid.gameObject.SetActive(true);
+            Vector3 prevPos = s0;
             for (float a2 = 0f; a2 < squidArriveSeconds; a2 += Time.deltaTime)
             {
-                float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a2 / squidArriveSeconds));   // 스윽(부드럽게 들어와 멈춤)
+                float u = Mathf.Clamp01(a2 / squidArriveSeconds);
+                float e = 1f - Mathf.Pow(1f - u, squidEnterPow);   // 멀리서 빠르게 → 끝에서 천천히
                 Vector3 tp = tableRoot != null ? tableRoot.transform.position : breakPos;
                 Vector3 s1 = tp + squidStopOffset;
-                squid.position = Vector3.Lerp(s0, s1, u) + Vector3.up * Mathf.Sin(a2 * 6f) * 0.25f * (1f - u);
-                squid.rotation = Quaternion.Slerp(squid.rotation, Quaternion.LookRotation((tp - squid.position).normalized, Vector3.up), Time.deltaTime * 6f);
-                SquidCam(camA, camRA, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(a2 / squidArriveSeconds)));
+                float ie = 1f - e;
+                Vector3 pos = ie * ie * s0 + 2f * ie * e * sMid + e * e * s1;   // 2차 베지어
+                pos += Vector3.up * Mathf.Sin(a2 * 6f) * 0.25f * (1f - e);
+                Vector3 vel = (pos - prevPos) / Mathf.Max(Time.deltaTime, 1e-4f); prevPos = pos;
+                squid.position = pos;
+                // 날아올 땐 진행 방향, 다 와서는 테이블 쪽으로
+                Vector3 toTable = (tp - pos).normalized;
+                Vector3 face = vel.sqrMagnitude > 0.01f ? Vector3.Slerp(vel.normalized, toTable, Mathf.SmoothStep(0f, 1f, (e - 0.7f) / 0.3f)) : toTable;
+                squid.rotation = Quaternion.Slerp(squid.rotation, Quaternion.LookRotation(face, Vector3.up), Time.deltaTime * 6f);
+                if (squidDummy != null) squidDummy.SetThrust(Mathf.Clamp01(vel.magnitude / 12f));   // 빠를수록 세게 분사, 멈추면 꺼짐
+                if (cam != null) SquidCam(cam.position, cam.rotation, Mathf.Clamp01(Time.deltaTime * 5f));   // 대화 구도 유지(표류하는 테이블을 따라감, 시선은 테이블 중심)
                 yield return null;
             }
+            if (squidDummy != null) squidDummy.SetThrust(0.12f);   // 대기: 살짝 김만
             bubbleText = L.T("내 힘을 줄게!", "I'll give you my power!");
             for (float w = 0f; w < lineSeconds; w += Time.deltaTime) { SquidHold(); yield return null; }
             bubbleText = L.T("얼른 쫓아가!", "hurry, go after it!");
@@ -371,7 +400,7 @@ public class SpaceIntroCutscene : MonoBehaviour
             SquidHold();
             yield return null;
         }
-        foreach (var r in rends) if (r != null) r.SetPropertyBlock(null);
+        foreach (var r in rends) { if (r == null) continue; r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb); }   // 발광만 끔(SquidMode의 보라 틴트 블록은 유지)
         if (squidMode != null) { squidMode.thrustLocked = false; squidMode.unlocked = true; if (!remote) squidMode.active = true; SquidMode.Unlocked = true; }
         hintText = L.T("다리 늘리기 키(E · Y · O · ])를 누르면 그 발끝에서 분사돼요 — 다리를 겨눠서 날아가요!",
                        "hold a leg's stretch key (E · Y · O · ]) to thrust from that foot — aim your legs to fly!");
@@ -384,6 +413,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (squid != null)
         {
             Vector3 e0 = squid.position, e1 = squidExit != null ? squidExit.position : e0 + new Vector3(80f, 30f, 60f);
+            if (squidDummy != null) squidDummy.SetThrust(1f);
             for (float lt = 0f; lt < squidLeaveSeconds; lt += Time.deltaTime)
             {
                 float u = lt / squidLeaveSeconds; u = u * u;
@@ -402,7 +432,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         Vector3 tp = tableRoot != null ? tableRoot.transform.position : transform.position;
         Vector3 head = squidHead != null ? squidHead.position : (squid != null ? squid.position : tp);
         Vector3 want = tp + squidCamOffset;
-        Vector3 look = (tp + head) * 0.5f + Vector3.up * 0.3f;
+        Vector3 look = tp + Vector3.ClampMagnitude(head - tp, squidLookMax) * 0.5f + Vector3.up * 0.3f;   // 오징어가 멀리 있어도 테이블을 놓치지 않게
         cam.position = Vector3.Lerp(camA, want, blend);
         cam.rotation = Quaternion.Slerp(camRA, Quaternion.LookRotation(look - cam.position, Vector3.up), blend);
     }
@@ -508,7 +538,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     {
         if (pathStart != null && pathBreak != null) { Gizmos.color = Color.cyan; Gizmos.DrawLine(pathStart.position, pathBreak.position); Gizmos.DrawWireSphere(pathBreak.position, 2f); }
         if (pathBreak != null && chairEscape != null) { Gizmos.color = Color.yellow; Gizmos.DrawLine(pathBreak.position, chairEscape.position); }
-        if (squidFrom != null && squidExit != null) { Gizmos.color = Color.magenta; Gizmos.DrawLine(squidFrom.position, squidExit.position); }
+        if (squidExit != null) { Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(squidExit.position, 3f); }
         if (chaseShots != null) { Gizmos.color = new Color(1f, 0.6f, 0.1f); foreach (var s in chaseShots) if (s != null && s.cam != null) Gizmos.DrawWireSphere(s.cam.position, 0.6f); }
     }
 }

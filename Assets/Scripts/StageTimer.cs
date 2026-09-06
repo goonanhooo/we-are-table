@@ -12,6 +12,8 @@ public class StageTimer : MonoBehaviour
     public static StageTimer Instance { get; private set; }
     /// <summary>★2026-09-05 컷씬 동안 칩 숨김(정적 — 컷씬이 켜고 끔, Awake에서 초기화).</summary>
     public static bool Suppress;
+    /// <summary>★2026-09-06 CLEAR 오버레이 마지막 줄 대체(달 엔딩: "ESC = 메뉴"). Awake에서 초기화.</summary>
+    public static string FooterOverride;
 
     [Tooltip("클리어 오버레이에 표시할 맵 이름(비면 씬 이름).")]
     public string mapLabel = "";
@@ -30,7 +32,7 @@ public class StageTimer : MonoBehaviour
     void Awake()
     {
         Instance = this;
-        Suppress = false;
+        Suppress = false; FooterOverride = null;
         startTime = Time.time;
         string k = Key();
         if (PlayerPrefs.HasKey(k)) best = PlayerPrefs.GetFloat(k);
@@ -78,6 +80,6 @@ public class StageTimer : MonoBehaviour
         GUI.Label(new Rect(r.x, r.y + 16f, w, 42f), "CLEAR!", UiKit.Title);
         GUI.Label(new Rect(r.x, r.y + 70f, w, 30f), Label() + "  —  " + Fmt(clearTime), UiKit.Btn);
         GUI.Label(new Rect(r.x, r.y + 108f, w, 26f), newBest ? "★ 신기록!" : "최고 기록  " + Fmt(best), UiKit.Center);
-        GUI.Label(new Rect(r.x, r.y + 142f, w, 24f), "계속 돌아다녀도 돼요 · ESC = 메뉴", UiKit.Small);
+        GUI.Label(new Rect(r.x, r.y + 142f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? "계속 돌아다녀도 돼요 · ESC = 메뉴" : FooterOverride, UiKit.Small);
     }
 }

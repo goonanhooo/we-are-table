@@ -9,6 +9,8 @@ using UnityEngine;
 /// active 동안 전 바디 useGravity=false + 표류 감쇠(driftDamping) 적용, 끄면 원복.
 /// ⚠️기린 모드와 같은 키를 쓰므로 우주 씬은 GiraffeMode.locked=true(SpaceStage가 설정).
 /// 멀티: 물리는 호스트 전용 — 게스트는 netVisualOnly(NetLegLink.ApplyGuestMode)로 분사 파티클만 호스트 마스크(NetVisualSync.VState.squid)대로 표시.
+/// ★2026-09-06 외형: 켜져 있고(thrustLocked 아님) 힘을 받은 뒤엔 우주오징어처럼 살짝 보라(tintRenderers에 _BaseColor 프로퍼티 블록) + 눈 두 개(eyes, 프리팹 자식 SquidEyes 활성).
+///   게스트는 VState.squid의 bit4(=켜짐)로 같은 외형. 컷씬의 발광 블록과 공존(_EmissionColor만 따로).
 /// </summary>
 public class SquidMode : MonoBehaviour, ICheatUnlockable
 {
@@ -24,13 +26,21 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     [HideInInspector] public int netJetMask;
     /// <summary>호스트: 지금 분사 중인 다리 비트마스크(NetVisualSync가 발행).</summary>
     public int JetMask { get; private set; }
-    public void NetApplyVisual(bool on, int mask) { netJetMask = on ? mask : 0; }
+    bool netActive;
+    public void NetApplyVisual(bool on, int mask) { netActive = on; netJetMask = on ? mask : 0; }
+    /// <summary>오징어 외형(보라+눈)을 보여야 하는가 — 호스트: 켜짐·힘 받음, 게스트: 호스트가 보낸 bit.</summary>
+    public bool LookOn => netVisualOnly ? netActive : (active && !thrustLocked);
     [Tooltip("다리 하나가 내는 추진력(N). 4다리 동시 분사 = ×4. 테이블 총질량 ~7.6kg.")]
     public float thrustForce = 12f;
     [Tooltip("무중력 표류 감쇠(linearDamping) — 0이면 순수 관성이라 멈추기 힘들다.")]
     public float driftDamping = 0.10f;
     [Tooltip("분사 파티클 재질(비면 이펙트 생략, 물리는 동작).")]
     public Material jetMat;
+    [Header("오징어 외형(켜진 동안)")]
+    [Tooltip("눈 두 개(프리팹 자식, 평소 비활성)")] public GameObject eyes;
+    [Tooltip("보라 틴트를 입힐 렌더러(상판+다리 4)")] public Renderer[] tintRenderers;
+    public Color tintColor = new Color(0.62f, 0.40f, 0.95f);
+    [Range(0f, 1f)] public float tintAmount = 0.55f;
 
     TableInput ti;
     ArtLegController[] legs;
@@ -40,7 +50,25 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     ArticulationBody[] allBodies;
     float[] origDamping;
     bool[] origGravity;
-    bool applied;
+    bool applied, lookApplied;
+    MaterialPropertyBlock lookMpb;
+
+    /// <summary>보라 틴트 + 눈. 켜진 동안 매 프레임 다시 씌움(다른 연출이 블록을 지워도 복구), 끌 땐 1회 원복.</summary>
+    void ApplyLook(bool on)
+    {
+        if (lookMpb == null) lookMpb = new MaterialPropertyBlock();
+        if (eyes != null && eyes.activeSelf != on) eyes.SetActive(on);
+        if (tintRenderers != null)
+            foreach (var r in tintRenderers)
+            {
+                if (r == null || r.sharedMaterial == null) continue;
+                r.GetPropertyBlock(lookMpb);
+                Color baseC = r.sharedMaterial.HasProperty("_BaseColor") ? r.sharedMaterial.GetColor("_BaseColor") : Color.white;
+                lookMpb.SetColor("_BaseColor", on ? Color.Lerp(baseC, tintColor, tintAmount) : baseC);
+                r.SetPropertyBlock(lookMpb);
+            }
+        lookApplied = on;
+    }
 
     public void CheatUnlock() { unlocked = true; }
 
@@ -94,6 +122,8 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
+        bool look = LookOn;
+        if (look || lookApplied) ApplyLook(look);
         if (netVisualOnly)
         {
             // 게스트: 다리 포즈는 NetworkTransform, 분사 여부는 호스트 마스크 — 물리/무중력 설정은 건드리지 않음
