@@ -31,7 +31,7 @@ public class MoonHomeEnding : MonoBehaviour
     public float moveSeconds = 1.6f;
     public float chairSeconds = 1.4f;
     public float blendSeconds = 3.0f;
-    public float finalFov = 40f;
+    public float finalFov = 48f;
     [Tooltip("발동 후 자막까지")] public float captionDelay = 4.5f;
     public float captionFade = 1.5f;
     [Tooltip("발동 후 CLEAR(기록)까지")] public float clearDelay = 9f;
@@ -149,12 +149,12 @@ public class MoonHomeEnding : MonoBehaviour
     {
         if (string.IsNullOrEmpty(caption) || captionAlpha <= 0f) return;
         if (capStyle == null) { capStyle = HandUI.Style(64, HandUI.Ink); subStyle = HandUI.Style(22, HandUI.InkSoft); }
-        float w = 360f, h = 150f;
-        var r = new Rect((Screen.width - w) * 0.5f, Screen.height * 0.70f, w, h);
+        float w = 300f, h = 124f;
+        var r = new Rect((Screen.width - w) * 0.5f, Screen.height - h - 28f, w, h);   // 화면 맨 아래(식탁을 가리지 않게)
         var prev = GUI.color; GUI.color = new Color(1f, 1f, 1f, captionAlpha);
         HandUI.Paper(r, HandUI.BoxWide, 0.94f);
-        GUI.Label(new Rect(r.x, r.y + 18f, w, 80f), caption, capStyle);
-        GUI.Label(new Rect(r.x, r.y + 100f, w, 30f), "we are table", subStyle);
+        GUI.Label(new Rect(r.x, r.y + 12f, w, 70f), caption, capStyle);
+        GUI.Label(new Rect(r.x, r.y + 84f, w, 28f), "we are table", subStyle);
         GUI.color = prev;
     }
 

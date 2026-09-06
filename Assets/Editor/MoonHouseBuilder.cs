@@ -129,8 +129,9 @@ public static class MoonHouseBuilder
         Box("Lintel", H, new Vector3(0f, 0.12f + 2.8f, 3.5f), new Vector3(2.4f, 0.4f, 0.25f), wall);
         // 지붕(박공): 용마루 y 4.92, 처마 y 3.0(x ±4.6)
         float ridgeY = 0.12f + 4.8f, eaveY = 0.12f + 2.95f; float half = 4.6f; float ang = Mathf.Atan2(ridgeY - eaveY, half) * Mathf.Rad2Deg; float slope = Mathf.Sqrt(half * half + (ridgeY - eaveY) * (ridgeY - eaveY));
-        Box("RoofL", H, new Vector3(-half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, -ang));
-        Box("RoofR", H, new Vector3(half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, ang));
+        // 왼쪽 슬랩: x가 커질수록(용마루 쪽) 높아져야 → +Z축 회전 양수(+x가 +y로), 오른쪽은 음수
+        Box("RoofL", H, new Vector3(-half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, ang));
+        Box("RoofR", H, new Vector3(half * 0.5f, (ridgeY + eaveY) * 0.5f, 0f), new Vector3(slope + 0.2f, 0.16f, 8.2f), roof, true, new Vector3(0f, 0f, -ang));
         Box("Ridge", H, new Vector3(0f, ridgeY + 0.02f, 0f), new Vector3(0.35f, 0.2f, 8.25f), roof, false);
         Gable("GableFront", H, 3.5f, 4.25f, 0.12f + 3f, ridgeY - 0.05f, wall);
         Gable("GableBack", H, -3.5f, 4.25f, 0.12f + 3f, ridgeY - 0.05f, wall);
@@ -204,8 +205,9 @@ public static class MoonHouseBuilder
         var fill = new GameObject("FillLight").AddComponent<Light>(); fill.transform.SetParent(K, false); fill.transform.localPosition = new Vector3(-1.6f, 0.12f + 2.3f, -2.0f);
         fill.type = LightType.Point; fill.color = new Color(1f, 0.8f, 0.6f); fill.intensity = 0.55f; fill.range = 6.5f;
         // 최종 카메라(앞쪽 왼쪽 구석에서 식탁·창·찬장 쪽으로)
-        var camFinal = Marker("CamFinal", H, new Vector3(-2.7f, 0.12f + 2.0f, 2.9f), Vector3.zero);
-        camFinal.rotation = Quaternion.LookRotation((H.TransformPoint(new Vector3(1.1f, 0.85f, 0.2f)) - camFinal.position).normalized, Vector3.up);
+        // 최종 카메라: 왼쪽 벽 중간에서 뒤·오른쪽으로 — 식탁(중앙)·스토브/주전자 김(왼쪽 가장자리)·선반·찬장·창+커튼(오른쪽)이 한 프레임에
+        var camFinal = Marker("CamFinal", H, new Vector3(-3.3f, 0.12f + 2.05f, 1.3f), Vector3.zero);
+        camFinal.rotation = Quaternion.LookRotation((H.TransformPoint(new Vector3(1.2f, 0.75f, -0.9f)) - camFinal.position).normalized, Vector3.up);
 
         // 기다리는 의자(홀웨이 Chair 복사본)
         var chair = BorrowChair(H, wood);
@@ -213,7 +215,7 @@ public static class MoonHouseBuilder
 
         // 엔딩 스크립트
         var endGo = new GameObject("MoonHomeEnding"); var end = endGo.AddComponent<MoonHomeEnding>();
-        end.tablePlace = tablePlace; end.chair = chair; end.chairWait = chairWait; end.chairSeat = chairSeat; end.camFinal = camFinal; end.lamp = lamp; end.steam = steam;
+        end.tablePlace = tablePlace; end.chair = chair; end.chairWait = chairWait; end.chairSeat = chairSeat; end.camFinal = camFinal; end.lamp = lamp; end.steam = steam; end.finalFov = 48f;
 
         AssetDatabase.SaveAssets();
         EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
@@ -228,7 +230,7 @@ public static class MoonHouseBuilder
         var target = SceneManager_Active();
         var hall = EditorSceneManager.OpenScene("Assets/Scenes/Hallway.unity", OpenSceneMode.Additive);
         GameObject src = null;
-        foreach (var root in hall.GetRootGameObjects()) if (root.name == "Chair") { src = root; break; }
+        foreach (var root in hall.GetRootGameObjects()) { foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == "Chair" && t.childCount >= 6) { src = t.gameObject; break; } if (src != null) break; }
         Transform result = null;
         if (src != null)
         {
