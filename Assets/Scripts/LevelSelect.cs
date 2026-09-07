@@ -16,6 +16,7 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class LevelSelect : MonoBehaviour
 {
+    [Tooltip("★2026-09-08 이전 맵을 클리어해야 다음 맵이 열리는 진행 잠금(끄면 플로우의 모든 맵 바로 선택 가능). 기본 끔.")] public bool requireProgress = false;
     [System.Serializable]
     public class Level { public string label; public string scene; public string thumb; }
 
@@ -320,7 +321,7 @@ public class LevelSelect : MonoBehaviour
         for (int i = 0; i < arr.Length; i++)
         {
             // ★2026-07-14 진행 잠금(사용자: 처음엔 '시작'만): 이전 맵 클리어 전엔 실루엣+??? — 치트는 전부 해금
-            bool locked = !showWip && !CheatMode.Active && !Progress.IsUnlocked(arr[i].scene);
+            bool locked = requireProgress && !showWip && !CheatMode.Active && !Progress.IsUnlocked(arr[i].scene);   // ★2026-09-08 기본 전부 열림(사용자: 플로우의 모든 맵 바로 선택)
             var frame0 = new Rect(lx, y, tw + 18f, th + 18f);
             var rowR = new Rect(lx, y, tw + 18f + 210f, th + 18f);   // 이름까지 클릭 영역
             bool hover = !locked && rowR.Contains(Event.current.mousePosition);
