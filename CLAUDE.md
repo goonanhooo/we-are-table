@@ -597,3 +597,4 @@
 - ⚠️Editor.log의 빌드 완료 문구는 **"Build Finished, Result: Success."** / "[MCP Build] Build succeeded: …" — "Build completed with a result of"가 아님(이걸로 grep해 35분 헛기다림). 감시 grep은 `Build Finished, Result:|Build succeeded|Build failed|BuildFailedException`.
 - `.claude/launch.json` `wat-web`(python http.server 8765, Builds/Web) — Claude 브라우저 프리뷰용.
 - ★**스테이지 목록 2열 격자(2026-09-08)**: 6맵이 한 열에 안 들어갔음(1080p에서도 5·6번째와 '뒤로'가 화면 밖, 웹 960×600은 4번째부터 잘림) → `DrawStageSelect`: 5개 이상이면 2열(행 = ceil(n/2)), 행 높이 = (남은 높이−뒤로 버튼 70)/행수에 맞춰 축소(th 40~min(122, 0.11H)), 이름 폭 2열일 때 170. 1902×1404 게임뷰 실측: 복도/정글/동굴 | 빙산/우주/달 + 뒤로 전부 화면 안.
+- ⚠️빌드 완료 감시: Editor.log grep 모니터가 두 번 다 안 울렸음(원인 미확인) — **`manage_build` status를 주기적으로 직접 폴링**(빌드 중엔 타임아웃, 끝나면 즉시 succeeded)하는 게 확실. 2차 빌드 145s(캐시 덕), 49.46MB, 에러 0, 경고 2(KeyTutorial.thoughtRight CS0414·PerTableMode.OnDestroy CS0114 — 무해). 웹 프리뷰 실측: 960×600 캔버스에서 2열 격자 6맵+뒤로 전부 보임, 클릭 진입 OK.
