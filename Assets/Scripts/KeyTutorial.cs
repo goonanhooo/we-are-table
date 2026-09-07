@@ -4,15 +4,14 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
-/// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: "조작법 페이지 전부 없애고, 테이블 옆에 눌러야 하는 자판만 떠 있게 —
-/// 정사각 키캡에 키 이름, 그 키를 누르면 사라짐, 모든 능력이 같은 방식" → v2 "나머지 자판도 선으로, 실제 3D 공중 표지판처럼"). Table.prefab 루트 부착(전 씬).
-/// - `boardPrefab`(Assets/Prefabs/KeyTutorialBoard — Tools/UI/Build Key Tutorial Board로 생성) = **월드 캔버스 종이 표지판**: 전체 QWERTY 자판이 선(outline)으로 그려져 있고,
-///   지금 눌러야 하는 키만 그 자리에 채운 키캡(KeyTemplate 복제: 글자 + 다리 색 띠)이 올라간다. 표지판은 테이블 옆(카메라 오른쪽·위)에 떠서 카메라를 향해 서고 살짝 둥실거린다.
-///   재질은 ZTest Always(벽에 안 가림)지만 원근·빌보드라 3D 공간에 떠 있는 표지판처럼 보임.
-/// - 그룹은 조건이 처음 참이 될 때 나타남: 걷기(내 다리 4방향 키, 다리 색) · 바로서기 '1'(넘어지면 · 3번까지) · 기린 '2'→신축 키 · 얼음 '3' · 테니스 붙기/떼기 · 오징어 분사.
-///   키를 누르면 그 키캡만 팝+페이드로 사라짐(선 자판은 남음). 모든 키캡이 사라지면 표지판도 사라짐. 컷씬(CameraFollow 꺼짐)·일시정지·동결 중엔 표지판 페이드 아웃.
-/// - 멀티: 내 다리만(NetLegLink.IsMine / 호스트=빈 자리 포함), 오프라인은 TableInput.IsLocal. 1인1테이블도 내 테이블만.
-/// - '1'은 서 있는 채로 눌러 지우면 충전을 돌려줌(튜토리얼 때문에 한 번을 낭비하지 않게) — 넘어져서 누르면 정상 소모.
+/// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: 조작법 페이지 폐지 → 테이블 옆 3D 종이 표지판에 눌러야 하는 키만, 누르면 사라짐). Table.prefab 루트 부착(전 씬).
+/// v5(2026-09-08): 연결선 삭제, 자판 그림에서 방향키 제거(4번째 다리는 [ ' ; Enter만 표시), '1'은 처음이 아니라 **뒤집혔을 때** 상상 말풍선과 함께
+///   ("1을 누르면 바로서기 / 남은 횟수는 오른쪽 위 동그라미") — 테니스공으로 벽에 붙은 채·우주(무중력)에선 안 뜸(ArtSceneReset.FlipPromptActive),
+///   첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시(LegColorXray)를 켜고 표지판 아래 줄에 "ESC 설정에서 끌 수 있어요" 안내(1회, PlayerPrefs).
+/// - `boardPrefab`(Assets/Prefabs/KeyTutorialBoard — Tools/UI/Build Key Tutorial Board) = 월드 캔버스 종이 표지판(PIL이 그린 전체 자판 그림 위에 KeyTemplate 복제).
+///   테이블 왼쪽(카메라 기준)에 화면과 평행하게, 거리 보정 크기(화면 너비 screenWidthFraction), 반투명 종이, 둥실.
+/// - 그룹: 걷기(내 다리 4방향 키+보조 키, 다리 색) · 기린 '2'→신축 키 · 얼음 '3' · 테니스 붙기/떼기 · 오징어 분사 · 뒤집힘 '1'(반복 가능).
+/// - 멀티: 내 다리만(NetLegLink.IsMine / 호스트=빈 자리 포함), 오프라인은 TableInput.IsLocal.
 /// ⚠️키 목록은 TableInput.Map / TennisMode Grab·Release / GiraffeMode Longer·Shorter와 같아야 함(여기 복제 — 바꾸면 같이).
 /// </summary>
 public class KeyTutorial : MonoBehaviour
@@ -26,16 +25,18 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("표지판이 화면 너비에서 차지할 비율 — 거리에 맞춰 크기를 조절(튜토리얼이라 항상 읽히게)")] public float screenWidthFraction = 0.32f;
     [Tooltip("화면과 평행하게(정면) — 끄면 카메라를 향해 서되 살짝 기울어짐")] public bool faceScreen = true;
     [Tooltip("종이 투명도(0~1)")] public float paperAlpha = 0.74f;
-    [Tooltip("테이블↔표지판 연결선 색/굵기")] public Color tetherColor = new Color(0.1f, 0.1f, 0.13f, 0.55f);
-    public float tetherWidth = 0.018f;
     [Tooltip("거리 보정 배율 범위(프리팹 기본 크기 기준)")] public float minScaleMul = 0.7f, maxScaleMul = 2.4f;
     [Tooltip("둥실거림 진폭(m)/속도")] public float bobAmp = 0.03f, bobSpeed = 1.3f;
-    [Tooltip("카메라를 향할 때 위아래 기울기 비율(0=완전 직립)")] public float pitchFollow = 0.35f;
+    [Tooltip("카메라를 향할 때 위아래 기울기 비율(faceScreen이 꺼졌을 때)")] public float pitchFollow = 0.35f;
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
     public float fadeSeconds = 0.35f;
     public float boardFadeSeconds = 0.5f;
+    [Header("뒤집힘 말풍선")]
+    [Tooltip("말풍선이 화면 너비에서 차지할 비율")] public float thoughtWidthFraction = 0.22f;
+    [Tooltip("말풍선 위치: 테이블 기준 옆(x, 카메라 오른쪽)·위(y)·카메라 쪽(z)")] public Vector3 thoughtOffset = new Vector3(0.9f, 1.75f, 0.5f);
     [Header("그룹 켜기")]
     public bool showMove = true, showPoseReset = true, showGiraffe = true, showIce = true, showTennis = true, showSquid = true;
+    [Tooltip("첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(PlayerPrefs로 1회)")] public bool legColorTutorial = true;
 
     // ── 키 배열(TableInput.Map과 동일) ──
     static readonly Key[][] Map = {
@@ -46,6 +47,7 @@ public class KeyTutorial : MonoBehaviour
     };
     static readonly Key[] GrabKeys = { Key.C, Key.N, Key.Period, Key.RightShift };
     static readonly Key[] ReleaseKeys = { Key.Z, Key.V, Key.M, Key.Slash };
+    const string LegColorPref = "tut.legcolor.done";
 
     static string LabelOf(Key k)
     {
@@ -68,13 +70,14 @@ public class KeyTutorial : MonoBehaviour
     }
 
     readonly List<Cap> caps = new List<Cap>();
-    readonly HashSet<string> shown = new HashSet<string>();   // 이미 등장한 그룹
+    readonly HashSet<string> shown = new HashSet<string>();   // 이미 등장한 그룹(뒤집힘 '1'은 제외 — 반복)
     readonly Dictionary<string, string> groupHint = new Dictionary<string, string>();
 
-    ArticulationBody root; TableInput ti; NetLegLink link; GiraffeMode giraffe; IcePower ice; TennisMode tennis; SquidMode squid; ArtSceneReset asr;
-    CameraFollow camFollow; bool menuScene; float readyT = -1f; bool giraffeKeysShown;
-    GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title; Font arrowFont;
-    float bobPhase; Vector3 baseScale; Vector2 boardPx; LineRenderer tether; Image paper;
+    ArticulationBody root; TableInput ti; NetLegLink link; GiraffeMode giraffe; IcePower ice; TennisMode tennis; SquidMode squid; ArtSceneReset asr; LegColorXray xray;
+    CameraFollow camFollow; bool menuScene; float readyT = -1f; bool giraffeKeysShown; bool legColorShown; bool moveGroupPressed;
+    GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title, note; Font arrowFont;
+    GameObject thought; CanvasGroup thoughtGroup; Text thoughtBody; Vector3 thoughtBaseScale; Vector2 thoughtPx; bool thoughtWant;
+    float bobPhase; Vector3 baseScale; Vector2 boardPx; Image paper;
 
     void Start()
     {
@@ -86,6 +89,7 @@ public class KeyTutorial : MonoBehaviour
         tennis = transform.root.GetComponentInChildren<TennisMode>(true);
         squid = transform.root.GetComponentInChildren<SquidMode>(true);
         asr = transform.root.GetComponentInChildren<ArtSceneReset>(true);
+        xray = transform.root.GetComponentInChildren<LegColorXray>(true);
         menuScene = Object.FindAnyObjectByType<StartScreenMenu>() != null || Object.FindAnyObjectByType<NewStartScreenUI>() != null;
         bobPhase = Random.value * 6.28f;
         if (boardPrefab == null) boardPrefab = Resources.Load<GameObject>("KeyTutorialBoard");
@@ -101,17 +105,27 @@ public class KeyTutorial : MonoBehaviour
             baseScale = board.transform.localScale; boardPx = board.GetComponent<RectTransform>().sizeDelta;
             var pp = board.transform.Find("Paper"); paper = pp != null ? pp.GetComponent<Image>() : null;
             if (paper != null) { var pc = paper.color; pc.a = paperAlpha; paper.color = pc; }
-            var tt2 = board.transform.Find("Tether"); tether = tt2 != null ? tt2.GetComponent<LineRenderer>() : null;
-            if (tether != null) { tether.useWorldSpace = true; tether.positionCount = 3; tether.startWidth = tetherWidth; tether.endWidth = tetherWidth * 0.6f; tether.startColor = tether.endColor = tetherColor; }
             var tt = board.transform.Find("Title"); title = tt != null ? tt.GetComponent<Text>() : null;
+            var nt = board.transform.Find("Note"); note = nt != null ? nt.GetComponent<Text>() : null; if (note != null) note.text = "";
             var canvas = board.GetComponent<Canvas>(); if (canvas != null) canvas.worldCamera = Camera.main;
             arrowFont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
+            // 상상 말풍선: 표지판에서 분리해 테이블 위에 따로 띄움
+            var th = board.transform.Find("Thought");
+            if (th != null)
+            {
+                thought = th.gameObject; thought.transform.SetParent(null, true); thought.name = "KeyTutorialThought";
+                thoughtGroup = thought.GetComponent<CanvasGroup>(); if (thoughtGroup == null) thoughtGroup = thought.AddComponent<CanvasGroup>(); thoughtGroup.alpha = 0f;
+                var body = thought.transform.Find("Body"); thoughtBody = body != null ? body.GetComponent<Text>() : null;
+                var tc = thought.GetComponent<Canvas>(); if (tc != null) tc.worldCamera = Camera.main;
+                thoughtBaseScale = baseScale; thought.transform.localScale = baseScale; thoughtPx = thought.GetComponent<RectTransform>().sizeDelta;
+                thought.SetActive(false);
+            }
             board.SetActive(false);
         }
         else if (!menuScene) Debug.LogWarning("[KeyTutorial] boardPrefab 없음 — 튜토리얼 표지판 생략");
     }
 
-    void OnDestroy() { if (board != null) Destroy(board); }
+    void OnDestroy() { if (board != null) Destroy(board); if (thought != null) Destroy(thought); }
 
     /// <summary>이 다리(키셋)가 이 클라이언트의 것인가.</summary>
     bool Mine(int set)
@@ -137,6 +151,8 @@ public class KeyTutorial : MonoBehaviour
         return true;
     }
 
+    bool HasCap(string group) { foreach (var c in caps) if (c.group == group && !c.done) return true; return false; }
+
     void Update()
     {
         if (menuScene || board == null) return;
@@ -144,15 +160,13 @@ public class KeyTutorial : MonoBehaviour
         if (!ok) readyT = -1f; else if (readyT < 0f) readyT = Time.time;
         bool ready = ok && Time.time - readyT >= appearDelay;
 
-        // 그룹 조건 → 등장
+        // 그룹 조건 → 등장(1회)
         if (ready)
         {
             if (showMove) AddGroup("move", L.T("걷기", "walk"), () => {
-                for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }
-                // 보조 키(방향키 다리의 [ ' ; Enter 등 — ArtLegController에 등록된 것)도 같은 색으로
+                for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }   // 자판 그림에 없는 키(방향키)는 자동 생략
                 foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; foreach (var ak in new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }) if (ak != Key.None) Add(ak, "move", LegPalette.BySlot[i], true); }
             });
-            if (showPoseReset) AddGroup("pose", ArtSceneReset.Unlimited ? L.T("넘어지면 1 (무제한)", "fell over? press 1 (unlimited)") : L.T("넘어지면 1 · 맵마다 3번", "fell over? press 1 · 3 per map"), () => Add(Key.Digit1, "pose", Color.white, false));
             if (showGiraffe && giraffe != null && !giraffe.locked) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
             if (showGiraffe && giraffe != null && giraffe.active && !giraffeKeysShown)
             {
@@ -163,6 +177,19 @@ public class KeyTutorial : MonoBehaviour
             if (showTennis && tennis != null && (tennis.unlocked || tennis.active)) AddGroup("tennis", L.T("붙기 / 떼기", "stick / let go"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) { Add(GrabKeys[i], "tennis", LegPalette.BySlot[i], true); Add(ReleaseKeys[i], "tennis", LegPalette.BySlot[i], true); } });
             if (showSquid && squid != null && squid.active && !squid.thrustLocked) AddGroup("squid", L.T("발끝 분사", "thrust from feet"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) Add(Map[i][4], "squid", LegPalette.BySlot[i], true); });
         }
+
+        // 뒤집힘 → '1' 키캡 + 상상 말풍선(벽 등반·우주는 ArtSceneReset.FlipPromptActive가 false)
+        bool flip = showPoseReset && ok && asr != null && asr.FlipPromptActive && (ArtSceneReset.Unlimited || asr.PoseResetsLeft > 0);
+        if (flip && !HasCap("pose"))
+        {
+            groupHint["pose"] = L.T("1 = 바로서기", "1 = stand up");
+            Add(Key.Digit1, "pose", Color.white, false);
+            if (thoughtBody != null) thoughtBody.text = ArtSceneReset.Unlimited
+                ? L.T("1을 누르면 바로서기!\n(이 난이도에선 무제한)", "press 1 to stand up!\n(unlimited on this difficulty)")
+                : L.T("1을 누르면 바로서기!\n남은 횟수는 오른쪽 위 동그라미", "press 1 to stand up!\nthe circle top-right shows what's left");
+        }
+        thoughtWant = flip && HasCap("pose");
+        if (!flip && HasCap("pose")) foreach (var c in caps) if (c.group == "pose" && !c.done) { c.done = true; c.doneT = Time.time; }   // 스스로 일어났거나 상황 종료 → 지움
 
         // 키 입력 → 해당 키캡 사라짐(팝+페이드)
         var kb = Keyboard.current;
@@ -176,8 +203,7 @@ public class KeyTutorial : MonoBehaviour
                 if (ok && kb != null && kb[c.key].wasPressedThisFrame)
                 {
                     c.done = true; c.doneT = Time.time;
-                    if (c.group == "pose" && asr != null && root != null && root.transform.up.y > 0.8f && !ArtSceneReset.Unlimited)
-                    { asr.AddPoseResets(1); ArtSceneReset.PoseResetCount = Mathf.Max(0, ArtSceneReset.PoseResetCount - 1); }   // 서 있는 채 눌러 지운 것 — 충전 반환
+                    if (c.group == "move") OnMovePressed();
                 }
                 if (c.cg != null) { c.cg.alpha = c.alpha; c.rt.localScale = Vector3.one * Mathf.Lerp(0.6f, 1f, c.alpha); }
             }
@@ -193,7 +219,7 @@ public class KeyTutorial : MonoBehaviour
         if (title != null)
         {
             var parts = new List<string>();
-            foreach (var kv in groupHint) { bool any = false; foreach (var c in caps) if (c.group == kv.Key && !c.done) { any = true; break; } if (any) parts.Add(kv.Value); }
+            foreach (var kv in groupHint) if (HasCap(kv.Key)) parts.Add(kv.Value);
             string s = string.Join("   ·   ", parts); if (title.text != s) title.text = s;
         }
 
@@ -205,11 +231,32 @@ public class KeyTutorial : MonoBehaviour
             boardGroup.alpha = Mathf.MoveTowards(boardGroup.alpha, want ? 1f : 0f, dt / boardFadeSeconds);
             if (!want && boardGroup.alpha <= 0f) board.SetActive(false);
         }
+        // 말풍선 페이드
+        if (thought != null)
+        {
+            bool tw = thoughtWant && ok;
+            if (tw && !thought.activeSelf) { thought.SetActive(true); PoseThought(); }
+            if (thought.activeSelf)
+            {
+                thoughtGroup.alpha = Mathf.MoveTowards(thoughtGroup.alpha, tw ? 1f : 0f, dt / boardFadeSeconds);
+                if (!tw && thoughtGroup.alpha <= 0f) thought.SetActive(false);
+            }
+        }
     }
 
-    void LateUpdate() { if (board != null && board.activeSelf) PoseBoard(); }
+    /// <summary>첫 튜토리얼: 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(1회).</summary>
+    void OnMovePressed()
+    {
+        if (moveGroupPressed) return; moveGroupPressed = true;
+        if (!legColorTutorial || legColorShown || PlayerPrefs.GetInt(LegColorPref, 0) == 1) return;
+        legColorShown = true; PlayerPrefs.SetInt(LegColorPref, 1); PlayerPrefs.Save();
+        if (xray != null && !xray.IsOn) xray.SetOn(true);
+        if (note != null) note.text = L.T("다리마다 자기 색이 켜졌어요 — 키 색과 같아요. ESC 설정에서 끌 수 있어요.", "each leg now shows its color — same as the keys. turn it off in ESC settings.");
+    }
 
-    /// <summary>테이블 옆(카메라 기준 오른쪽·위)에 떠서 카메라를 향해 서고 둥실거림.</summary>
+    void LateUpdate() { if (board != null && board.activeSelf) PoseBoard(); if (thought != null && thought.activeSelf) PoseThought(); }
+
+    /// <summary>테이블 옆(카메라 기준 왼쪽)에 화면과 평행하게 떠서 둥실거림. 거리에 따라 화면 너비의 일정 비율로 크기 보정.</summary>
     void PoseBoard()
     {
         var cam = Camera.main; if (cam == null || root == null) return;
@@ -217,7 +264,6 @@ public class KeyTutorial : MonoBehaviour
         Vector3 fwd = cam.transform.forward; fwd.y = 0f; if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward; fwd.Normalize();
         Vector3 right = Vector3.Cross(Vector3.up, fwd);
         float t = Time.time * bobSpeed + bobPhase;
-        // 거리 보정 크기: 화면 너비의 screenWidthFraction을 차지하도록(3D 표지판이되 튜토리얼이라 항상 읽히게)
         float side = leftSide ? -1f : 1f;
         Vector3 approx = tp + right * side * (sideGap + 1.2f) + Vector3.up * (bottomHeight + 0.5f) - fwd * towardCamera;
         float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
@@ -226,26 +272,42 @@ public class KeyTutorial : MonoBehaviour
         board.transform.localScale = baseScale * mul;
         float bw = baseW * mul, bh = boardPx.y * baseScale.y * mul;
         Vector3 pos = tp + right * side * (sideGap + bw * 0.5f) + Vector3.up * (bottomHeight + bh * 0.5f + Mathf.Sin(t) * bobAmp) - fwd * towardCamera;
-        // 화면 가장자리 클램프: 표지판 끝이 화면 밖이면 안쪽(테이블 위)으로 당김 — 튜토리얼 키가 잘리지 않게
+        // 화면 가장자리 클램프
         Vector3 camRight = cam.transform.right;
         Vector3 edgeR = pos + camRight * (bw * 0.5f), edgeL = pos - camRight * (bw * 0.5f);
         Vector3 vpR = cam.WorldToViewportPoint(edgeR), vpL = cam.WorldToViewportPoint(edgeL);
         if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
         else if (vpL.z > 0f && vpL.x < 0.03f) pos += camRight * ((0.03f - vpL.x) * visibleW);
-        Quaternion rot;
-        if (faceScreen) rot = cam.transform.rotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 0.8f);   // 화면과 평행(정면)
-        else { Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd; rot = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f); }
-        board.transform.SetPositionAndRotation(pos, rot);
-        // 테이블↔표지판 연결선(표지판 안쪽 아래 모서리 → 살짝 굽어 → 상판 위 한 점)
-        if (tether != null)
-        {
-            Vector3 bRight = board.transform.right, bUp = board.transform.up;
-            Vector3 a = pos - bRight * side * (bw * 0.5f - 0.08f) - bUp * (bh * 0.5f - 0.04f);
-            Vector3 c = tp + Vector3.up * 0.86f - right * side * 0.25f;
-            Vector3 m = (a + c) * 0.5f + Vector3.up * 0.12f;
-            tether.SetPosition(0, a); tether.SetPosition(1, m); tether.SetPosition(2, c);
-            var col = tetherColor; col.a *= boardGroup != null ? boardGroup.alpha : 1f; tether.startColor = tether.endColor = col;
-        }
+        board.transform.SetPositionAndRotation(pos, FaceRot(cam, pos, fwd, t));
+    }
+
+    /// <summary>상상 말풍선: 테이블 위(카메라 오른쪽으로 살짝)에서 화면과 평행, 꼬리(왼쪽 아래)가 테이블을 향함.</summary>
+    void PoseThought()
+    {
+        var cam = Camera.main; if (cam == null || root == null) return;
+        Vector3 tp = root.transform.position;
+        Vector3 fwd = cam.transform.forward; fwd.y = 0f; if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward; fwd.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        float t = Time.time * bobSpeed * 0.8f + bobPhase + 1.7f;
+        Vector3 approx = tp + Vector3.up * thoughtOffset.y - fwd * thoughtOffset.z;
+        float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
+        float visibleW = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * cam.aspect;
+        float baseW = thoughtPx.x * thoughtBaseScale.x; float mul = Mathf.Clamp(visibleW * thoughtWidthFraction / Mathf.Max(0.01f, baseW), minScaleMul, maxScaleMul);
+        thought.transform.localScale = thoughtBaseScale * mul;
+        float w = baseW * mul, h = thoughtPx.y * thoughtBaseScale.y * mul;
+        Vector3 pos = tp + right * (thoughtOffset.x + w * 0.25f) + Vector3.up * (thoughtOffset.y + h * 0.4f + Mathf.Sin(t) * bobAmp) - fwd * thoughtOffset.z;
+        Vector3 camRight = cam.transform.right;
+        Vector3 vpR = cam.WorldToViewportPoint(pos + camRight * (w * 0.5f)), vpT = cam.WorldToViewportPoint(pos + cam.transform.up * (h * 0.5f));
+        if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
+        if (vpT.z > 0f && vpT.y > 0.96f) pos -= cam.transform.up * ((vpT.y - 0.96f) * visibleW / cam.aspect);
+        thought.transform.SetPositionAndRotation(pos, FaceRot(cam, pos, fwd, t));
+    }
+
+    Quaternion FaceRot(Camera cam, Vector3 pos, Vector3 fwd, float t)
+    {
+        if (faceScreen) return cam.transform.rotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 0.8f);
+        Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd;
+        return Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f);
     }
 
     void AddGroup(string name, string hint, System.Action fill)
@@ -258,7 +320,7 @@ public class KeyTutorial : MonoBehaviour
     {
         if (template == null || keysRoot == null) return;
         foreach (var c in caps) if (c.key == key && !c.done) return;   // 이미 떠 있음(다른 그룹이 같은 키)
-        var slot = keysRoot.Find("Key_" + key.ToString()); if (slot == null) return;
+        var slot = keysRoot.Find("Key_" + key.ToString()); if (slot == null) return;   // 자판 그림에 없는 키(방향키 등)
         var srt = slot.GetComponent<RectTransform>();
         var tplGo = srt.sizeDelta.x > 250f ? templateShift : srt.sizeDelta.x > 150f ? templateEnter : template;
         var go = Instantiate(tplGo, keysRoot); go.name = "Cap_" + key; go.SetActive(true);
@@ -273,7 +335,8 @@ public class KeyTutorial : MonoBehaviour
     }
 
     /// <summary>검증용: 키를 누른 것으로 처리.</summary>
-    public void DebugPress(Key key) { foreach (var c in caps) if (c.key == key && !c.done) { c.done = true; c.doneT = Time.time; } }
+    public void DebugPress(Key key) { foreach (var c in caps) if (c.key == key && !c.done) { c.done = true; c.doneT = Time.time; if (c.group == "move") OnMovePressed(); } }
     public int VisibleCount { get { int n = 0; foreach (var c in caps) if (!c.done) n++; return n; } }
     public bool BoardVisible => board != null && board.activeSelf && boardGroup != null && boardGroup.alpha > 0.5f;
+    public bool ThoughtVisible => thought != null && thought.activeSelf && thoughtGroup != null && thoughtGroup.alpha > 0.5f;
 }

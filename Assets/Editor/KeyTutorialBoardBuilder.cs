@@ -17,7 +17,7 @@ public static class KeyTutorialBoardBuilder
     const float BaseScale = 0.0019f;
 
     [System.Serializable] class KeyRect { public string name; public float x, y, w, h; }
-    [System.Serializable] class LayoutFile { public int[] image; public KeyRect title; public List<KeyRect> keys; }
+    [System.Serializable] class LayoutFile { public int[] image; public KeyRect title; public KeyRect note; public List<KeyRect> keys; }
 
     static Sprite SpriteOf(string path, Vector4 border = default)
     {
@@ -55,7 +55,8 @@ public static class KeyTutorialBoardBuilder
         if (mat == null) { mat = new Material(Shader.Find("Custom/UIWorldOverlay")); AssetDatabase.CreateAsset(mat, MatPath); }
         var baseSp = SpriteOf("Assets/Resources/HandUI/keyboard_base.png");
         var cap1 = SpriteOf("Assets/Resources/HandUI/keycap_w1.png"); var capEnter = SpriteOf("Assets/Resources/HandUI/keycap_enter.png"); var capShift = SpriteOf("Assets/Resources/HandUI/keycap_shift.png");
-        var gaeguB = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/Gaegu-Bold.ttf"); var nanum = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/NanumGothic-Regular.ttf");
+        var thoughtSp = SpriteOf("Assets/Resources/HandUI/thought.png");
+        var gaeguB = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/Gaegu-Bold.ttf"); var gaeguR = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/Gaegu-Regular.ttf"); var nanum = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/NanumGothic-Regular.ttf");
         Color ink = new Color(0.08f, 0.08f, 0.1f, 1f);
         var size = new Vector2(layout.image[0], layout.image[1]);
 
@@ -67,6 +68,8 @@ public static class KeyTutorialBoardBuilder
         var prt = paper.GetComponent<RectTransform>(); prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one; prt.pivot = new Vector2(0.5f, 0.5f); prt.anchoredPosition = Vector2.zero; prt.sizeDelta = Vector2.zero;
         // 제목(힌트 한 줄, 손글씨)
         Txt("Title", root.transform, gaeguB, 58, ink, mat, TextAnchor.MiddleLeft, new Vector2(layout.title.x, layout.title.y), new Vector2(layout.title.w, layout.title.h), "");
+        // 아래 안내 줄(다리 색 설정 안내 등)
+        if (layout.note != null) Txt("Note", root.transform, gaeguR, 40, new Color(0.3f, 0.3f, 0.33f, 1f), mat, TextAnchor.MiddleLeft, new Vector2(layout.note.x, layout.note.y), new Vector2(layout.note.w, layout.note.h), "");
         // 키 자리(빈 RectTransform — 그림은 Paper에 이미 있음)
         var keys = Rect("Keys", root.transform, Vector2.zero, Vector2.zero);
         foreach (var k in layout.keys) Rect(k.name, keys, new Vector2(k.x, k.y), new Vector2(k.w, k.h));
@@ -80,12 +83,14 @@ public static class KeyTutorialBoardBuilder
             Img("Bar", im.transform, null, mat, new Vector2(pad + t.Item3 * 0.16f, pad + 88f - 15f), new Vector2(t.Item3 * 0.68f, 7f), new Color(0.3f, 0.8f, 0.3f, 0.9f));
             im.gameObject.SetActive(false);
         }
-        // 테이블↔표지판 연결선(LineRenderer, 월드 좌표는 KeyTutorial이 매 프레임 지정)
-        var tetherMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Guide/UI/KeyBoardTether.mat");
-        if (tetherMat == null) { tetherMat = new Material(Shader.Find("Custom/XrayLine")); tetherMat.SetColor("_Color", Color.white); AssetDatabase.CreateAsset(tetherMat, "Assets/Guide/UI/KeyBoardTether.mat"); }
-        var tetherGo = new GameObject("Tether", typeof(LineRenderer)); tetherGo.transform.SetParent(root.transform, false);
-        var lr = tetherGo.GetComponent<LineRenderer>(); lr.sharedMaterial = tetherMat; lr.useWorldSpace = true; lr.positionCount = 3; lr.startWidth = 0.018f; lr.endWidth = 0.011f; lr.numCapVertices = 4; lr.numCornerVertices = 4; lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lr.receiveShadows = false;
-        lr.startColor = lr.endColor = new Color(0.1f, 0.1f, 0.13f, 0.55f);
+        // 상상 말풍선(뒤집혔을 때 — KeyTutorial이 분리해 테이블 위에 띄움): 자체 월드 캔버스
+        var th = new GameObject("Thought", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup)); th.transform.SetParent(root.transform, false);
+        var thrt = th.GetComponent<RectTransform>(); thrt.sizeDelta = new Vector2(900f, 460f); thrt.pivot = new Vector2(0.5f, 0.5f);
+        var thc = th.GetComponent<Canvas>(); thc.renderMode = RenderMode.WorldSpace; thc.sortingOrder = 51;
+        var cloud = Img("Cloud", th.transform, thoughtSp, mat, Vector2.zero, new Vector2(900f, 460f), Color.white);
+        var crt = cloud.GetComponent<RectTransform>(); crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one; crt.pivot = new Vector2(0.5f, 0.5f); crt.anchoredPosition = Vector2.zero; crt.sizeDelta = Vector2.zero;
+        Txt("Body", th.transform, gaeguB, 50, ink, mat, TextAnchor.MiddleCenter, new Vector2(120f, 70f), new Vector2(700f, 250f), "1");
+        th.SetActive(false);
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();

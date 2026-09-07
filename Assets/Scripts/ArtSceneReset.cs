@@ -84,6 +84,20 @@ public class ArtSceneReset : MonoBehaviour
     public static bool Unlimited => CheatMode.Active || Difficulty.Coward;
     /// <summary>★2026-09-06 이번 맵에서 바로서기('1')를 실제로 쓴 횟수(씬 로드마다 0). StageTimer CLEAR 오버레이에 표시, 멀티는 NetStageSync가 호스트 값을 게스트에 복사.</summary>
     public static int PoseResetCount;
+    /// <summary>★2026-09-08 뒤집힘 안내(배너/KeyTutorial 말풍선)를 띄워도 되는가 — 정착된 뒤집힘이고, 테니스공으로 벽에 붙은 상태·우주(오징어 무중력)가 아닐 때만.</summary>
+    public bool FlipPromptActive => flippedTime >= flipPromptDelay && !FlipSuppressed;
+    public bool FlipSuppressed
+    {
+        get
+        {
+            if (tennisRef == null) tennisRef = transform.root.GetComponentInChildren<TennisMode>(true);
+            if (squidRef == null) squidRef = transform.root.GetComponentInChildren<SquidMode>(true);
+            if (tennisRef != null && tennisRef.active && tennisRef.StuckMask != 0) return true;   // 벽에 붙어 뒤집힘 = 등반 중
+            if (squidRef != null && squidRef.active) return true;                                    // 우주 무중력 — 뒤집힘 개념 없음
+            return false;
+        }
+    }
+    TennisMode tennisRef; SquidMode squidRef;
 
     /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트/겁쟁이 난이도면 무제한.</summary>
     public void TryPoseReset()
@@ -169,7 +183,7 @@ public class ArtSceneReset : MonoBehaviour
 
         // 뒤집힘 배너의 [다시 시작] 버튼 클릭 — GUI.Button은 새 입력시스템에서 안 먹어 Mouse.current로 직접(PauseMenu 패턴)
         var mouse = Mouse.current;
-        if (!disableManualReset && flippedTime >= flipPromptDelay && mouse != null && mouse.leftButton.wasPressedThisFrame)
+        if (!disableManualReset && flippedTime >= flipPromptDelay && !FlipSuppressed && mouse != null && mouse.leftButton.wasPressedThisFrame)
         {
             Vector2 p = mouse.position.ReadValue();
             Vector2 gm = new Vector2(p.x, Screen.height - p.y);   // 좌하 원점 → GUI 좌상 원점
@@ -265,8 +279,8 @@ public class ArtSceneReset : MonoBehaviour
                 GUI.DrawTexture(new Rect(x0 + i * (d + gap), 16f, d, d), cheat || i < poseResetsLeft ? circleFull : circleEmpty);
         }
 
-        // ── 뒤집힘 배너 ──
-        if (flippedTime < flipPromptDelay) return;
+        // ── 뒤집힘 배너(★2026-09-08 벽 등반·우주에선 안 뜸, '1' 안내는 KeyTutorial 말풍선이 담당) ──
+        if (flippedTime < flipPromptDelay || FlipSuppressed) return;
         var r = BannerRect();
         UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
         GUI.Label(new Rect(r.x, r.y + 6f, r.width, 34f), L.T("뒤집혔어요!", "flipped over!"), bannerStyle);
@@ -277,10 +291,8 @@ public class ArtSceneReset : MonoBehaviour
         if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
         GUI.Label(btn, L.T("다시 시작 (F1)", "restart (F1)"), btnLabel);
 
-        string hint = (cheat || poseResetsLeft > 0)
-            ? L.T("또는 1 키 — 자세 다시 잡기 (", "or press 1 — fix pose (") + (CheatMode.Active ? L.T("치트: 무제한", "cheat: unlimited") : Difficulty.Coward ? L.T("겁쟁이 난이도: 무제한", "coward mode: unlimited") : L.T("남은 횟수 ", "left: ") + poseResetsLeft) + ")"
-            : L.T("자세 다시 잡기를 모두 썼어요", "no pose fixes left");
-        GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), hint, bannerSub);
+        if (!cheat && poseResetsLeft <= 0)
+            GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), L.T("바로서기를 모두 썼어요 — F1로 다시 시작", "no pose fixes left — restart with F1"), bannerSub);
     }
 
     /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면
