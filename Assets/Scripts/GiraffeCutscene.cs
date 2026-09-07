@@ -144,9 +144,7 @@ public class GiraffeCutscene : MonoBehaviour
         GiraffeMode.Unlocked = true;   // 조작법 메뉴에 기린 조작 노출
         yield return Hold(1.6f, camSide, mid);   // 변신한 모습 잠깐 보여줌
 
-        // 기린의 힘 조작법 이미지 표시(키 2 + 다리 신축키 강조)
-        var guide = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
-        if (guide != null) guide.Show();
+        // 기린의 힘 조작법은 KeyTutorial 키캡('2' → 켜면 신축 키)이 자동 표시(★2026-09-07 조작법 이미지 폐지)
 
         // 종료
         if (cameraFollow != null) cameraFollow.enabled = true;

@@ -193,9 +193,7 @@ public class HallwayStage : MonoBehaviour
         FreezeTable(false);   // 이제 물리/조작 활성
         controllable = true;
 
-        // 컷씬 종료 → 조작법 안내 이미지 표시
-        var guide = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
-        if (guide != null) guide.Show();
+        // 컷씬 종료 → 조작법은 KeyTutorial(테이블 옆 떠 있는 키캡)이 자동 표시(★2026-09-07 조작법 이미지 폐지)
     }
 
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)

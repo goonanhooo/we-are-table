@@ -190,9 +190,7 @@ public class SnowmanCutscene : MonoBehaviour
         yield return FlashTable(camPow, camPowLook);
         yield return Hold(1.3f, camPow, camPowLook);
 
-        // 7) 눈사람 힘 조작법 이미지 (비활성 오브젝트라 GameObject.Find 안 됨 → FindObjectsInactive)
-        var cg = Object.FindAnyObjectByType<ControlsGuide>(FindObjectsInactive.Include);
-        if (cg != null) cg.Show();
+        // 7) 눈사람 힘 조작법은 KeyTutorial 키캡('3')이 자동 표시(★2026-09-07 조작법 이미지 폐지)
 
         // 종료
         if (cameraFollow != null) cameraFollow.enabled = true;

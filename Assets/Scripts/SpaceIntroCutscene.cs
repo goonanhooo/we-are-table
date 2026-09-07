@@ -402,9 +402,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         }
         foreach (var r in rends) { if (r == null) continue; r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb); }   // 발광만 끔(SquidMode의 보라 틴트 블록은 유지)
         if (squidMode != null) { squidMode.thrustLocked = false; squidMode.unlocked = true; if (!remote) squidMode.active = true; SquidMode.Unlocked = true; }
-        hintText = L.T("다리 늘리기 키(E · Y · O · ])를 누르면 그 발끝에서 분사돼요 — 다리를 겨눠서 날아가요!",
-                       "hold a leg's stretch key (E · Y · O · ]) to thrust from that foot — aim your legs to fly!");
-        StartCoroutine(HideHint());
+        // 조작 힌트 텍스트는 KeyTutorial 키캡(발끝 분사 E/Y/O/])이 대신함(★2026-09-07)
 
         // ⑥ 오징어 퇴장 + 카메라 복귀 (+ 타이머 다시 표시·0부터)
         if (camC != null) camC.fieldOfView = baseFov;
