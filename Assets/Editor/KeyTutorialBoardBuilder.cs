@@ -80,6 +80,12 @@ public static class KeyTutorialBoardBuilder
             Img("Bar", im.transform, null, mat, new Vector2(pad + t.Item3 * 0.16f, pad + 88f - 15f), new Vector2(t.Item3 * 0.68f, 7f), new Color(0.3f, 0.8f, 0.3f, 0.9f));
             im.gameObject.SetActive(false);
         }
+        // 테이블↔표지판 연결선(LineRenderer, 월드 좌표는 KeyTutorial이 매 프레임 지정)
+        var tetherMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Guide/UI/KeyBoardTether.mat");
+        if (tetherMat == null) { tetherMat = new Material(Shader.Find("Custom/XrayLine")); tetherMat.SetColor("_Color", Color.white); AssetDatabase.CreateAsset(tetherMat, "Assets/Guide/UI/KeyBoardTether.mat"); }
+        var tetherGo = new GameObject("Tether", typeof(LineRenderer)); tetherGo.transform.SetParent(root.transform, false);
+        var lr = tetherGo.GetComponent<LineRenderer>(); lr.sharedMaterial = tetherMat; lr.useWorldSpace = true; lr.positionCount = 3; lr.startWidth = 0.018f; lr.endWidth = 0.011f; lr.numCapVertices = 4; lr.numCornerVertices = 4; lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lr.receiveShadows = false;
+        lr.startColor = lr.endColor = new Color(0.1f, 0.1f, 0.13f, 0.55f);
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();

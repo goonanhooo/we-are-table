@@ -1820,10 +1820,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyTutorial
   boardPrefab: {fileID: 6799168217798222506, guid: 9028a1b93cb3d4a1683748177bf116ea, type: 3}
-  sideGap: 1.1
+  sideGap: 0.9
   bottomHeight: 1.15
   towardCamera: 0.8
-  screenWidthFraction: 0.42
+  screenWidthFraction: 0.32
   minScaleMul: 0.7
   maxScaleMul: 2.4
   bobAmp: 0.03

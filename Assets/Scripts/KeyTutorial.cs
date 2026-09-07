@@ -19,10 +19,15 @@ public class KeyTutorial : MonoBehaviour
 {
     [Header("표지판")]
     [Tooltip("월드 캔버스 표지판 프리팹(KeyTutorialBoard)")] public GameObject boardPrefab;
-    [Tooltip("표지판 왼쪽 가장자리가 테이블 중심에서 카메라 오른쪽으로 떨어진 거리(m)")] public float sideGap = 1.1f;
+    [Tooltip("표지판을 테이블 왼쪽(카메라 기준)에 둘지")] public bool leftSide = true;
+    [Tooltip("표지판 안쪽 가장자리가 테이블 중심에서 옆으로 떨어진 거리(m)")] public float sideGap = 0.9f;
     [Tooltip("표지판 아래 가장자리 높이(테이블 루트 기준 m)")] public float bottomHeight = 1.15f;
     [Tooltip("카메라 쪽으로 당기는 거리(m)")] public float towardCamera = 0.8f;
-    [Tooltip("표지판이 화면 너비에서 차지할 비율 — 거리에 맞춰 크기를 조절(튜토리얼이라 항상 읽히게)")] public float screenWidthFraction = 0.42f;
+    [Tooltip("표지판이 화면 너비에서 차지할 비율 — 거리에 맞춰 크기를 조절(튜토리얼이라 항상 읽히게)")] public float screenWidthFraction = 0.32f;
+    [Tooltip("화면과 평행하게(정면) — 끄면 카메라를 향해 서되 살짝 기울어짐")] public bool faceScreen = true;
+    [Tooltip("종이 투명도(0~1)")] public float paperAlpha = 0.74f;
+    [Tooltip("테이블↔표지판 연결선 색/굵기")] public Color tetherColor = new Color(0.1f, 0.1f, 0.13f, 0.55f);
+    public float tetherWidth = 0.018f;
     [Tooltip("거리 보정 배율 범위(프리팹 기본 크기 기준)")] public float minScaleMul = 0.7f, maxScaleMul = 2.4f;
     [Tooltip("둥실거림 진폭(m)/속도")] public float bobAmp = 0.03f, bobSpeed = 1.3f;
     [Tooltip("카메라를 향할 때 위아래 기울기 비율(0=완전 직립)")] public float pitchFollow = 0.35f;
@@ -69,7 +74,7 @@ public class KeyTutorial : MonoBehaviour
     ArticulationBody root; TableInput ti; NetLegLink link; GiraffeMode giraffe; IcePower ice; TennisMode tennis; SquidMode squid; ArtSceneReset asr;
     CameraFollow camFollow; bool menuScene; float readyT = -1f; bool giraffeKeysShown;
     GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title; Font arrowFont;
-    float bobPhase; Vector3 baseScale; Vector2 boardPx;
+    float bobPhase; Vector3 baseScale; Vector2 boardPx; LineRenderer tether; Image paper;
 
     void Start()
     {
@@ -94,6 +99,10 @@ public class KeyTutorial : MonoBehaviour
             var te = board.transform.Find("KeyTemplate_Enter"); templateEnter = te != null ? te.gameObject : template;
             var ts = board.transform.Find("KeyTemplate_Shift"); templateShift = ts != null ? ts.gameObject : template;
             baseScale = board.transform.localScale; boardPx = board.GetComponent<RectTransform>().sizeDelta;
+            var pp = board.transform.Find("Paper"); paper = pp != null ? pp.GetComponent<Image>() : null;
+            if (paper != null) { var pc = paper.color; pc.a = paperAlpha; paper.color = pc; }
+            var tt2 = board.transform.Find("Tether"); tether = tt2 != null ? tt2.GetComponent<LineRenderer>() : null;
+            if (tether != null) { tether.useWorldSpace = true; tether.positionCount = 3; tether.startWidth = tetherWidth; tether.endWidth = tetherWidth * 0.6f; tether.startColor = tether.endColor = tetherColor; }
             var tt = board.transform.Find("Title"); title = tt != null ? tt.GetComponent<Text>() : null;
             var canvas = board.GetComponent<Canvas>(); if (canvas != null) canvas.worldCamera = Camera.main;
             arrowFont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
@@ -209,22 +218,34 @@ public class KeyTutorial : MonoBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, fwd);
         float t = Time.time * bobSpeed + bobPhase;
         // 거리 보정 크기: 화면 너비의 screenWidthFraction을 차지하도록(3D 표지판이되 튜토리얼이라 항상 읽히게)
-        Vector3 approx = tp + right * (sideGap + 1.5f) + Vector3.up * (bottomHeight + 0.6f) - fwd * towardCamera;
+        float side = leftSide ? -1f : 1f;
+        Vector3 approx = tp + right * side * (sideGap + 1.2f) + Vector3.up * (bottomHeight + 0.5f) - fwd * towardCamera;
         float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
         float visibleW = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * cam.aspect;
         float baseW = boardPx.x * baseScale.x; float mul = Mathf.Clamp(visibleW * screenWidthFraction / Mathf.Max(0.01f, baseW), minScaleMul, maxScaleMul);
         board.transform.localScale = baseScale * mul;
         float bw = baseW * mul, bh = boardPx.y * baseScale.y * mul;
-        Vector3 pos = tp + right * (sideGap + bw * 0.5f) + Vector3.up * (bottomHeight + bh * 0.5f + Mathf.Sin(t) * bobAmp) - fwd * towardCamera;
-        // 화면 가장자리 클램프: 표지판 오른쪽 끝이 화면 밖이면 왼쪽(테이블 위)으로 당김 — 튜토리얼 키가 잘리지 않게
+        Vector3 pos = tp + right * side * (sideGap + bw * 0.5f) + Vector3.up * (bottomHeight + bh * 0.5f + Mathf.Sin(t) * bobAmp) - fwd * towardCamera;
+        // 화면 가장자리 클램프: 표지판 끝이 화면 밖이면 안쪽(테이블 위)으로 당김 — 튜토리얼 키가 잘리지 않게
         Vector3 camRight = cam.transform.right;
         Vector3 edgeR = pos + camRight * (bw * 0.5f), edgeL = pos - camRight * (bw * 0.5f);
         Vector3 vpR = cam.WorldToViewportPoint(edgeR), vpL = cam.WorldToViewportPoint(edgeL);
         if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
         else if (vpL.z > 0f && vpL.x < 0.03f) pos += camRight * ((0.03f - vpL.x) * visibleW);
-        Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd;
-        Quaternion rot = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f);
+        Quaternion rot;
+        if (faceScreen) rot = cam.transform.rotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 0.8f);   // 화면과 평행(정면)
+        else { Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd; rot = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f); }
         board.transform.SetPositionAndRotation(pos, rot);
+        // 테이블↔표지판 연결선(표지판 안쪽 아래 모서리 → 살짝 굽어 → 상판 위 한 점)
+        if (tether != null)
+        {
+            Vector3 bRight = board.transform.right, bUp = board.transform.up;
+            Vector3 a = pos - bRight * side * (bw * 0.5f - 0.08f) - bUp * (bh * 0.5f - 0.04f);
+            Vector3 c = tp + Vector3.up * 0.86f - right * side * 0.25f;
+            Vector3 m = (a + c) * 0.5f + Vector3.up * 0.12f;
+            tether.SetPosition(0, a); tether.SetPosition(1, m); tether.SetPosition(2, c);
+            var col = tetherColor; col.a *= boardGroup != null ? boardGroup.alpha : 1f; tether.startColor = tether.endColor = col;
+        }
     }
 
     void AddGroup(string name, string hint, System.Action fill)
