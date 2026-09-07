@@ -36,6 +36,7 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("말풍선 크기(1920×1080 가상 px)")] public Vector2 thoughtSize = new Vector2(400f, 226f);
     [Tooltip("앵커(테이블 루트+위)에서 말풍선까지 오프셋(가상 px)")] public Vector2 thoughtOffsetPx = new Vector2(110f, 100f);
     [Tooltip("앵커 높이(테이블 루트 기준 m)")] public float thoughtAnchorUp = 0.35f;
+    [Tooltip("꼬리 끝을 테이블과 안 겹치게 말풍선 쪽 위로 밀어내는 오프셋(가상 px: x=말풍선 쪽, y=위)")] public Vector2 thoughtTailOffsetPx = new Vector2(70f, 70f);
     [Header("그룹 켜기")]
     public bool showMove = true, showPoseReset = true, showGiraffe = true, showIce = true, showTennis = true, showSquid = true;
     [Tooltip("첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(PlayerPrefs로 1회)")] public bool legColorTutorial = true;
@@ -158,13 +159,14 @@ public class KeyTutorial : MonoBehaviour
                 for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }   // 자판 그림에 없는 키(방향키)는 자동 생략
                 foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; foreach (var ak in new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }) if (ak != Key.None) Add(ak, "move", LegPalette.BySlot[i], true); }
             });
-            if (showGiraffe && giraffe != null && !giraffe.locked) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
+            bool squidOn = squid != null && squid.active;   // ★2026-09-08 우주오징어 중엔 기린·얼음 키 안내 없음(상호 배타)
+            if (showGiraffe && giraffe != null && !giraffe.locked && !squidOn) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
             if (showGiraffe && giraffe != null && giraffe.active && !giraffeKeysShown)
             {
                 giraffeKeysShown = true;
                 AddGroup("stretch", L.T("다리 늘리기 / 줄이기", "stretch / shrink legs"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) { Add(Map[i][4], "stretch", LegPalette.BySlot[i], true); Add(Map[i][5], "stretch", LegPalette.BySlot[i], true); } Add(Key.Equals, "stretch", Color.white, false); Add(Key.Minus, "stretch", Color.white, false); });
             }
-            if (showIce && ice != null && ice.unlocked) AddGroup("ice", L.T("3 = 얼음", "3 = ice"), () => Add(Key.Digit3, "ice", Color.white, false));
+            if (showIce && ice != null && ice.unlocked && !squidOn) AddGroup("ice", L.T("3 = 얼음", "3 = ice"), () => Add(Key.Digit3, "ice", Color.white, false));
             if (showTennis && tennis != null && (tennis.unlocked || tennis.active)) AddGroup("tennis", L.T("붙기 / 떼기", "stick / let go"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) { Add(GrabKeys[i], "tennis", LegPalette.BySlot[i], true); Add(ReleaseKeys[i], "tennis", LegPalette.BySlot[i], true); } });
             if (showSquid && squid != null && squid.active && !squid.thrustLocked) AddGroup("squid", L.T("발끝 분사", "thrust from feet"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) Add(Map[i][4], "squid", LegPalette.BySlot[i], true); });
         }
@@ -257,7 +259,8 @@ public class KeyTutorial : MonoBehaviour
             float grow = Mathf.Lerp(0.7f, 1f, ThoughtBubbleUI.EaseOut(thoughtAlpha));
             rect = ThoughtBubbleUI.ScaleFromCenter(rect, grow);
             float k = thoughtSize.x / 560f;
-            ThoughtBubbleUI.DrawTail(rect, anchor, thoughtAlpha, k);
+            var tailAnchor = anchor + new Vector2(thoughtRight ? thoughtTailOffsetPx.x : -thoughtTailOffsetPx.x, -thoughtTailOffsetPx.y);
+            ThoughtBubbleUI.DrawTail(rect, tailAnchor, thoughtAlpha, k);
             ThoughtBubbleUI.DrawBubble(rect, thoughtAlpha, thoughtText, 36);
         }
         ThoughtBubbleUI.End();

@@ -242,7 +242,7 @@ public class SnowmanCutscene : MonoBehaviour
             if (!transformed && u >= 0.45f)
             {
                 transformed = true;
-                if (icePower != null) { icePower.unlocked = true; icePower.active = true; icePower.Apply(); }
+                if (icePower != null) { icePower.unlocked = true; icePower.SetActive(true); }
                 if (table != null) rends = table.root.GetComponentsInChildren<MeshRenderer>();  // 얼음재질로 스왑된 렌더러 재취득
             }
             Color emi = new Color(0.4f, 0.7f, 1.5f) * (k * 1.1f);   // 은은한 '몸빛'(과하지 않게)
@@ -258,7 +258,7 @@ public class SnowmanCutscene : MonoBehaviour
         // 빛 종료: MPB 비워 얼음재질 자체의 은은한 발광만 남긴다(검정 override 안 함).
         foreach (var r in rends) { if (r == null) continue; r.SetPropertyBlock(null); }
         // 혹시 절정 전에 끝났으면 확실히 변신 보장.
-        if (icePower != null && !icePower.active) { icePower.unlocked = true; icePower.active = true; icePower.Apply(); }
+        if (icePower != null && !icePower.active) { icePower.unlocked = true; icePower.SetActive(true); }
     }
 
     GameObject MakeLight()

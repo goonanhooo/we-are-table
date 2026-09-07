@@ -62,24 +62,52 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
         Apply();
     }
 
+    // ★2026-09-08 능력 상호 배타: 얼음을 켜면 기린이 꺼지고, 우주오징어 중엔 얼음 금지(토글 무시·강제 OFF).
+    GiraffeMode giraffeRef; SquidMode squidRef; bool refsReady;
+    void Refs()
+    {
+        if (refsReady) return;
+        refsReady = true;
+        giraffeRef = transform.root.GetComponentInChildren<GiraffeMode>(true);
+        squidRef = transform.root.GetComponentInChildren<SquidMode>(true);
+    }
+
+    /// <summary>얼음 모드 켜기/끄기(키·컷씬·치트 공용 진입점 — 배타 규칙 포함).</summary>
+    public void SetActive(bool on)
+    {
+        active = on;
+        Apply();
+    }
+
+    /// <summary>이 렌더러의 '얼음 이전' 원본 재질(GiraffeMode가 무늬를 입힐 때 원본을 얼음으로 오인하지 않게).</summary>
+    public Material OriginalMaterialOf(Renderer r)
+    {
+        if (rends != null) for (int i = 0; i < rends.Length; i++) if (rends[i] == r) return origRendMats[i];
+        return r != null ? r.sharedMaterial : null;
+    }
+
     void Update()
     {
         if (netVisualOnly) return;   // ★ 멀티 게스트: 3키 토글 금지(호스트 상태를 따라감)
+        Refs();
+        bool squidOn = squidRef != null && squidRef.active;
+        if (squidOn && active) SetActive(false);   // 우주(무중력·오징어)에선 얼음 의미 없음 + 보라 틴트와 겹침 방지
         var kb = Keyboard.current;
         if (kb == null) return;
-        if (unlocked && kb.digit3Key.wasPressedThisFrame)
-        {
-            active = !active;
-            Apply();
-        }
+        if (unlocked && !squidOn && kb.digit3Key.wasPressedThisFrame) SetActive(!active);
     }
 
     public void Apply()
     {
+        Refs();
+        // 켜질 때 기린은 OFF(다리는 서서히 원래 길이로 — 무늬는 다리가 다 줄면 GiraffeMode가 걷고 얼음을 다시 얹음)
+        if (active && giraffeRef != null && giraffeRef.active && !giraffeRef.netVisualOnly) giraffeRef.active = false;
         for (int i = 0; i < cols.Length; i++)
             if (cols[i] != null) cols[i].sharedMaterial = active ? slick : origColMats[i];
         if (iceMaterial != null)
             for (int i = 0; i < rends.Length; i++)
                 if (rends[i] != null) rends[i].sharedMaterial = active ? iceMaterial : origRendMats[i];
+        // 꺼질 때 기린 무늬가 아직 입혀져 있으면(줄어드는 중) 원본 대신 무늬로 복귀
+        if (!active && giraffeRef != null && giraffeRef.Skinned) giraffeRef.ReapplySkin();
     }
 }

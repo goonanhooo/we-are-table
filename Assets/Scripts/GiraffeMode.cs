@@ -51,6 +51,10 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     TableInput tableInput;
     LegControlSet[] legSets;
     TennisMode tennisRef;   // ★2026-08-17 테니스 공존: 붙은 다리 신축 차단
+    // ★2026-09-08 능력 상호 배타: 얼음(3)과 기린(2)은 동시에 못 켬(켜면 상대가 꺼짐), 우주오징어(분사 키 = 신축 키) 중엔 기린 금지.
+    IcePower iceRef; SquidMode squidRef;
+    /// <summary>기린 무늬가 입혀져 있는가(IcePower가 얼음을 끌 때 무늬 복원용).</summary>
+    public bool Skinned => skinned;
 
     // ★ 멀티 게스트 모드: 입력/물리(신축·관성·무게중심)는 전부 끄고, NetVisualSync가 주는
     //   시각 상태(다리 길이·스킨)만 NetApplyVisual로 반영한다. (물리는 호스트 전용)
@@ -136,6 +140,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         // ★ 입력 허브 + 다리별 키셋 파악(신축 입력을 그 다리 주인의 LegInput에서 읽기 위함)
         tableInput = TableInput.Of(this);
         tennisRef = transform.root.GetComponentInChildren<TennisMode>(true);   // 테니스 공존 게이트용
+        iceRef = transform.root.GetComponentInChildren<IcePower>(true);
+        squidRef = transform.root.GetComponentInChildren<SquidMode>(true);
         legSets = new LegControlSet[n];
         for (int i = 0; i < n; i++)
         {
@@ -215,7 +221,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     void ApplyGiraffeSkin()
     {
         EnsureSkinAssets();
-        if (bodyRenderer != null) { origBody = bodyRenderer.sharedMaterial; bodyRenderer.sharedMaterial = giraffeBody; }
+        // ★2026-09-08 원본 재질은 얼음이 아닌 '진짜 원본'을 기억(얼음이 켜진 채 무늬를 입히면 얼음 재질을 원본으로 오인하던 문제)
+        if (bodyRenderer != null) { origBody = iceRef != null && iceRef.active ? iceRef.OriginalMaterialOf(bodyRenderer) : bodyRenderer.sharedMaterial; }
         if (bodyMF != null && bodyNet != null) { origBodyMesh = bodyMF.sharedMesh; bodyMF.sharedMesh = bodyNet; }
         if (legRenderers != null)
         {
@@ -224,13 +231,25 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             for (int i = 0; i < legRenderers.Length; i++)
             {
                 if (legRenderers[i] != null && giraffeLegs != null && i < giraffeLegs.Length)
-                { origLegs[i] = legRenderers[i].sharedMaterial; legRenderers[i].sharedMaterial = giraffeLegs[i]; }
+                    origLegs[i] = iceRef != null && iceRef.active ? iceRef.OriginalMaterialOf(legRenderers[i]) : legRenderers[i].sharedMaterial;
                 if (legMF != null && i < legMF.Length && legMF[i] != null)
                 { origLegMesh[i] = legMF[i].sharedMesh; legMF[i].sharedMesh = legBox; }
             }
         }
         skinned = true;
+        SetSkinMaterials();
         UpdateLegTiling();
+    }
+
+    /// <summary>기린 무늬 재질만 다시 입힘(얼음이 꺼질 때 IcePower가 호출 — 무늬가 켜져 있으면 얼음 대신 무늬로 복귀).</summary>
+    public void ReapplySkin() { if (skinned) SetSkinMaterials(); }
+
+    void SetSkinMaterials()
+    {
+        if (bodyRenderer != null && giraffeBody != null) bodyRenderer.sharedMaterial = giraffeBody;
+        if (legRenderers != null && giraffeLegs != null)
+            for (int i = 0; i < legRenderers.Length && i < giraffeLegs.Length; i++)
+                if (legRenderers[i] != null) legRenderers[i].sharedMaterial = giraffeLegs[i];
     }
 
     void RemoveGiraffeSkin()
@@ -244,6 +263,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
                 if (legMF[i] != null && origLegMesh[i] != null) legMF[i].sharedMesh = origLegMesh[i];
             }
         skinned = false;
+        // ★2026-09-08 얼음이 켜진 채 무늬가 걷히면(기린 OFF 뒤 다리가 줄어드는 동안 얼음을 켠 경우) 얼음 재질을 다시 위에 얹음
+        if (iceRef != null && iceRef.active) iceRef.Apply();
     }
 
     // 다리 무늬: legSpotWorld 크기의 '정사각 점'이 폭/길이에 걸쳐 일정하게(신장해도 점 크기 유지) → 자연스러운 기린 다리.
@@ -467,7 +488,14 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         var kb = Keyboard.current;
         if (kb == null) return;
 
-        if (!locked && kb[toggleKey].wasPressedThisFrame) active = !active;
+        // ★2026-09-08 상호 배타: 우주오징어 모드(분사 키 = 신축 키) 중엔 기린 강제 OFF·토글 무시, 기린을 켜면 얼음은 꺼짐
+        bool squidOn = squidRef != null && squidRef.active;
+        if (squidOn && active) active = false;
+        if (!locked && !squidOn && kb[toggleKey].wasPressedThisFrame)
+        {
+            active = !active;
+            if (active && iceRef != null && iceRef.active) iceRef.SetActive(false);
+        }
         if (active) Unlocked = true;   // 한 번 켜지면 조작법 메뉴에 기린 조작 노출
 
         // 기린 무늬 스킨 on/off (켜질 때 몸통+다리에 무늬, 꺼지면 원래대로)
