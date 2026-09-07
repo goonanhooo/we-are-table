@@ -1820,8 +1820,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyTutorial
   boardPrefab: {fileID: 6799168217798222506, guid: 9028a1b93cb3d4a1683748177bf116ea, type: 3}
-  anchorOffset: {x: 2.7, y: 1.5, z: -1}
-  boardScale: 1.1
+  sideGap: 1.1
+  bottomHeight: 1.15
+  towardCamera: 0.8
+  screenWidthFraction: 0.42
+  minScaleMul: 0.7
+  maxScaleMul: 2.4
   bobAmp: 0.03
   bobSpeed: 1.3
   pitchFollow: 0.35

@@ -19,8 +19,11 @@ public class KeyTutorial : MonoBehaviour
 {
     [Header("표지판")]
     [Tooltip("월드 캔버스 표지판 프리팹(KeyTutorialBoard)")] public GameObject boardPrefab;
-    [Tooltip("표지판 앵커: 테이블 기준 카메라 오른쪽(x)·위(y)·앞(z, 음수=카메라 쪽)")] public Vector3 anchorOffset = new Vector3(2.7f, 1.5f, -1.0f);
-    [Tooltip("표지판 크기 배율")] public float boardScale = 1.1f;
+    [Tooltip("표지판 왼쪽 가장자리가 테이블 중심에서 카메라 오른쪽으로 떨어진 거리(m)")] public float sideGap = 1.1f;
+    [Tooltip("표지판 아래 가장자리 높이(테이블 루트 기준 m)")] public float bottomHeight = 1.15f;
+    [Tooltip("카메라 쪽으로 당기는 거리(m)")] public float towardCamera = 0.8f;
+    [Tooltip("표지판이 화면 너비에서 차지할 비율 — 거리에 맞춰 크기를 조절(튜토리얼이라 항상 읽히게)")] public float screenWidthFraction = 0.42f;
+    [Tooltip("거리 보정 배율 범위(프리팹 기본 크기 기준)")] public float minScaleMul = 0.7f, maxScaleMul = 2.4f;
     [Tooltip("둥실거림 진폭(m)/속도")] public float bobAmp = 0.03f, bobSpeed = 1.3f;
     [Tooltip("카메라를 향할 때 위아래 기울기 비율(0=완전 직립)")] public float pitchFollow = 0.35f;
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
@@ -47,6 +50,7 @@ public class KeyTutorial : MonoBehaviour
             case Key.RightBracket: return "]"; case Key.LeftBracket: return "["; case Key.Minus: return "-"; case Key.Equals: return "=";
             case Key.Period: return "."; case Key.Slash: return "/"; case Key.Comma: return ","; case Key.RightShift: return "Shift";
             case Key.Digit1: return "1"; case Key.Digit2: return "2"; case Key.Digit3: return "3";
+            case Key.Enter: return "Enter"; case Key.Semicolon: return ";"; case Key.Quote: return "'"; case Key.Backslash: return "\\"; case Key.LeftShift: return "Shift"; case Key.Space: return "";
             default: return k.ToString();
         }
     }
@@ -64,8 +68,8 @@ public class KeyTutorial : MonoBehaviour
 
     ArticulationBody root; TableInput ti; NetLegLink link; GiraffeMode giraffe; IcePower ice; TennisMode tennis; SquidMode squid; ArtSceneReset asr;
     CameraFollow camFollow; bool menuScene; float readyT = -1f; bool giraffeKeysShown;
-    GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template; Text title; Font arrowFont;
-    float bobPhase;
+    GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title; Font arrowFont;
+    float bobPhase; Vector3 baseScale; Vector2 boardPx;
 
     void Start()
     {
@@ -87,9 +91,11 @@ public class KeyTutorial : MonoBehaviour
             boardGroup.alpha = 0f;
             var kt = board.transform.Find("Keys"); keysRoot = kt != null ? kt : board.transform;
             var tp = board.transform.Find("KeyTemplate"); template = tp != null ? tp.gameObject : null;
+            var te = board.transform.Find("KeyTemplate_Enter"); templateEnter = te != null ? te.gameObject : template;
+            var ts = board.transform.Find("KeyTemplate_Shift"); templateShift = ts != null ? ts.gameObject : template;
+            baseScale = board.transform.localScale; boardPx = board.GetComponent<RectTransform>().sizeDelta;
             var tt = board.transform.Find("Title"); title = tt != null ? tt.GetComponent<Text>() : null;
             var canvas = board.GetComponent<Canvas>(); if (canvas != null) canvas.worldCamera = Camera.main;
-            board.transform.localScale *= boardScale;
             arrowFont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
             board.SetActive(false);
         }
@@ -132,7 +138,11 @@ public class KeyTutorial : MonoBehaviour
         // 그룹 조건 → 등장
         if (ready)
         {
-            if (showMove) AddGroup("move", L.T("걷기", "walk"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); });
+            if (showMove) AddGroup("move", L.T("걷기", "walk"), () => {
+                for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }
+                // 보조 키(방향키 다리의 [ ' ; Enter 등 — ArtLegController에 등록된 것)도 같은 색으로
+                foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; foreach (var ak in new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }) if (ak != Key.None) Add(ak, "move", LegPalette.BySlot[i], true); }
+            });
             if (showPoseReset) AddGroup("pose", ArtSceneReset.Unlimited ? L.T("넘어지면 1 (무제한)", "fell over? press 1 (unlimited)") : L.T("넘어지면 1 · 맵마다 3번", "fell over? press 1 · 3 per map"), () => Add(Key.Digit1, "pose", Color.white, false));
             if (showGiraffe && giraffe != null && !giraffe.locked) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
             if (showGiraffe && giraffe != null && giraffe.active && !giraffeKeysShown)
@@ -198,7 +208,20 @@ public class KeyTutorial : MonoBehaviour
         Vector3 fwd = cam.transform.forward; fwd.y = 0f; if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward; fwd.Normalize();
         Vector3 right = Vector3.Cross(Vector3.up, fwd);
         float t = Time.time * bobSpeed + bobPhase;
-        Vector3 pos = tp + right * anchorOffset.x + Vector3.up * (anchorOffset.y + Mathf.Sin(t) * bobAmp) + fwd * anchorOffset.z;
+        // 거리 보정 크기: 화면 너비의 screenWidthFraction을 차지하도록(3D 표지판이되 튜토리얼이라 항상 읽히게)
+        Vector3 approx = tp + right * (sideGap + 1.5f) + Vector3.up * (bottomHeight + 0.6f) - fwd * towardCamera;
+        float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
+        float visibleW = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * cam.aspect;
+        float baseW = boardPx.x * baseScale.x; float mul = Mathf.Clamp(visibleW * screenWidthFraction / Mathf.Max(0.01f, baseW), minScaleMul, maxScaleMul);
+        board.transform.localScale = baseScale * mul;
+        float bw = baseW * mul, bh = boardPx.y * baseScale.y * mul;
+        Vector3 pos = tp + right * (sideGap + bw * 0.5f) + Vector3.up * (bottomHeight + bh * 0.5f + Mathf.Sin(t) * bobAmp) - fwd * towardCamera;
+        // 화면 가장자리 클램프: 표지판 오른쪽 끝이 화면 밖이면 왼쪽(테이블 위)으로 당김 — 튜토리얼 키가 잘리지 않게
+        Vector3 camRight = cam.transform.right;
+        Vector3 edgeR = pos + camRight * (bw * 0.5f), edgeL = pos - camRight * (bw * 0.5f);
+        Vector3 vpR = cam.WorldToViewportPoint(edgeR), vpL = cam.WorldToViewportPoint(edgeL);
+        if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
+        else if (vpL.z > 0f && vpL.x < 0.03f) pos += camRight * ((0.03f - vpL.x) * visibleW);
         Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd;
         Quaternion rot = Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f);
         board.transform.SetPositionAndRotation(pos, rot);
@@ -216,10 +239,13 @@ public class KeyTutorial : MonoBehaviour
         foreach (var c in caps) if (c.key == key && !c.done) return;   // 이미 떠 있음(다른 그룹이 같은 키)
         var slot = keysRoot.Find("Key_" + key.ToString()); if (slot == null) return;
         var srt = slot.GetComponent<RectTransform>();
-        var go = Instantiate(template, keysRoot); go.name = "Cap_" + key; go.SetActive(true);
-        var rt = go.GetComponent<RectTransform>(); rt.anchoredPosition = srt.anchoredPosition; rt.sizeDelta = srt.sizeDelta; rt.SetAsLastSibling();
-        var lbl = go.transform.Find("Label"); if (lbl != null) { var tx = lbl.GetComponent<Text>(); tx.text = LabelOf(key); if ((IsArrow(key) || key == Key.Digit1 || key == Key.Digit2 || key == Key.Digit3) && arrowFont != null) tx.font = arrowFont; /* 화살표·숫자는 고딕(개구체 1이 I처럼 보임) */ if (tx.text.Length > 2) tx.fontSize = Mathf.RoundToInt(tx.fontSize * 0.6f); var lrt = lbl.GetComponent<RectTransform>(); lrt.sizeDelta = srt.sizeDelta; }
-        var bar = go.transform.Find("Bar"); if (bar != null) { if (hasTint) { var im = bar.GetComponent<Image>(); var col = tint; col.a = 0.9f; im.color = col; var brt = bar.GetComponent<RectTransform>(); brt.sizeDelta = new Vector2(srt.sizeDelta.x * 0.68f, brt.sizeDelta.y); brt.anchoredPosition = new Vector2(srt.sizeDelta.x * 0.16f, brt.anchoredPosition.y); } else bar.gameObject.SetActive(false); }
+        var tplGo = srt.sizeDelta.x > 250f ? templateShift : srt.sizeDelta.x > 150f ? templateEnter : template;
+        var go = Instantiate(tplGo, keysRoot); go.name = "Cap_" + key; go.SetActive(true);
+        var rt = go.GetComponent<RectTransform>(); var trt = tplGo.GetComponent<RectTransform>();
+        float pad = (trt.sizeDelta.y - srt.sizeDelta.y) * 0.5f;   // 템플릿 여백(그림자)만큼 바깥으로
+        rt.anchoredPosition = srt.anchoredPosition + new Vector2(-pad, pad); rt.sizeDelta = trt.sizeDelta; rt.SetAsLastSibling();
+        var lbl = go.transform.Find("Label"); if (lbl != null) { var tx = lbl.GetComponent<Text>(); tx.text = LabelOf(key); if ((IsArrow(key) || key == Key.Digit1 || key == Key.Digit2 || key == Key.Digit3) && arrowFont != null) tx.font = arrowFont; /* 화살표·숫자는 고딕(개구체 1이 I처럼 보임) */ if (tx.text.Length > 2) tx.fontSize = Mathf.RoundToInt(tx.fontSize * 0.62f); }
+        var bar = go.transform.Find("Bar"); if (bar != null) { if (hasTint) { var im = bar.GetComponent<Image>(); var col = tint; col.a = 0.9f; im.color = col; } else bar.gameObject.SetActive(false); }
         var cg = go.GetComponent<CanvasGroup>(); if (cg == null) cg = go.AddComponent<CanvasGroup>(); cg.alpha = 0f;
         rt.localScale = Vector3.one * 0.6f;
         caps.Add(new Cap { key = key, group = group, go = go, cg = cg, rt = rt, alpha = 0f });
