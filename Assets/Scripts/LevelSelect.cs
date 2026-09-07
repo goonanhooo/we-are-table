@@ -314,16 +314,23 @@ public class LevelSelect : MonoBehaviour
         }
         y += 8f;
 
-        float th = Mathf.Min(122f, Screen.height * 0.11f);
-        float tw = th * 1.6f;
+        // ★2026-09-08 6맵이 한 열에 안 들어감(1080p에서도 5·6번째와 '뒤로'가 화면 밖) → 5개 이상이면 2열 격자, 행 높이는 남은 높이에 맞춰 축소(웹 960×600 포함)
         float rowGap = 14f;
+        int n = arr.Length, cols = n > 4 ? 2 : 1, rows = Mathf.CeilToInt(n / (float)cols);
+        float availH = Screen.height - y - 70f;   // 아래 '뒤로' 버튼 자리
+        float pitch = availH / Mathf.Max(1, rows);
+        float th = Mathf.Clamp(pitch - 18f - rowGap, 40f, Mathf.Min(122f, Screen.height * 0.11f));
+        float tw = th * 1.6f;
+        float nameW = cols == 2 ? 170f : 210f, colW = tw + 18f + nameW + 30f;
+        float y0 = y;
 
         for (int i = 0; i < arr.Length; i++)
         {
+            float cx = lx + (i / rows) * colW; y = y0 + (i % rows) * (th + 18f + rowGap);
             // ★2026-07-14 진행 잠금(사용자: 처음엔 '시작'만): 이전 맵 클리어 전엔 실루엣+??? — 치트는 전부 해금
             bool locked = requireProgress && !showWip && !CheatMode.Active && !Progress.IsUnlocked(arr[i].scene);   // ★2026-09-08 기본 전부 열림(사용자: 플로우의 모든 맵 바로 선택)
-            var frame0 = new Rect(lx, y, tw + 18f, th + 18f);
-            var rowR = new Rect(lx, y, tw + 18f + 210f, th + 18f);   // 이름까지 클릭 영역
+            var frame0 = new Rect(cx, y, tw + 18f, th + 18f);
+            var rowR = new Rect(cx, y, tw + 18f + nameW, th + 18f);   // 이름까지 클릭 영역
             bool hover = !locked && rowR.Contains(Event.current.mousePosition);
 
             // ★호버 = 3D 프리뷰 전환 — 프리뷰 섬이 있는 맵만(씬 이름→프리뷰 인덱스 매핑)
@@ -363,7 +370,7 @@ public class LevelSelect : MonoBehaviour
             GUI.matrix = tm;
 
             // 이름: 썸네일 오른쪽에 손글씨(호버 시 밑줄). 잠금 맵은 ???
-            var nameR = new Rect(frame0.xMax + 18f, y + frame0.height * 0.5f - 24f, 200f, 48f);
+            var nameR = new Rect(frame0.xMax + 18f, y + frame0.height * 0.5f - 24f, nameW - 10f, 48f);
             string nm = locked ? "???" : MapLabel(arr[i]);
             GUI.Label(nameR, nm, nameStyle);
             if (hover && HandUI.Underline != null)
@@ -385,10 +392,8 @@ public class LevelSelect : MonoBehaviour
                 }
                 else LoadLocal(arr[i]);
             }
-            y += frame0.height + rowGap;
         }
-
-        y += 8f;
+        y = y0 + rows * (th + 18f + rowGap) + 8f;
         if (!showWip)
         {
             if (wipLevels.Length > 0 && WhiteBtn(new Rect(lx, y, 250f, 52f), L.T("구현중인 맵들 ▶", "wip maps ▶"), backStyle))

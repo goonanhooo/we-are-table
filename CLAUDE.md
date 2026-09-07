@@ -596,3 +596,4 @@
 - **WebGL 빌드는 unityMCP `manage_build`(action build, target webgl, output_path Builds/Web)로** — 잡 ID로 status 폴링(빌드 중엔 다른 MCP 호출이 전부 타임아웃). 실측 294s, 49.46MB, 에러 0/경고 8. 설정은 기존 그대로(Gzip+decompressionFallback, IL2CPP Debug — ProjectSettings에 저장돼 있음). zip = `Builds/we-are-table-web-itch.zip`(index.html이 루트). 빌드 후 액티브 타깃은 사용자가 쓰던 Windows64로 복원.
 - ⚠️Editor.log의 빌드 완료 문구는 **"Build Finished, Result: Success."** / "[MCP Build] Build succeeded: …" — "Build completed with a result of"가 아님(이걸로 grep해 35분 헛기다림). 감시 grep은 `Build Finished, Result:|Build succeeded|Build failed|BuildFailedException`.
 - `.claude/launch.json` `wat-web`(python http.server 8765, Builds/Web) — Claude 브라우저 프리뷰용.
+- ★**스테이지 목록 2열 격자(2026-09-08)**: 6맵이 한 열에 안 들어갔음(1080p에서도 5·6번째와 '뒤로'가 화면 밖, 웹 960×600은 4번째부터 잘림) → `DrawStageSelect`: 5개 이상이면 2열(행 = ceil(n/2)), 행 높이 = (남은 높이−뒤로 버튼 70)/행수에 맞춰 축소(th 40~min(122, 0.11H)), 이름 폭 2열일 때 170. 1902×1404 게임뷰 실측: 복도/정글/동굴 | 빙산/우주/달 + 뒤로 전부 화면 안.
