@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: 조작법 페이지 폐지 → 테이블 옆 3D 종이 표지판에 눌러야 하는 키만, 누르면 사라짐). Table.prefab 루트 부착(전 씬).
 /// v5(2026-09-08): 연결선 삭제, 자판 그림에서 방향키 제거(4번째 다리는 [ ' ; Enter만 표시), '1'은 처음이 아니라 **뒤집혔을 때** 상상 말풍선과 함께
+///   (v6: 말풍선은 codexcow 방식의 IMGUI SDF 구름 — `ThoughtBubbleUI`, 앵커=테이블 화면 투영, 퍼프 꼬리가 테이블까지, 첫 번째만 "남은 횟수는 오른쪽 위 동그라미" 줄 추가, "뒤집혔어요!" 배너 삭제)
 ///   ("1을 누르면 바로서기 / 남은 횟수는 오른쪽 위 동그라미") — 테니스공으로 벽에 붙은 채·우주(무중력)에선 안 뜸(ArtSceneReset.FlipPromptActive),
 ///   첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시(LegColorXray)를 켜고 표지판 아래 줄에 "ESC 설정에서 끌 수 있어요" 안내(1회, PlayerPrefs).
 /// - `boardPrefab`(Assets/Prefabs/KeyTutorialBoard — Tools/UI/Build Key Tutorial Board) = 월드 캔버스 종이 표지판(PIL이 그린 전체 자판 그림 위에 KeyTemplate 복제).
@@ -31,9 +32,10 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
     public float fadeSeconds = 0.35f;
     public float boardFadeSeconds = 0.5f;
-    [Header("뒤집힘 말풍선")]
-    [Tooltip("말풍선이 화면 너비에서 차지할 비율")] public float thoughtWidthFraction = 0.22f;
-    [Tooltip("말풍선 위치: 테이블 기준 옆(x, 카메라 오른쪽)·위(y)·카메라 쪽(z)")] public Vector3 thoughtOffset = new Vector3(0.9f, 1.75f, 0.5f);
+    [Header("뒤집힘 말풍선(IMGUI, codexcow 방식)")]
+    [Tooltip("말풍선 크기(1920×1080 가상 px)")] public Vector2 thoughtSize = new Vector2(400f, 226f);
+    [Tooltip("앵커(테이블 루트+위)에서 말풍선까지 오프셋(가상 px)")] public Vector2 thoughtOffsetPx = new Vector2(110f, 100f);
+    [Tooltip("앵커 높이(테이블 루트 기준 m)")] public float thoughtAnchorUp = 0.35f;
     [Header("그룹 켜기")]
     public bool showMove = true, showPoseReset = true, showGiraffe = true, showIce = true, showTennis = true, showSquid = true;
     [Tooltip("첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(PlayerPrefs로 1회)")] public bool legColorTutorial = true;
@@ -47,7 +49,7 @@ public class KeyTutorial : MonoBehaviour
     };
     static readonly Key[] GrabKeys = { Key.C, Key.N, Key.Period, Key.RightShift };
     static readonly Key[] ReleaseKeys = { Key.Z, Key.V, Key.M, Key.Slash };
-    const string LegColorPref = "tut.legcolor.done";
+    const string LegColorPref = "tut.legcolor.done", FlipPref = "tut.flip.done";
 
     static string LabelOf(Key k)
     {
@@ -76,7 +78,7 @@ public class KeyTutorial : MonoBehaviour
     ArticulationBody root; TableInput ti; NetLegLink link; GiraffeMode giraffe; IcePower ice; TennisMode tennis; SquidMode squid; ArtSceneReset asr; LegColorXray xray;
     CameraFollow camFollow; bool menuScene; float readyT = -1f; bool giraffeKeysShown; bool legColorShown; bool moveGroupPressed;
     GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title, note; Font arrowFont;
-    GameObject thought; CanvasGroup thoughtGroup; Text thoughtBody; Vector3 thoughtBaseScale; Vector2 thoughtPx; bool thoughtWant;
+    bool thoughtWant; float thoughtAlpha; string thoughtText = ""; bool thoughtRight = true;
     float bobPhase; Vector3 baseScale; Vector2 boardPx; Image paper;
 
     void Start()
@@ -109,23 +111,12 @@ public class KeyTutorial : MonoBehaviour
             var nt = board.transform.Find("Note"); note = nt != null ? nt.GetComponent<Text>() : null; if (note != null) note.text = "";
             var canvas = board.GetComponent<Canvas>(); if (canvas != null) canvas.worldCamera = Camera.main;
             arrowFont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
-            // 상상 말풍선: 표지판에서 분리해 테이블 위에 따로 띄움
-            var th = board.transform.Find("Thought");
-            if (th != null)
-            {
-                thought = th.gameObject; thought.transform.SetParent(null, true); thought.name = "KeyTutorialThought";
-                thoughtGroup = thought.GetComponent<CanvasGroup>(); if (thoughtGroup == null) thoughtGroup = thought.AddComponent<CanvasGroup>(); thoughtGroup.alpha = 0f;
-                var body = thought.transform.Find("Body"); thoughtBody = body != null ? body.GetComponent<Text>() : null;
-                var tc = thought.GetComponent<Canvas>(); if (tc != null) tc.worldCamera = Camera.main;
-                thoughtBaseScale = baseScale; thought.transform.localScale = baseScale; thoughtPx = thought.GetComponent<RectTransform>().sizeDelta;
-                thought.SetActive(false);
-            }
             board.SetActive(false);
         }
         else if (!menuScene) Debug.LogWarning("[KeyTutorial] boardPrefab 없음 — 튜토리얼 표지판 생략");
     }
 
-    void OnDestroy() { if (board != null) Destroy(board); if (thought != null) Destroy(thought); }
+    void OnDestroy() { if (board != null) Destroy(board); }
 
     /// <summary>이 다리(키셋)가 이 클라이언트의 것인가.</summary>
     bool Mine(int set)
@@ -178,17 +169,21 @@ public class KeyTutorial : MonoBehaviour
             if (showSquid && squid != null && squid.active && !squid.thrustLocked) AddGroup("squid", L.T("발끝 분사", "thrust from feet"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) Add(Map[i][4], "squid", LegPalette.BySlot[i], true); });
         }
 
-        // 뒤집힘 → '1' 키캡 + 상상 말풍선(벽 등반·우주는 ArtSceneReset.FlipPromptActive가 false)
-        bool flip = showPoseReset && ok && asr != null && asr.FlipPromptActive && (ArtSceneReset.Unlimited || asr.PoseResetsLeft > 0);
-        if (flip && !HasCap("pose"))
+        // 뒤집힘 → 상상 말풍선(+ 남은 횟수가 있으면 '1' 키캡). 벽 등반·우주는 ArtSceneReset.FlipPromptActive가 false
+        bool flip = showPoseReset && ok && asr != null && asr.FlipPromptActive;
+        bool canReset = ArtSceneReset.Unlimited || (asr != null && asr.PoseResetsLeft > 0);
+        if (flip && !thoughtWant)
         {
-            groupHint["pose"] = L.T("1 = 바로서기", "1 = stand up");
-            Add(Key.Digit1, "pose", Color.white, false);
-            if (thoughtBody != null) thoughtBody.text = ArtSceneReset.Unlimited
-                ? L.T("1을 누르면 바로서기!\n(이 난이도에선 무제한)", "press 1 to stand up!\n(unlimited on this difficulty)")
-                : L.T("1을 누르면 바로서기!\n남은 횟수는 오른쪽 위 동그라미", "press 1 to stand up!\nthe circle top-right shows what's left");
+            bool first = PlayerPrefs.GetInt(FlipPref, 0) == 0;
+            if (!canReset) thoughtText = L.T("바로서기를 다 썼어요…\nF1로 다시 시작", "no pose fixes left…\nrestart with F1");
+            else if (first) thoughtText = ArtSceneReset.Unlimited
+                ? L.T("뒤집혔어요!\n1을 누르면 바로서기\n(이 난이도에선 무제한)", "flipped over!\npress 1 to stand up\n(unlimited here)")
+                : L.T("뒤집혔어요!\n1을 누르면 바로서기\n남은 횟수는 오른쪽 위 동그라미", "flipped over!\npress 1 to stand up\ntop-right circle = tries left");
+            else thoughtText = L.T("뒤집혔어요!\n1을 누르면 바로서기", "flipped over!\npress 1 to stand up");
+            if (first && canReset) { PlayerPrefs.SetInt(FlipPref, 1); PlayerPrefs.Save(); }
         }
-        thoughtWant = flip && HasCap("pose");
+        thoughtWant = flip;
+        if (flip && canReset && !HasCap("pose")) { groupHint["pose"] = L.T("1 = 바로서기", "1 = stand up"); Add(Key.Digit1, "pose", Color.white, false); }
         if (!flip && HasCap("pose")) foreach (var c in caps) if (c.group == "pose" && !c.done) { c.done = true; c.doneT = Time.time; }   // 스스로 일어났거나 상황 종료 → 지움
 
         // 키 입력 → 해당 키캡 사라짐(팝+페이드)
@@ -231,17 +226,8 @@ public class KeyTutorial : MonoBehaviour
             boardGroup.alpha = Mathf.MoveTowards(boardGroup.alpha, want ? 1f : 0f, dt / boardFadeSeconds);
             if (!want && boardGroup.alpha <= 0f) board.SetActive(false);
         }
-        // 말풍선 페이드
-        if (thought != null)
-        {
-            bool tw = thoughtWant && ok;
-            if (tw && !thought.activeSelf) { thought.SetActive(true); PoseThought(); }
-            if (thought.activeSelf)
-            {
-                thoughtGroup.alpha = Mathf.MoveTowards(thoughtGroup.alpha, tw ? 1f : 0f, dt / boardFadeSeconds);
-                if (!tw && thoughtGroup.alpha <= 0f) thought.SetActive(false);
-            }
-        }
+        // 말풍선 페이드(그리기는 OnGUI)
+        thoughtAlpha = Mathf.MoveTowards(thoughtAlpha, thoughtWant && ok ? 1f : 0f, dt / boardFadeSeconds);
     }
 
     /// <summary>첫 튜토리얼: 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(1회).</summary>
@@ -254,7 +240,28 @@ public class KeyTutorial : MonoBehaviour
         if (note != null) note.text = L.T("다리마다 자기 색이 켜졌어요 — 키 색과 같아요. ESC 설정에서 끌 수 있어요.", "each leg now shows its color — same as the keys. turn it off in ESC settings.");
     }
 
-    void LateUpdate() { if (board != null && board.activeSelf) PoseBoard(); if (thought != null && thought.activeSelf) PoseThought(); }
+    void LateUpdate() { if (board != null && board.activeSelf) PoseBoard(); }
+
+    /// <summary>뒤집힘 상상 말풍선(codexcow 방식): 테이블을 화면 투영한 앵커 위·옆에 구름 말풍선, 굽은 퍼프 꼬리가 테이블까지.</summary>
+    void OnGUI()
+    {
+        if (thoughtAlpha <= 0.001f || root == null || string.IsNullOrEmpty(thoughtText)) return;
+        var cam = Camera.main; if (cam == null) return;
+        UiKit.ApplyKoreanFont();
+        ThoughtBubbleUI.Begin();
+        if (ThoughtBubbleUI.GuiPoint(cam, root.transform.position + Vector3.up * thoughtAnchorUp, out var anchor))
+        {
+            // 화면 오른쪽 여유가 없으면 왼쪽으로
+            thoughtRight = anchor.x + thoughtOffsetPx.x + thoughtSize.x < ThoughtBubbleUI.VW - 24f || anchor.x < ThoughtBubbleUI.VW * 0.5f;
+            var rect = ThoughtBubbleUI.PlaceRect(anchor, thoughtSize.x, thoughtSize.y, thoughtRight, thoughtOffsetPx.x, thoughtOffsetPx.y);
+            float grow = Mathf.Lerp(0.7f, 1f, ThoughtBubbleUI.EaseOut(thoughtAlpha));
+            rect = ThoughtBubbleUI.ScaleFromCenter(rect, grow);
+            float k = thoughtSize.x / 560f;
+            ThoughtBubbleUI.DrawTail(rect, anchor, thoughtAlpha, k);
+            ThoughtBubbleUI.DrawBubble(rect, thoughtAlpha, thoughtText, 36);
+        }
+        ThoughtBubbleUI.End();
+    }
 
     /// <summary>테이블 옆(카메라 기준 왼쪽)에 화면과 평행하게 떠서 둥실거림. 거리에 따라 화면 너비의 일정 비율로 크기 보정.</summary>
     void PoseBoard()
@@ -279,28 +286,6 @@ public class KeyTutorial : MonoBehaviour
         if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
         else if (vpL.z > 0f && vpL.x < 0.03f) pos += camRight * ((0.03f - vpL.x) * visibleW);
         board.transform.SetPositionAndRotation(pos, FaceRot(cam, pos, fwd, t));
-    }
-
-    /// <summary>상상 말풍선: 테이블 위(카메라 오른쪽으로 살짝)에서 화면과 평행, 꼬리(왼쪽 아래)가 테이블을 향함.</summary>
-    void PoseThought()
-    {
-        var cam = Camera.main; if (cam == null || root == null) return;
-        Vector3 tp = root.transform.position;
-        Vector3 fwd = cam.transform.forward; fwd.y = 0f; if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward; fwd.Normalize();
-        Vector3 right = Vector3.Cross(Vector3.up, fwd);
-        float t = Time.time * bobSpeed * 0.8f + bobPhase + 1.7f;
-        Vector3 approx = tp + Vector3.up * thoughtOffset.y - fwd * thoughtOffset.z;
-        float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
-        float visibleW = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * cam.aspect;
-        float baseW = thoughtPx.x * thoughtBaseScale.x; float mul = Mathf.Clamp(visibleW * thoughtWidthFraction / Mathf.Max(0.01f, baseW), minScaleMul, maxScaleMul);
-        thought.transform.localScale = thoughtBaseScale * mul;
-        float w = baseW * mul, h = thoughtPx.y * thoughtBaseScale.y * mul;
-        Vector3 pos = tp + right * (thoughtOffset.x + w * 0.25f) + Vector3.up * (thoughtOffset.y + h * 0.4f + Mathf.Sin(t) * bobAmp) - fwd * thoughtOffset.z;
-        Vector3 camRight = cam.transform.right;
-        Vector3 vpR = cam.WorldToViewportPoint(pos + camRight * (w * 0.5f)), vpT = cam.WorldToViewportPoint(pos + cam.transform.up * (h * 0.5f));
-        if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
-        if (vpT.z > 0f && vpT.y > 0.96f) pos -= cam.transform.up * ((vpT.y - 0.96f) * visibleW / cam.aspect);
-        thought.transform.SetPositionAndRotation(pos, FaceRot(cam, pos, fwd, t));
     }
 
     Quaternion FaceRot(Camera cam, Vector3 pos, Vector3 fwd, float t)
@@ -338,5 +323,6 @@ public class KeyTutorial : MonoBehaviour
     public void DebugPress(Key key) { foreach (var c in caps) if (c.key == key && !c.done) { c.done = true; c.doneT = Time.time; if (c.group == "move") OnMovePressed(); } }
     public int VisibleCount { get { int n = 0; foreach (var c in caps) if (!c.done) n++; return n; } }
     public bool BoardVisible => board != null && board.activeSelf && boardGroup != null && boardGroup.alpha > 0.5f;
-    public bool ThoughtVisible => thought != null && thought.activeSelf && thoughtGroup != null && thoughtGroup.alpha > 0.5f;
+    public bool ThoughtVisible => thoughtAlpha > 0.5f;
+    public string ThoughtText => thoughtText;
 }

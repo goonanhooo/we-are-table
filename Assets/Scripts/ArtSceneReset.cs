@@ -182,13 +182,7 @@ public class ArtSceneReset : MonoBehaviour
         flippedTime = flipped ? flippedTime + Time.deltaTime : 0f;
 
         // 뒤집힘 배너의 [다시 시작] 버튼 클릭 — GUI.Button은 새 입력시스템에서 안 먹어 Mouse.current로 직접(PauseMenu 패턴)
-        var mouse = Mouse.current;
-        if (!disableManualReset && flippedTime >= flipPromptDelay && !FlipSuppressed && mouse != null && mouse.leftButton.wasPressedThisFrame)
-        {
-            Vector2 p = mouse.position.ReadValue();
-            Vector2 gm = new Vector2(p.x, Screen.height - p.y);   // 좌하 원점 → GUI 좌상 원점
-            if (RestartBtnRect().Contains(gm)) Restart();
-        }
+        // (배너 [다시 시작] 버튼 클릭 처리 삭제 — 2026-09-08)
     }
 
     Rect BannerRect() => new Rect((Screen.width - 372f) * 0.5f, Screen.height * 0.18f, 372f, 134f);
@@ -279,20 +273,7 @@ public class ArtSceneReset : MonoBehaviour
                 GUI.DrawTexture(new Rect(x0 + i * (d + gap), 16f, d, d), cheat || i < poseResetsLeft ? circleFull : circleEmpty);
         }
 
-        // ── 뒤집힘 배너(★2026-09-08 벽 등반·우주에선 안 뜸, '1' 안내는 KeyTutorial 말풍선이 담당) ──
-        if (flippedTime < flipPromptDelay || FlipSuppressed) return;
-        var r = BannerRect();
-        UiKit.Panel(r, 0.95f);   // 흰 배경 + 얇은 검은 테두리(통일 스타일)
-        GUI.Label(new Rect(r.x, r.y + 6f, r.width, 34f), L.T("뒤집혔어요!", "flipped over!"), bannerStyle);
-
-        var btn = RestartBtnRect();
-        bool hover = btn.Contains(Event.current.mousePosition);
-        UiKit.Panel(btn);
-        if (hover) UiKit.Fill(btn, new Color(0f, 0f, 0f, 0.10f));
-        GUI.Label(btn, L.T("다시 시작 (F1)", "restart (F1)"), btnLabel);
-
-        if (!cheat && poseResetsLeft <= 0)
-            GUI.Label(new Rect(r.x, r.y + 100f, r.width, 24f), L.T("바로서기를 모두 썼어요 — F1로 다시 시작", "no pose fixes left — restart with F1"), bannerSub);
+        // (★2026-09-08 "뒤집혔어요!" 배너 삭제 — 뒤집힘 안내는 KeyTutorial의 상상 말풍선이 담당, F1은 키로만)
     }
 
     /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면

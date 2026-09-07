@@ -55,7 +55,6 @@ public static class KeyTutorialBoardBuilder
         if (mat == null) { mat = new Material(Shader.Find("Custom/UIWorldOverlay")); AssetDatabase.CreateAsset(mat, MatPath); }
         var baseSp = SpriteOf("Assets/Resources/HandUI/keyboard_base.png");
         var cap1 = SpriteOf("Assets/Resources/HandUI/keycap_w1.png"); var capEnter = SpriteOf("Assets/Resources/HandUI/keycap_enter.png"); var capShift = SpriteOf("Assets/Resources/HandUI/keycap_shift.png");
-        var thoughtSp = SpriteOf("Assets/Resources/HandUI/thought.png");
         var gaeguB = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/Gaegu-Bold.ttf"); var gaeguR = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/Gaegu-Regular.ttf"); var nanum = AssetDatabase.LoadAssetAtPath<Font>("Assets/Resources/Fonts/NanumGothic-Regular.ttf");
         Color ink = new Color(0.08f, 0.08f, 0.1f, 1f);
         var size = new Vector2(layout.image[0], layout.image[1]);
@@ -83,14 +82,6 @@ public static class KeyTutorialBoardBuilder
             Img("Bar", im.transform, null, mat, new Vector2(pad + t.Item3 * 0.16f, pad + 88f - 15f), new Vector2(t.Item3 * 0.68f, 7f), new Color(0.3f, 0.8f, 0.3f, 0.9f));
             im.gameObject.SetActive(false);
         }
-        // 상상 말풍선(뒤집혔을 때 — KeyTutorial이 분리해 테이블 위에 띄움): 자체 월드 캔버스
-        var th = new GameObject("Thought", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup)); th.transform.SetParent(root.transform, false);
-        var thrt = th.GetComponent<RectTransform>(); thrt.sizeDelta = new Vector2(900f, 460f); thrt.pivot = new Vector2(0.5f, 0.5f);
-        var thc = th.GetComponent<Canvas>(); thc.renderMode = RenderMode.WorldSpace; thc.sortingOrder = 51;
-        var cloud = Img("Cloud", th.transform, thoughtSp, mat, Vector2.zero, new Vector2(900f, 460f), Color.white);
-        var crt = cloud.GetComponent<RectTransform>(); crt.anchorMin = Vector2.zero; crt.anchorMax = Vector2.one; crt.pivot = new Vector2(0.5f, 0.5f); crt.anchoredPosition = Vector2.zero; crt.sizeDelta = Vector2.zero;
-        Txt("Body", th.transform, gaeguB, 50, ink, mat, TextAnchor.MiddleCenter, new Vector2(120f, 70f), new Vector2(700f, 250f), "1");
-        th.SetActive(false);
         var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
         Object.DestroyImmediate(root);
         AssetDatabase.SaveAssets();
