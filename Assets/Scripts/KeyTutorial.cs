@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: 조작법 페이지 폐지 → 테이블 옆 3D 종이 표지판에 눌러야 하는 키만, 누르면 사라짐). Table.prefab 루트 부착(전 씬).
 /// v5(2026-09-08): 연결선 삭제, 자판 그림에서 방향키 제거(4번째 다리는 [ ' ; Enter만 표시), '1'은 처음이 아니라 **뒤집혔을 때** 상상 말풍선과 함께
+///   (v7: 표지판도 말풍선처럼 화면 고정 — 렌더 직전 카메라 기준 배치(boardDepth·boardGapVp·boardUpVp), 능력 키캡은 능력이 활성화되면 그룹째 사라짐(걷기 키만 키별))
 ///   (v6: 말풍선은 codexcow 방식의 IMGUI SDF 구름 — `ThoughtBubbleUI`, 앵커=테이블 화면 투영, 퍼프 꼬리가 테이블까지, 첫 번째만 "남은 횟수는 오른쪽 위 동그라미" 줄 추가, "뒤집혔어요!" 배너 삭제)
 ///   ("1을 누르면 바로서기 / 남은 횟수는 오른쪽 위 동그라미") — 테니스공으로 벽에 붙은 채·우주(무중력)에선 안 뜸(ArtSceneReset.FlipPromptActive),
 ///   첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시(LegColorXray)를 켜고 표지판 아래 줄에 "ESC 설정에서 끌 수 있어요" 안내(1회, PlayerPrefs).
@@ -19,16 +20,13 @@ public class KeyTutorial : MonoBehaviour
 {
     [Header("표지판")]
     [Tooltip("월드 캔버스 표지판 프리팹(KeyTutorialBoard)")] public GameObject boardPrefab;
-    [Tooltip("표지판을 테이블 왼쪽(카메라 기준)에 둘지")] public bool leftSide = true;
-    [Tooltip("표지판 안쪽 가장자리가 테이블 중심에서 옆으로 떨어진 거리(m)")] public float sideGap = 0.9f;
-    [Tooltip("표지판 아래 가장자리 높이(테이블 루트 기준 m)")] public float bottomHeight = 1.15f;
-    [Tooltip("카메라 쪽으로 당기는 거리(m)")] public float towardCamera = 0.8f;
-    [Tooltip("표지판이 화면 너비에서 차지할 비율 — 거리에 맞춰 크기를 조절(튜토리얼이라 항상 읽히게)")] public float screenWidthFraction = 0.32f;
-    [Tooltip("화면과 평행하게(정면) — 끄면 카메라를 향해 서되 살짝 기울어짐")] public bool faceScreen = true;
+    [Tooltip("표지판을 테이블 왼쪽(화면 기준)에 둘지")] public bool leftSide = true;
+    [Tooltip("★v7 표지판 안쪽 가장자리와 테이블 화면점 사이 간격(화면 너비 비율)")] public float boardGapVp = 0.04f;
+    [Tooltip("★v7 표지판 아래 가장자리가 테이블 화면점보다 위로 떨어진 거리(화면 높이 비율)")] public float boardUpVp = 0.10f;
+    [Tooltip("★v7 표지판을 카메라 앞 이 거리(m)에 둔다 — 화면과 평행·화면 고정(상상 말풍선처럼)")] public float boardDepth = 4f;
+    [Tooltip("표지판이 화면 너비에서 차지할 비율")] public float screenWidthFraction = 0.32f;
     [Tooltip("종이 투명도(0~1)")] public float paperAlpha = 0.74f;
-    [Tooltip("거리 보정 배율 범위(프리팹 기본 크기 기준)")] public float minScaleMul = 0.7f, maxScaleMul = 2.4f;
-    [Tooltip("둥실거림 진폭(m)/속도")] public float bobAmp = 0.03f, bobSpeed = 1.3f;
-    [Tooltip("카메라를 향할 때 위아래 기울기 비율(faceScreen이 꺼졌을 때)")] public float pitchFollow = 0.35f;
+    [Tooltip("둥실거림 진폭(화면 높이 비율)/속도")] public float bobAmpVp = 0.004f, bobSpeed = 1.3f;
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
     public float fadeSeconds = 0.35f;
     public float boardFadeSeconds = 0.5f;
@@ -144,6 +142,7 @@ public class KeyTutorial : MonoBehaviour
     }
 
     bool HasCap(string group) { foreach (var c in caps) if (c.group == group && !c.done) return true; return false; }
+    void DismissGroup(string group) { foreach (var c in caps) if (c.group == group && !c.done) { c.done = true; c.doneT = Time.time; } }
 
     void Update()
     {
@@ -188,6 +187,13 @@ public class KeyTutorial : MonoBehaviour
         if (flip && canReset && !HasCap("pose")) { groupHint["pose"] = L.T("1 = 바로서기", "1 = stand up"); Add(Key.Digit1, "pose", Color.white, false); }
         if (!flip && HasCap("pose")) foreach (var c in caps) if (c.group == "pose" && !c.done) { c.done = true; c.doneT = Time.time; }   // 스스로 일어났거나 상황 종료 → 지움
 
+        // ★v7 능력이 '활성화'되면(키를 누르든 컷씬/멀티 입력이든) 그 능력의 키캡 그룹 전체가 사라짐 — 걷기 키는 제외(키별)
+        if (giraffe != null && giraffe.active) DismissGroup("giraffe");
+        if (giraffe != null && giraffe.AnyStretched) DismissGroup("stretch");
+        if (ice != null && ice.active) DismissGroup("ice");
+        if (tennis != null && tennis.StuckMask != 0) DismissGroup("tennis");
+        if (squid != null && squid.JetMask != 0) DismissGroup("squid");
+
         // 키 입력 → 해당 키캡 사라짐(팝+페이드)
         var kb = Keyboard.current;
         float dt = Time.deltaTime;
@@ -201,6 +207,7 @@ public class KeyTutorial : MonoBehaviour
                 {
                     c.done = true; c.doneT = Time.time;
                     if (c.group == "move") OnMovePressed();
+                    else DismissGroup(c.group);   // ★v7 능력 키는 하나만 눌러도(=능력 발동) 그룹 전체가 사라짐(걷기만 키별)
                 }
                 if (c.cg != null) { c.cg.alpha = c.alpha; c.rt.localScale = Vector3.one * Mathf.Lerp(0.6f, 1f, c.alpha); }
             }
@@ -242,60 +249,40 @@ public class KeyTutorial : MonoBehaviour
         if (note != null) note.text = L.T("다리마다 자기 색이 켜졌어요 — 키 색과 같아요. ESC 설정에서 끌 수 있어요.", "each leg now shows its color — same as the keys. turn it off in ESC settings.");
     }
 
-    void LateUpdate() { if (board != null && board.activeSelf) PoseBoard(); }
-
-    /// <summary>뒤집힘 상상 말풍선(codexcow 방식): 테이블을 화면 투영한 앵커 위·옆에 구름 말풍선, 굽은 퍼프 꼬리가 테이블까지.</summary>
-    void OnGUI()
+    // ★v7 표지판은 상상 말풍선처럼 '화면에 고정': 카메라가 다 움직인 뒤(렌더 직전) 카메라 기준으로 놓는다 — LateUpdate 순서 무관, 1프레임 지연 없음
+    void OnEnable() { UnityEngine.Rendering.RenderPipelineManager.beginCameraRendering += OnBeginCamera; }
+    void OnDisable() { UnityEngine.Rendering.RenderPipelineManager.beginCameraRendering -= OnBeginCamera; }
+    void OnBeginCamera(UnityEngine.Rendering.ScriptableRenderContext ctx, Camera cam)
     {
-        if (thoughtAlpha <= 0.001f || root == null || string.IsNullOrEmpty(thoughtText)) return;
-        var cam = Camera.main; if (cam == null) return;
-        UiKit.ApplyKoreanFont();
-        ThoughtBubbleUI.Begin();
-        if (ThoughtBubbleUI.GuiPoint(cam, root.transform.position + Vector3.up * thoughtAnchorUp, out var anchor))
-        {
-            // 화면 오른쪽 여유가 없으면 왼쪽으로
-            thoughtRight = anchor.x + thoughtOffsetPx.x + thoughtSize.x < ThoughtBubbleUI.VW - 24f || anchor.x < ThoughtBubbleUI.VW * 0.5f;
-            var rect = ThoughtBubbleUI.PlaceRect(anchor, thoughtSize.x, thoughtSize.y, thoughtRight, thoughtOffsetPx.x, thoughtOffsetPx.y);
-            float grow = Mathf.Lerp(0.7f, 1f, ThoughtBubbleUI.EaseOut(thoughtAlpha));
-            rect = ThoughtBubbleUI.ScaleFromCenter(rect, grow);
-            float k = thoughtSize.x / 560f;
-            var tailAnchor = anchor + new Vector2(thoughtRight ? thoughtTailOffsetPx.x : -thoughtTailOffsetPx.x, -thoughtTailOffsetPx.y);
-            ThoughtBubbleUI.DrawTail(rect, tailAnchor, thoughtAlpha, k);
-            ThoughtBubbleUI.DrawBubble(rect, thoughtAlpha, thoughtText, 36);
-        }
-        ThoughtBubbleUI.End();
+        if (board == null || !board.activeSelf || cam == null || cam.cameraType != CameraType.Game || cam != Camera.main) return;
+        PoseBoard(cam);
     }
 
-    /// <summary>테이블 옆(카메라 기준 왼쪽)에 화면과 평행하게 떠서 둥실거림. 거리에 따라 화면 너비의 일정 비율로 크기 보정.</summary>
-    void PoseBoard()
+    void PoseBoard() { var cam = Camera.main; if (cam != null) PoseBoard(cam); }
+
+    /// <summary>★v7 화면 공간 배치(상상 말풍선과 같은 방식): 테이블의 화면 투영점 왼쪽·위에 화면 비율로 놓고, 카메라 앞 boardDepth에
+    /// 화면과 평행하게 둔다 → 시점을 돌리면 화면에 붙은 채 테이블을 따라간다. 크기는 화면 너비의 screenWidthFraction.</summary>
+    void PoseBoard(Camera cam)
     {
-        var cam = Camera.main; if (cam == null || root == null) return;
-        Vector3 tp = root.transform.position;
-        Vector3 fwd = cam.transform.forward; fwd.y = 0f; if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward; fwd.Normalize();
-        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        if (root == null) return;
         float t = Time.time * bobSpeed + bobPhase;
-        float side = leftSide ? -1f : 1f;
-        Vector3 approx = tp + right * side * (sideGap + 1.2f) + Vector3.up * (bottomHeight + 0.5f) - fwd * towardCamera;
-        float d = Mathf.Max(1f, Vector3.Distance(cam.transform.position, approx));
-        float visibleW = 2f * d * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * cam.aspect;
-        float baseW = boardPx.x * baseScale.x; float mul = Mathf.Clamp(visibleW * screenWidthFraction / Mathf.Max(0.01f, baseW), minScaleMul, maxScaleMul);
+        float depth = Mathf.Max(cam.nearClipPlane + 0.5f, boardDepth);
+        float visibleH = 2f * depth * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad), visibleW = visibleH * cam.aspect;
+        float baseW = boardPx.x * baseScale.x, baseH = boardPx.y * baseScale.y;
+        float mul = visibleW * screenWidthFraction / Mathf.Max(0.01f, baseW);
         board.transform.localScale = baseScale * mul;
-        float bw = baseW * mul, bh = boardPx.y * baseScale.y * mul;
-        Vector3 pos = tp + right * side * (sideGap + bw * 0.5f) + Vector3.up * (bottomHeight + bh * 0.5f + Mathf.Sin(t) * bobAmp) - fwd * towardCamera;
-        // 화면 가장자리 클램프
-        Vector3 camRight = cam.transform.right;
-        Vector3 edgeR = pos + camRight * (bw * 0.5f), edgeL = pos - camRight * (bw * 0.5f);
-        Vector3 vpR = cam.WorldToViewportPoint(edgeR), vpL = cam.WorldToViewportPoint(edgeL);
-        if (vpR.z > 0f && vpR.x > 0.97f) pos -= camRight * ((vpR.x - 0.97f) * visibleW);
-        else if (vpL.z > 0f && vpL.x < 0.03f) pos += camRight * ((0.03f - vpL.x) * visibleW);
-        board.transform.SetPositionAndRotation(pos, FaceRot(cam, pos, fwd, t));
-    }
-
-    Quaternion FaceRot(Camera cam, Vector3 pos, Vector3 fwd, float t)
-    {
-        if (faceScreen) return cam.transform.rotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 0.8f);
-        Vector3 dir = pos - cam.transform.position; dir.y *= pitchFollow; if (dir.sqrMagnitude < 1e-4f) dir = fwd;
-        return Quaternion.LookRotation(dir.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 1.2f);
+        float hwVp = screenWidthFraction * 0.5f, hhVp = baseH * mul / visibleH * 0.5f;
+        // 테이블 화면점(카메라 뒤면 화면 중앙 아래쪽으로 폴백)
+        Vector3 vp = cam.WorldToViewportPoint(root.transform.position + Vector3.up * 0.4f);
+        if (vp.z <= 0f) vp = new Vector3(0.5f, 0.35f, 1f);
+        float side = leftSide ? -1f : 1f;
+        float cx = vp.x + side * (boardGapVp + hwVp);
+        float cy = vp.y + boardUpVp + hhVp + Mathf.Sin(t) * bobAmpVp;
+        // 화면 안 클램프(가장자리 여백 2%/4%)
+        cx = Mathf.Clamp(cx, 0.02f + hwVp, 0.98f - hwVp);
+        cy = Mathf.Clamp(cy, 0.04f + hhVp, 0.96f - hhVp);
+        Vector3 pos = cam.ViewportToWorldPoint(new Vector3(cx, cy, depth));
+        board.transform.SetPositionAndRotation(pos, cam.transform.rotation * Quaternion.Euler(0f, 0f, Mathf.Sin(t * 0.7f) * 0.8f));
     }
 
     void AddGroup(string name, string hint, System.Action fill)

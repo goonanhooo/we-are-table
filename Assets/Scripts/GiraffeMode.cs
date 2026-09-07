@@ -55,6 +55,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     IcePower iceRef; SquidMode squidRef;
     /// <summary>기린 무늬가 입혀져 있는가(IcePower가 얼음을 끌 때 무늬 복원용).</summary>
     public bool Skinned => skinned;
+    /// <summary>다리 하나라도 기본 길이보다 늘어나 있는가(KeyTutorial: 신축 키캡 그룹 해제 판정).</summary>
+    public bool AnyStretched => len != null && baseLen != null && !AllLegsBase();
 
     // ★ 멀티 게스트 모드: 입력/물리(신축·관성·무게중심)는 전부 끄고, NetVisualSync가 주는
     //   시각 상태(다리 길이·스킨)만 NetApplyVisual로 반영한다. (물리는 호스트 전용)
