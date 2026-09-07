@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: 조작법 페이지 폐지 → 테이블 옆 3D 종이 표지판에 눌러야 하는 키만, 누르면 사라짐). Table.prefab 루트 부착(전 씬).
 /// v5(2026-09-08): 연결선 삭제, 자판 그림에서 방향키 제거(4번째 다리는 [ ' ; Enter만 표시), '1'은 처음이 아니라 **뒤집혔을 때** 상상 말풍선과 함께
-///   (v7: 표지판도 말풍선처럼 화면 고정 — 렌더 직전 카메라 기준 배치(boardDepth·boardGapVp·boardUpVp), 능력 키캡은 능력이 활성화되면 그룹째 사라짐(걷기 키만 키별))
+///   (v7: 표지판도 말풍선처럼 화면 고정 — 렌더 직전 카메라 기준 배치(boardDepth·boardGapVp·boardUpVp), 능력 키캡은 능력이 활성화되면 그룹째 사라짐(걷기 키만 키별), 걷기 16키는 한 번 완료하면(PlayerPrefs tut.move.done) 다시 안 뜸 — 능력 튜토리얼엔 능력 키만)
 ///   (v6: 말풍선은 codexcow 방식의 IMGUI SDF 구름 — `ThoughtBubbleUI`, 앵커=테이블 화면 투영, 퍼프 꼬리가 테이블까지, 첫 번째만 "남은 횟수는 오른쪽 위 동그라미" 줄 추가, "뒤집혔어요!" 배너 삭제)
 ///   ("1을 누르면 바로서기 / 남은 횟수는 오른쪽 위 동그라미") — 테니스공으로 벽에 붙은 채·우주(무중력)에선 안 뜸(ArtSceneReset.FlipPromptActive),
 ///   첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시(LegColorXray)를 켜고 표지판 아래 줄에 "ESC 설정에서 끌 수 있어요" 안내(1회, PlayerPrefs).
@@ -37,6 +37,7 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("꼬리 끝을 테이블과 안 겹치게 말풍선 쪽 위로 밀어내는 오프셋(가상 px: x=말풍선 쪽, y=위)")] public Vector2 thoughtTailOffsetPx = new Vector2(70f, 70f);
     [Header("그룹 켜기")]
     public bool showMove = true, showPoseReset = true, showGiraffe = true, showIce = true, showTennis = true, showSquid = true;
+    [Tooltip("기린을 켠 뒤 신축 키(E/Q Y/R O/U ]/P = −) 키캡을 띄울지(한 번 늘리면 전부 사라짐)")] public bool showStretch = true;
     [Tooltip("첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시를 켜고 설정 안내(PlayerPrefs로 1회)")] public bool legColorTutorial = true;
 
     // ── 키 배열(TableInput.Map과 동일) ──
@@ -48,7 +49,7 @@ public class KeyTutorial : MonoBehaviour
     };
     static readonly Key[] GrabKeys = { Key.C, Key.N, Key.Period, Key.RightShift };
     static readonly Key[] ReleaseKeys = { Key.Z, Key.V, Key.M, Key.Slash };
-    const string LegColorPref = "tut.legcolor.done", FlipPref = "tut.flip.done";
+    const string LegColorPref = "tut.legcolor.done", FlipPref = "tut.flip.done", MovePref = "tut.move.done";   // ★v7 걷기 16키는 한 번 다 누르면 다시는 안 뜸(능력 튜토리얼엔 능력 키만)
 
     static string LabelOf(Key k)
     {
@@ -154,13 +155,13 @@ public class KeyTutorial : MonoBehaviour
         // 그룹 조건 → 등장(1회)
         if (ready)
         {
-            if (showMove) AddGroup("move", L.T("걷기", "walk"), () => {
+            if (showMove && PlayerPrefs.GetInt(MovePref, 0) == 0) AddGroup("move", L.T("걷기", "walk"), () => {
                 for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }   // 자판 그림에 없는 키(방향키)는 자동 생략
                 foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; foreach (var ak in new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }) if (ak != Key.None) Add(ak, "move", LegPalette.BySlot[i], true); }
             });
             bool squidOn = squid != null && squid.active;   // ★2026-09-08 우주오징어 중엔 기린·얼음 키 안내 없음(상호 배타)
             if (showGiraffe && giraffe != null && !giraffe.locked && !squidOn) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
-            if (showGiraffe && giraffe != null && giraffe.active && !giraffeKeysShown)
+            if (showStretch && showGiraffe && giraffe != null && giraffe.active && !giraffeKeysShown)
             {
                 giraffeKeysShown = true;
                 AddGroup("stretch", L.T("다리 늘리기 / 줄이기", "stretch / shrink legs"), () => { for (int i = 0; i < 4; i++) if (Mine(i)) { Add(Map[i][4], "stretch", LegPalette.BySlot[i], true); Add(Map[i][5], "stretch", LegPalette.BySlot[i], true); } Add(Key.Equals, "stretch", Color.white, false); Add(Key.Minus, "stretch", Color.white, false); });
@@ -218,6 +219,9 @@ public class KeyTutorial : MonoBehaviour
                 if (e >= 1f) { if (c.go != null) Destroy(c.go); caps.RemoveAt(i); }
             }
         }
+
+        // ★v7 걷기 튜토리얼 완료(떴던 걷기 키캡을 전부 누름) → 저장. 이후 어느 맵에서도 걷기 키는 안 뜨고 능력 키만 뜬다
+        if (shown.Contains("move") && !HasCap("move") && PlayerPrefs.GetInt(MovePref, 0) == 0) { PlayerPrefs.SetInt(MovePref, 1); PlayerPrefs.Save(); }
 
         // 제목 = 떠 있는 그룹들의 힌트
         if (title != null)
