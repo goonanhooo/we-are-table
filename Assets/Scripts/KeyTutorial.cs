@@ -18,7 +18,7 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("키캡 한 변(px, 기준 거리에서)")] public float capSize = 54f;
     public float capGap = 6f;
     [Tooltip("이 거리(m)에서 capSize — 멀면 작아짐")] public float refDistance = 6f;
-    public float minScale = 0.6f, maxScale = 1.15f;
+    public float minScale = 0.8f, maxScale = 1.15f;
     [Tooltip("키보드 앵커: 테이블 기준 카메라 오른쪽(x)·위(y)·앞(z)")] public Vector3 anchorOffset = new Vector3(1.6f, 1.15f, 0f);
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
     public float fadeSeconds = 0.35f;
