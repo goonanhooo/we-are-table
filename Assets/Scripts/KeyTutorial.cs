@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// ★2026-09-07 떠 있는 키캡 튜토리얼(사용자 요청: 조작법 페이지 폐지 → 테이블 옆 3D 종이 표지판에 눌러야 하는 키만, 누르면 사라짐). Table.prefab 루트 부착(전 씬).
 /// v5(2026-09-08): 연결선 삭제, 자판 그림에서 방향키 제거(4번째 다리는 [ ' ; Enter만 표시), '1'은 처음이 아니라 **뒤집혔을 때** 상상 말풍선과 함께
-///   (v7: 표지판도 말풍선처럼 화면 고정 — 렌더 직전 카메라 기준 배치(boardDepth·boardGapVp·boardUpVp), 능력 키캡은 능력이 활성화되면 그룹째 사라짐(걷기 키만 키별), 걷기 16키는 한 번 완료하면(PlayerPrefs tut.move.done) 다시 안 뜸 — 능력 튜토리얼엔 능력 키만)
+///   (v7: 표지판도 말풍선처럼 화면 고정 — 렌더 직전 카메라 기준 배치(boardDepth·boardGapVp·boardUpVp), 능력 키캡은 능력이 활성화되면 그룹째 사라짐(걷기 키만 키별), 걷기 16키는 네 다리를 다 움직이거나 전부 누르면 완료(PlayerPrefs tut.move.done) → 다시 안 뜸, 방향키/보조키/네트워크 입력 모두 인정, 표지판 폭 화면의 0.16)
 ///   (v6: 말풍선은 codexcow 방식의 IMGUI SDF 구름 — `ThoughtBubbleUI`, 앵커=테이블 화면 투영, 퍼프 꼬리가 테이블까지, 첫 번째만 "남은 횟수는 오른쪽 위 동그라미" 줄 추가, "뒤집혔어요!" 배너 삭제)
 ///   ("1을 누르면 바로서기 / 남은 횟수는 오른쪽 위 동그라미") — 테니스공으로 벽에 붙은 채·우주(무중력)에선 안 뜸(ArtSceneReset.FlipPromptActive),
 ///   첫 튜토리얼에서 걷기 키를 처음 누르면 다리 색 표시(LegColorXray)를 켜고 표지판 아래 줄에 "ESC 설정에서 끌 수 있어요" 안내(1회, PlayerPrefs).
@@ -24,7 +24,7 @@ public class KeyTutorial : MonoBehaviour
     [Tooltip("★v7 표지판 안쪽 가장자리와 테이블 화면점 사이 간격(화면 너비 비율)")] public float boardGapVp = 0.04f;
     [Tooltip("★v7 표지판 아래 가장자리가 테이블 화면점보다 위로 떨어진 거리(화면 높이 비율)")] public float boardUpVp = 0.10f;
     [Tooltip("★v7 표지판을 카메라 앞 이 거리(m)에 둔다 — 화면과 평행·화면 고정(상상 말풍선처럼)")] public float boardDepth = 4f;
-    [Tooltip("표지판이 화면 너비에서 차지할 비율")] public float screenWidthFraction = 0.32f;
+    [Tooltip("표지판이 화면 너비에서 차지할 비율(★v7c 0.32→0.16, 사용자: 절반으로)")] public float screenWidthFraction = 0.16f;
     [Tooltip("종이 투명도(0~1)")] public float paperAlpha = 0.74f;
     [Tooltip("둥실거림 진폭(화면 높이 비율)/속도")] public float bobAmpVp = 0.004f, bobSpeed = 1.3f;
     [Tooltip("조작 가능해진 뒤 이만큼 있다가 등장")] public float appearDelay = 0.7f;
@@ -69,7 +69,10 @@ public class KeyTutorial : MonoBehaviour
     {
         public Key key; public string group; public GameObject go; public CanvasGroup cg; public RectTransform rt;
         public float alpha; public bool done; public float doneT;
+        public int set = -1, dir = -1;   // ★v7c 걷기 키캡: 그 다리 키셋/방향(0상 1하 2좌 3우) — 방향키·보조키·네트워크 입력 어느 쪽이든 '다리 입력'으로 판정
     }
+    readonly bool[] legUsed = new bool[4];   // ★v7c 이번 씬에서 각 다리를 한 번이라도 움직였는가(4다리 다 쓰면 걷기 튜토리얼 완료)
+    readonly bool[] legMine = new bool[4];   // 걷기 그룹이 뜰 때 내 다리였던 것(완료 판정 대상 — 이후 입력 소스가 바뀌어도 고정)
 
     readonly List<Cap> caps = new List<Cap>();
     readonly HashSet<string> shown = new HashSet<string>();   // 이미 등장한 그룹(뒤집힘 '1'은 제외 — 반복)
@@ -156,8 +159,8 @@ public class KeyTutorial : MonoBehaviour
         if (ready)
         {
             if (showMove && PlayerPrefs.GetInt(MovePref, 0) == 0) AddGroup("move", L.T("걷기", "walk"), () => {
-                for (int i = 0; i < 4; i++) if (Mine(i)) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true); }   // 자판 그림에 없는 키(방향키)는 자동 생략
-                foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; foreach (var ak in new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }) if (ak != Key.None) Add(ak, "move", LegPalette.BySlot[i], true); }
+                for (int i = 0; i < 4; i++) { legMine[i] = Mine(i); if (legMine[i]) { for (int k = 0; k < 4; k++) Add(Map[i][k], "move", LegPalette.BySlot[i], true, i, k); } }   // 자판 그림에 없는 키(방향키)는 자동 생략
+                foreach (var lc in transform.root.GetComponentsInChildren<ArtLegController>(true)) { int i = (int)lc.controlSet; if (i < 0 || i > 3 || !Mine(i)) continue; var alts = new[] { lc.altUp, lc.altDown, lc.altLeft, lc.altRight }; for (int k = 0; k < 4; k++) if (alts[k] != Key.None) Add(alts[k], "move", LegPalette.BySlot[i], true, i, k); }
             });
             bool squidOn = squid != null && squid.active;   // ★2026-09-08 우주오징어 중엔 기린·얼음 키 안내 없음(상호 배타)
             if (showGiraffe && giraffe != null && !giraffe.locked && !squidOn) AddGroup("giraffe", L.T("2 = 기린의 힘", "2 = giraffe power"), () => Add(Key.Digit2, "giraffe", Color.white, false));
@@ -204,7 +207,13 @@ public class KeyTutorial : MonoBehaviour
             if (!c.done)
             {
                 c.alpha = Mathf.MoveTowards(c.alpha, 1f, dt / fadeSeconds);
-                if (ok && kb != null && kb[c.key].wasPressedThisFrame)
+                bool pressed = ok && kb != null && kb[c.key].wasPressedThisFrame;
+                if (!pressed && ok && c.set >= 0 && ti != null)   // ★v7c 걷기: 방향키(자판 그림에 없음)·보조키·게스트 RPC 입력도 같은 다리 입력이면 인정
+                {
+                    var li = ti.Get((LegControlSet)c.set);
+                    pressed = c.dir == 0 ? li.up : c.dir == 1 ? li.down : c.dir == 2 ? li.left : li.right;
+                }
+                if (pressed)
                 {
                     c.done = true; c.doneT = Time.time;
                     if (c.group == "move") OnMovePressed();
@@ -220,7 +229,20 @@ public class KeyTutorial : MonoBehaviour
             }
         }
 
-        // ★v7 걷기 튜토리얼 완료(떴던 걷기 키캡을 전부 누름) → 저장. 이후 어느 맵에서도 걷기 키는 안 뜨고 능력 키만 뜬다
+        // ★v7c 네 다리를 전부 한 번씩이라도 움직였으면 걷기 튜토리얼 완료 — 남은 걷기 키캡도 사라짐(사용자: 16키가 계속 켜져 있을 필요 없음)
+        if (ok && ti != null && shown.Contains("move"))
+        {
+            bool all = true;
+            for (int i = 0; i < 4; i++)
+            {
+                if (!legMine[i]) continue;
+                var li = ti.Get((LegControlSet)i);
+                if (li.up || li.down || li.left || li.right) { legUsed[i] = true; OnMovePressed(); }
+                if (!legUsed[i]) all = false;
+            }
+            if (all) DismissGroup("move");
+        }
+        // ★v7 걷기 튜토리얼 완료(걷기 키캡이 전부 사라짐) → 저장. 이후 어느 맵에서도 걷기 키는 안 뜨고 능력 키만 뜬다
         if (shown.Contains("move") && !HasCap("move") && PlayerPrefs.GetInt(MovePref, 0) == 0) { PlayerPrefs.SetInt(MovePref, 1); PlayerPrefs.Save(); }
 
         // 제목 = 떠 있는 그룹들의 힌트
@@ -295,7 +317,7 @@ public class KeyTutorial : MonoBehaviour
         shown.Add(name); groupHint[name] = hint; fill();
     }
 
-    void Add(Key key, string group, Color tint, bool hasTint)
+    void Add(Key key, string group, Color tint, bool hasTint, int set = -1, int dir = -1)
     {
         if (template == null || keysRoot == null) return;
         foreach (var c in caps) if (c.key == key && !c.done) return;   // 이미 떠 있음(다른 그룹이 같은 키)
@@ -310,7 +332,7 @@ public class KeyTutorial : MonoBehaviour
         var bar = go.transform.Find("Bar"); if (bar != null) { if (hasTint) { var im = bar.GetComponent<Image>(); var col = tint; col.a = 0.9f; im.color = col; } else bar.gameObject.SetActive(false); }
         var cg = go.GetComponent<CanvasGroup>(); if (cg == null) cg = go.AddComponent<CanvasGroup>(); cg.alpha = 0f;
         rt.localScale = Vector3.one * 0.6f;
-        caps.Add(new Cap { key = key, group = group, go = go, cg = cg, rt = rt, alpha = 0f });
+        caps.Add(new Cap { key = key, group = group, go = go, cg = cg, rt = rt, alpha = 0f, set = set, dir = dir });
     }
 
     /// <summary>검증용: 키를 누른 것으로 처리.</summary>
