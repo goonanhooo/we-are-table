@@ -13,7 +13,7 @@ using UnityEngine.UI;
 /// ★v9(2026-09-18 사용자: "빙산인데 기린의 힘이 떠 있다 — 표시·순서 시스템 정리"): **레슨 큐**로 재작성.
 ///   ① 능력 키는 '이 씬에서 새로 받았을 때만'(잠김→풀림 전환 = 컷씬 부여, 또는 SpawnPointGrant의 NotifyGranted) — 씬 시작부터 갖고 있던 능력은 다시 가르치지 않음
 ///   ② 한 번에 한 레슨만 보임: 뒤집힘 '1' > 기린 '2' → 늘리기/줄이기 > 테니스 붙기 → 떼기 > 얼음 '3' > 오징어 분사 > 걷기(다리 하나씩). 가려진 레슨은 사라지는 게 아니라 숨었다가 차례가 오면 다시 보임
-///   ③ 제목/안내 글씨는 표지판 안(너무 작아 안 읽힘) 대신 IMGUI 손글씨 칩으로 표지판 위/아래에, 표지판은 살짝 돌려(boardYawDeg) 테이블 쪽이 좁아 보이는 원근감
+///   ③ 제목/안내 글씨는 표지판 안(너무 작아 안 읽힘) 대신 표지판 위/아래의 **자판 스타일 판**(프리팹 TitleTab/NoteTab — 같은 캔버스라 같이 기울고 반투명, v9b), 표지판은 살짝 돌려(boardYawDeg) 테이블 쪽이 좁아 보이는 원근감
 ///   ④ v7에서 실수로 빠졌던 뒤집힘 상상 말풍선 OnGUI 복구
 /// - `boardPrefab`(Assets/Prefabs/KeyTutorialBoard — Tools/UI/Build Key Tutorial Board) = 월드 캔버스 종이 표지판(PIL이 그린 전체 자판 그림 위에 KeyTemplate 복제).
 ///   테이블 왼쪽(카메라 기준)에 화면과 평행하게, 거리 보정 크기(화면 너비 screenWidthFraction), 반투명 종이, 둥실.
@@ -37,7 +37,10 @@ public class KeyTutorial : MonoBehaviour
     public float fadeSeconds = 0.35f;
     public float boardFadeSeconds = 0.5f;
     [Tooltip("★v9 이미 켜져 있는 능력의 토글 키 안내(예: 컷씬이 얼음을 켜 준 뒤의 '3')는 이만큼 보이면 스스로 사라짐")] public float infoSeconds = 12f;
-    [Tooltip("★v9 표지판 위 제목 칩 글씨 크기(화면 높이 비율) / 아래 안내 줄 크기 / 안내 줄 유지 시간")] public float titleSizeVp = 0.026f, noteSizeVp = 0.019f, noteSeconds = 9f;
+    [Tooltip("(프리팹에 TitleTab이 없을 때의 폴백 IMGUI 칩) 제목 글씨 크기(화면 높이 비율) / 안내 줄 크기")] public float titleSizeVp = 0.026f, noteSizeVp = 0.019f;
+    [Tooltip("아래 안내 판(다리 색 안내) 유지 시간")] public float noteSeconds = 9f;
+    [Tooltip("★v9b 제목/안내 판 글씨의 화면상 최소 크기(px) — 창이 작아 표지판이 작아지면 판만 키워 읽히게")] public float titleMinPx = 20f, noteMinPx = 14f;
+    [Tooltip("★v9b 판의 최대 폭(표지판 폭의 배수) — 넘으면 글씨를 줄임 / 글자 양옆 여백(표지판 px)")] public float tabMaxWidthMul = 1.0f, noteMaxWidthMul = 1.3f, tabPadX = 56f;
     [Header("뒤집힘 말풍선(IMGUI, codexcow 방식)")]
     [Tooltip("말풍선 크기(1920×1080 가상 px)")] public Vector2 thoughtSize = new Vector2(400f, 226f);
     [Tooltip("앵커(테이블 루트+위)에서 말풍선까지 오프셋(가상 px)")] public Vector2 thoughtOffsetPx = new Vector2(110f, 100f);
@@ -108,6 +111,7 @@ public class KeyTutorial : MonoBehaviour
     GameObject board; CanvasGroup boardGroup; Transform keysRoot; GameObject template, templateEnter, templateShift; Text title, note; Font arrowFont;
     bool thoughtWant; float thoughtAlpha; string thoughtText = ""; bool thoughtRight = true;
     float bobPhase; Vector3 baseScale; Vector2 boardPx; Image paper; Rect boardVp = new Rect(0.1f, 0.5f, 0.16f, 0.12f);
+    RectTransform titleTab, noteTab; Text titleTabText, noteTabText; int titleFont0, noteFont0; string titleShown, noteShown;
 
     void Start()
     {
@@ -139,6 +143,10 @@ public class KeyTutorial : MonoBehaviour
             // ★v9 표지판 안 제목/안내 글씨는 비움(화면 너비 0.16짜리 표지판에선 6px라 안 읽힘) — OnGUI 손글씨 칩이 대신함
             var tt = board.transform.Find("Title"); title = tt != null ? tt.GetComponent<Text>() : null; if (title != null) title.text = "";
             var nt = board.transform.Find("Note"); note = nt != null ? nt.GetComponent<Text>() : null; if (note != null) note.text = "";
+            // ★v9b 자판 스타일 제목/안내 판(있으면 IMGUI 칩 대신 사용) — 종이와 같은 투명도
+            titleTab = board.transform.Find("TitleTab") as RectTransform; noteTab = board.transform.Find("NoteTab") as RectTransform;
+            if (titleTab != null) { titleTabText = titleTab.GetComponentInChildren<Text>(true); titleFont0 = titleTabText != null ? titleTabText.fontSize : 124; SetAlpha(titleTab.GetComponent<Image>(), paperAlpha); titleTab.gameObject.SetActive(false); }
+            if (noteTab != null) { noteTabText = noteTab.GetComponentInChildren<Text>(true); noteFont0 = noteTabText != null ? noteTabText.fontSize : 84; SetAlpha(noteTab.GetComponent<Image>(), paperAlpha); noteTab.gameObject.SetActive(false); }
             var canvas = board.GetComponent<Canvas>(); if (canvas != null) canvas.worldCamera = Camera.main;
             arrowFont = Resources.Load<Font>("Fonts/NanumGothic-Regular");
             board.SetActive(false);
@@ -188,7 +196,7 @@ public class KeyTutorial : MonoBehaviour
         var lStretch = AddLesson("stretch",
             () => showGiraffe && showStretch && Got("giraffe") && !SquidOn && giraffe.active,
             () => giraffe.AnyStretched,
-            () => stretchWithToggle ? L.T("기린의 힘 · 다리 늘리기 / 줄이기 · 2 = 끄기", "giraffe power · stretch / shrink legs · 2 = off") : L.T("다리 늘리기 / 줄이기", "stretch / shrink legs"),
+            () => stretchWithToggle ? L.T("늘리기 / 줄이기 · 2 = 끄기", "stretch / shrink · 2 = off") : L.T("다리 늘리기 / 줄이기", "stretch / shrink legs"),
             () =>
             {
                 for (int i = 0; i < 4; i++) if (legMine[i]) { Add(Map[i][4], "stretch", LegPalette.BySlot[i], true); Add(Map[i][5], "stretch", LegPalette.BySlot[i], true); }
@@ -352,6 +360,10 @@ public class KeyTutorial : MonoBehaviour
         if (pressedGroup == "pose") DismissGroup("pose");
         else if (pressedGroup != null) { var l = LessonById(pressedGroup); if (l != null) Finish(l); }
 
+        // 제목/안내 판 내용(자판 스타일, 표지판 캔버스 소속 → 표지판과 함께 기울고 페이드)
+        SetTab(titleTab, titleTabText, titleText, titleFont0, tabMaxWidthMul, ref titleShown);
+        SetTab(noteTab, noteTabText, Time.time < noteUntil ? noteText : "", noteFont0, noteMaxWidthMul, ref noteShown);
+
         // ⑤ 표지판 전체 페이드(조작 가능 && 보이는 그룹에 키캡 있음)
         bool want = ok && HasCap(visibleGroup);
         if (want && !board.activeSelf) { board.SetActive(true); PoseBoard(); }
@@ -370,11 +382,26 @@ public class KeyTutorial : MonoBehaviour
         if (!legColorTutorial || legColorShown || PlayerPrefs.GetInt(LegColorPref, 0) == 1) return;
         legColorShown = true; PlayerPrefs.SetInt(LegColorPref, 1); PlayerPrefs.Save();
         if (xray != null && !xray.IsOn) xray.SetOn(true);
-        noteText = L.T("다리마다 자기 색이 켜졌어요 — 키 색과 같아요. ESC 설정에서 끌 수 있어요.", "each leg now shows its color — same as the keys. turn it off in ESC settings.");
+        noteText = L.T("다리마다 자기 색이 켜졌어요 (키 색과 같아요)\nESC 설정에서 끌 수 있어요", "each leg now shows its color (same as the keys)\nturn it off in ESC settings");
         noteUntil = Time.time + noteSeconds;
     }
 
-    // ───────────────────────── IMGUI: 제목 칩 · 안내 줄 · 뒤집힘 말풍선 ─────────────────────────
+    static void SetAlpha(Image im, float a) { if (im == null) return; var c = im.color; c.a = a; im.color = c; }
+
+    /// <summary>★v9b 자판 스타일 판에 글자를 넣고 폭을 글자에 맞춘다(최대 폭을 넘으면 글씨를 줄임). 빈 문자열이면 판을 숨김.</summary>
+    void SetTab(RectTransform tab, Text txt, string s, int font0, float maxWidthMul, ref string shown)
+    {
+        if (tab == null || txt == null) return;
+        if (string.IsNullOrEmpty(s)) { if (tab.gameObject.activeSelf) tab.gameObject.SetActive(false); shown = null; return; }
+        if (!tab.gameObject.activeSelf) tab.gameObject.SetActive(true);
+        if (shown == s) return; shown = s;
+        txt.text = s; txt.fontSize = font0;
+        float inner = Mathf.Max(200f, boardPx.x * maxWidthMul - tabPadX * 2f - 23f), pw = txt.preferredWidth;
+        if (pw > inner) { txt.fontSize = Mathf.Max(24, Mathf.FloorToInt(font0 * inner / pw)); pw = txt.preferredWidth; }
+        tab.sizeDelta = new Vector2(pw + tabPadX * 2f + 23f, tab.sizeDelta.y);   // 23 = 판 스프라이트의 좌(8)+우(15) 여백
+    }
+
+    // ───────────────────────── IMGUI: (폴백) 제목 칩 · 안내 줄 / 뒤집힘 말풍선 ─────────────────────────
     readonly Dictionary<int, GUIStyle> chipStyles = new Dictionary<int, GUIStyle>();
     GUIStyle ChipStyle(int size) { if (!chipStyles.TryGetValue(size, out var st) || st == null) { st = HandUI.Style(size, HandUI.Ink); chipStyles[size] = st; } return st; }
 
@@ -406,7 +433,7 @@ public class KeyTutorial : MonoBehaviour
         var cam = Camera.main; if (cam == null) return;
         UiKit.ApplyKoreanFont();
 
-        if (boardOn)
+        if (boardOn && titleTab == null)   // 프리팹에 자판 스타일 판이 없을 때만 IMGUI 칩
         {
             if (!string.IsNullOrEmpty(titleText)) DrawChip(titleText, true, titleSizeVp, boardGroup.alpha);
             if (Time.time < noteUntil && !string.IsNullOrEmpty(noteText)) DrawChip(noteText, false, noteSizeVp, boardGroup.alpha * Mathf.Clamp01(noteUntil - Time.time));
@@ -462,7 +489,13 @@ public class KeyTutorial : MonoBehaviour
         float cy = vp.y + boardUpVp + hhVp + Mathf.Sin(t) * bobAmpVp;
         // 화면 안 클램프(가장자리 여백 2%/4%)
         cx = Mathf.Clamp(cx, 0.02f + hwVp, 0.98f - hwVp);
-        cy = Mathf.Clamp(cy, 0.04f + hhVp, 0.96f - hhVp);
+        // ★v9b 판 글씨가 화면에서 너무 작아지지 않게(작은 창) 판만 키움 — 판의 피벗이 표지판 모서리라 붙은 채로 커짐
+        float unitPx = screenWidthFraction * Screen.width / Mathf.Max(1f, boardPx.x);   // 표지판 1px의 화면 px
+        float tabK = Mathf.Max(1f, titleMinPx / Mathf.Max(0.01f, titleFont0 * unitPx));
+        if (titleTab != null) titleTab.localScale = Vector3.one * tabK;
+        if (noteTab != null) noteTab.localScale = Vector3.one * Mathf.Max(1f, noteMinPx / Mathf.Max(0.01f, noteFont0 * unitPx));
+        float tabTopVp = titleTab != null ? hhVp * 2f * (titleTab.sizeDelta.y * tabK / Mathf.Max(1f, boardPx.y)) : 0f;   // 제목 판이 표지판 위로 차지하는 높이
+        cy = Mathf.Clamp(cy, 0.04f + hhVp, 0.96f - hhVp - tabTopVp);
         boardVp = new Rect(cx - hwVp, cy - hhVp, hwVp * 2f, hhVp * 2f);   // 제목 칩/안내 줄(OnGUI) 배치용
         Vector3 pos = cam.ViewportToWorldPoint(new Vector3(cx, cy, depth));
         // v8: 화면 고정은 그대로, 카메라 기준 Y로 살짝 돌려 안쪽(테이블 쪽) 가장자리가 멀어지게 → 그쪽이 좁아 보이는 가벼운 원근감
