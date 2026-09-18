@@ -22,10 +22,12 @@ public class ChairRocketLaunch : MonoBehaviour
     [Tooltip("이 높이를 넘으면 로켓·이펙트 정리")] public float vanishY = 420f;
     [Tooltip("살짝 앞(+z)으로 기울며 멀어지는 가속(m/s²) — 0이면 수직")] public float driftAccel = 1.5f;
 
-    [Header("말풍선(우주 도입 컷씬과 동일 방식)")]
-    public Texture2D bubbleTex, chairIcon;
-    [Tooltip("말풍선 높이(화면 높이 비율) — 기준 거리에서")] public float bubbleSize = 0.17f;
-    [Tooltip("로켓 피벗(바닥)에서 위로 앵커 오프셋(m)")] public float bubbleAnchorUp = 11f;
+    [Header("말풍선(우주 도입 컷씬과 같은 손그림 말풍선 — 꼬리가 옆으로 난 판)")]
+    [Tooltip("BubbleRoundSide.png(640×512): BubbleRound를 90° 돌려 꼬리가 오른쪽을 가리킴 — 꼬리 끝 (606,249), 원 중심 (262,255) r226")] public Texture2D bubbleTex;
+    public Texture2D chairIcon;
+    [Tooltip("말풍선 크기(원 기준, 화면 높이 비율) — 기준 거리에서")] public float bubbleSize = 0.17f;
+    [Tooltip("로켓 피벗(바닥)에서 위로: 꼬리가 가리킬 몸통 높이(m)")] public float bubbleAnchorUp = 6.5f;
+    [Tooltip("로켓 몸통 반지름(m) — 꼬리 끝을 몸통 왼쪽 가장자리 바로 바깥에 두기 위함")] public float rocketRadius = 1.7f;
     [Tooltip("이 거리(m)에서 bubbleSize, 멀어지면 거리·FOV에 비례해 작아지고 20% 아래부터 페이드")] public float bubbleRefDistance = 90f;
 
     public bool Started => started;
@@ -117,27 +119,30 @@ public class ChairRocketLaunch : MonoBehaviour
         if (sparks != null) sparks.Play(true);
     }
 
-    /// <summary>동그란 손그림 말풍선 + 의자 아이콘(SpaceIntroCutscene.DrawIconBubble과 같은 규격: 512×640, 꼬리 끝 (262,606), 원 중심 (256,262) r226).</summary>
+    /// <summary>로켓 '왼쪽'에 떠서 가로 꼬리로 로켓을 가리키는 손그림 말풍선 + 의자 아이콘. 로켓을 그대로 따라감(화면 클램프 없음 — 로켓이 화면을 벗어나면 같이 벗어남).
+    /// 크기 = bubbleSize × (bubbleRefDistance/거리) × (50/FOV), 최대 1 — 멀어지면 작아지고 20% 아래부터 페이드(SpaceIntroCutscene과 같은 규칙).</summary>
     void OnGUI()
     {
         bubbleAlpha = 0f;
         if (!started || finished || rocket == null || bubbleTex == null || Event.current.type != EventType.Repaint) return;
         var cam = Camera.main; if (cam == null) return;
-        Vector3 sp = cam.WorldToScreenPoint(rocket.position + Vector3.up * bubbleAnchorUp);
+        Vector3 body = rocket.position + Vector3.up * bubbleAnchorUp;
+        Vector3 sp = cam.WorldToScreenPoint(body);
         if (sp.z <= 0f) return;
         float k = Mathf.Clamp((bubbleRefDistance / Mathf.Max(1f, sp.z)) * (50f / Mathf.Max(5f, cam.fieldOfView)), 0.01f, 1f);
         float alpha = Mathf.InverseLerp(0.06f, 0.2f, k);
         if (alpha <= 0.01f) return;
         bubbleAlpha = alpha;
+        // 화면상 로켓 몸통 반지름(px) → 꼬리 끝을 몸통 왼쪽 가장자리 바로 바깥에
+        float rPix = Mathf.Abs(cam.WorldToScreenPoint(body + cam.transform.right * rocketRadius).x - sp.x);
+        float w = Screen.height * bubbleSize * k, h = w * bubbleTex.height / bubbleTex.width;   // 640×512 — 원 지름은 세로판과 동일
+        float ax = sp.x - rPix - w * 0.02f, ay = Screen.height - sp.y;
+        var r = new Rect(ax - w * (606f / 640f), ay - h * (249f / 512f), w, h);
         var prev = GUI.color; GUI.color = new Color(1f, 1f, 1f, alpha);
-        float h = Screen.height * bubbleSize * k, w = h * bubbleTex.width / bubbleTex.height;
-        float ax = sp.x, ay = Screen.height - sp.y;
-        var r = new Rect(ax - w * (262f / 512f), ay - h * (606f / 640f), w, h);
-        r.x = Mathf.Clamp(r.x, 4f, Screen.width - w - 4f); r.y = Mathf.Clamp(r.y, 4f, Screen.height - h - 4f);
         GUI.DrawTexture(r, bubbleTex, ScaleMode.StretchToFill, true);
         if (chairIcon != null)
         {
-            float cx = r.x + w * (256f / 512f), cy = r.y + h * (262f / 640f), rad = h * (226f / 640f), s = rad * 1.36f;
+            float cx = r.x + w * (262f / 640f), cy = r.y + h * (255f / 512f), rad = h * (226f / 512f), s = rad * 1.36f;
             GUI.DrawTexture(new Rect(cx - s * 0.5f, cy - s * 0.5f, s, s), chairIcon, ScaleMode.ScaleToFit, true);
         }
         GUI.color = prev;

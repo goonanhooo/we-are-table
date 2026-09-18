@@ -13,8 +13,10 @@ public class SpawnPointGrant : MonoBehaviour
     public void Apply(Transform tableRoot)
     {
         if (tableRoot == null) return;
-        if (tennisBall) { var t = tableRoot.GetComponentInChildren<TennisMode>(true); if (t != null) { t.unlocked = true; t.active = true; } }
-        if (giraffeUnlock) { var g = tableRoot.GetComponentInChildren<GiraffeMode>(true); if (g != null) { g.locked = false; GiraffeMode.Unlocked = true; } }
-        if (icePower) { var i = tableRoot.GetComponentInChildren<IcePower>(true); if (i != null) i.unlocked = true; }
+        // 스폰과 동시에 쥐여 주는 능력은 '잠김→풀림' 전환이 없어 KeyTutorial이 부여를 못 알아챔 → 직접 알려 그 키 안내가 뜨게 한다
+        var tut = tableRoot.GetComponentInChildren<KeyTutorial>(true);
+        if (tennisBall) { var t = tableRoot.GetComponentInChildren<TennisMode>(true); if (t != null) { t.unlocked = true; t.active = true; if (tut != null) tut.NotifyGranted("tennis"); } }
+        if (giraffeUnlock) { var g = tableRoot.GetComponentInChildren<GiraffeMode>(true); if (g != null) { g.locked = false; GiraffeMode.Unlocked = true; if (tut != null) tut.NotifyGranted("giraffe"); } }
+        if (icePower) { var i = tableRoot.GetComponentInChildren<IcePower>(true); if (i != null) { i.unlocked = true; if (tut != null) tut.NotifyGranted("ice"); } }
     }
 }

@@ -94918,7 +94918,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 1344099387
+      value: 3320619822
       objectReference: {fileID: 0}
     - target: {fileID: 7387522618337251565, guid: 0a1b2c3d4e5f60718293a4b5c6d7e8f9, type: 3}
       propertyPath: SceneMigrationSynchronization
@@ -104477,10 +104477,11 @@ MonoBehaviour:
   liftKick: 5
   vanishY: 420
   driftAccel: 1.5
-  bubbleTex: {fileID: 2800000, guid: 711bd9462acab4466a221fab33fbf2b8, type: 3}
+  bubbleTex: {fileID: 2800000, guid: 8c0145517b454980a9234aa247249601, type: 3}
   chairIcon: {fileID: 2800000, guid: 526411451579c470cb0a6aefc833f97a, type: 3}
   bubbleSize: 0.17
-  bubbleAnchorUp: 11
+  bubbleAnchorUp: 6.5
+  rocketRadius: 1.7
   bubbleRefDistance: 90
 --- !u!1 &2116780715
 GameObject:
