@@ -619,3 +619,9 @@
   - **'빙산' 스테이지 = IceCavern@SnowmanCave**: `LevelSelect.Level.spawn` 필드 신설(StartScreen 직렬화 `spawn: SnowmanCave`), 영문 라벨은 spawn으로 "iceberg", `NetDebugPanel.MapSpawns`(로비 빙산도 동일). 썸네일 Thumbs/ice 그대로.
 - ⚠️**함정(실측)**: SceneSpawnPoints가 **Awake에서 트랜스폼을 옮기면 F1이 y247로 튐** — `ArtSceneReset.Awake`의 MeasureGeometry가 콜라이더 월드 bounds로 lift를 재는데, ArticulationBody 콜라이더 bounds는 첫 물리 스텝 전엔 갱신 안 됨(`Physics.SyncTransforms()` 무효) → 옛 자리 기준 151m lift. **정답 = Start(-200)에서 TeleportRoot + `ArtSceneReset.SetSpawn(pos)`(initPos/lastGoodXZ 교체)**, 프리팹 루트(TablePlayer)도 같은 델타로 이동.
 - 검증(merge3.txt, 에러 0): 기본 로드 = 튜브(0,-140,-391) / 빙산 로드 = (0,96.2,-11)·테니스 on·initPos (0,97,-11) → F1 → 제자리 (0,96.2,-11) 직립 → 머리를 조립 위치에 놓으면 눈사람 컷씬 즉시 → 14.8s 뒤 얼음 unlocked+active → 슬라이드 진입 3m/s → 30 m/s 활강·킥커 발사 z150 공중 / 별도 merge1: 의자 컷씬 발동(z>0 정착 1.2s)·로켓 링 진입 → Space 로드 ✓.
+
+## 왼쪽 발사대 '의자 로켓' 자동 발사(2026-09-18, 사용자 요청 "왼쪽에 로켓 하나 더, 슬라이드 끝 지날 때 컷씬 없이 발사, 오른쪽 이펙트 동일, 우주 말풍선처럼 의자 표시")
+- IceCavern `LandingZone/Rocket_L`(오른쪽 `Rocket` 복제, x 대칭 (-14,4.39,283), rot (270,180,0)) + `LandingZone/ChairRocketLaunch`(`ChairRocketLaunch.cs`, 자식 Flame/FlameLight/Smoke/Plume/Sparks = RocketLaunch의 것을 복제해 x 대칭 배치, shake 1.6/liftAccel 26/liftKick 5는 RocketLaunchCutscene 값 복사).
+- 발동 = 테이블 z > `triggerZ`(125, 킥커 팁 z145 직전 계곡) — 카메라/테이블/타이머 무간섭, 점화→흔들림→상승(+z로 살짝 기울며 `driftAccel` 1.5)→`vanishY` 420에서 로켓 비활성·이펙트 정리. 오른쪽 로켓(플레이어 탑승 컷씬)은 그대로. 멀티는 테이블 위치 기반 각자 로컬 재생.
+- 말풍선 = SpaceIntroCutscene.DrawIconBubble 규격 그대로(`Guide/Space/BubbleRound.png`+`BubbleChair.png`, 꼬리 (262,606)/원 중심 (256,262) r226): 앵커 로켓 피벗+11m(노즈 위), `bubbleSize` 0.17H @ `bubbleRefDistance` 90m, 거리·FOV 비례 축소·k<0.2 페이드.
+- 검증(rocketL.txt+스크린샷 rocketL_0~3): 슬라이드 활강 중 z125.1 통과 순간 발사(컷씬 Started=False·immovable=False 유지) → 0.8s 점화 연기 250·플룸 181·말풍선 표시 → 3s y36.7 상승 중 말풍선이 노즈 위 → 5.5s y220(화면 밖, 말풍선 페이드) → 9s y420 정리, 플레이어는 z245 직립 착지. 왼쪽 발사대는 비어 있음.
