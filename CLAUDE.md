@@ -607,3 +607,7 @@
 - **실행 위치 = 프로젝트 폴더**(`cd "~/Desktop/we are table" && claude`) — 그래야 이 CLAUDE.md가 로드됨. 자동 메모리 폴더는 홈 키(`~/.claude/projects/-Users-juhyeongpyo/memory`)를 프로젝트 키(`-Users-juhyeongpyo-Desktop-we-are-table/memory`)로 **심볼릭 링크**해 데스크톱 앱 세션과 공유.
 - `.claude/settings.local.json`(gitignore): `defaultMode acceptEdits` + unityMCP 전체·git 조회/커밋·grep/sed/python3/sips/open 등 허용 — 프롬프트 최소화. 더 넓히려면 `/fewer-permission-prompts`.
 - CLI에선 스크린샷을 대화창에 못 띄움 → PNG를 `open`으로 미리보기 창에 띄워 보여줄 것(찍는 방식·검증은 동일). 브라우저 프리뷰 도구 없음(웹빌드 확인 시에만 해당). 데스크톱 앱 세션과 CLI 세션을 동시에 Unity에 붙이지 말 것.
+
+## 안 쓰는 씬 정리(2026-09-18, 사용자 요청 "안 쓰는 씬 다른 폴더로")
+- `Assets/Scenes/`에는 **플로우 7개(StartScreen/Hallway/Jungle/IceCavern/IceMountain/Space/Moon) + 로비 대전 2개(Race/Soccer)** 만 남김. 나머지 14개(NewStartScreen/Track/Adventure/Climb/NewJungle/FrameHall/TennisCourt/RealJungle/SampleScene/Stage1/Stage2/ArticulationTest/StableTableTest/PreviewLab)는 `Assets/Scenes/_Unused/`로 이동(`AssetDatabase.MoveAsset` — GUID 보존, 씬 로드는 전부 이름 기반이라 경로 무관). 빌드 세팅도 9개로 축소(NewStartScreen/Track/Adventure/Climb/NewJungle/FrameHall/TennisCourt 제외). 다시 쓰려면 파일을 `Assets/Scenes/`로 옮기고 Build Settings에 추가하면 됨.
+- 남은 코드 참조는 문자열뿐(HallwayStage.nextScene 기본값 "Stage1"은 씬 인스턴스가 Jungle로 덮음, Progress.MenuScenes의 "NewStartScreen", LevelSelect.MapLabel의 FrameHall/TennisCourt/Climb 라벨) — 무해.

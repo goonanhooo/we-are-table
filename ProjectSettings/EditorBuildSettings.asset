@@ -9,14 +9,14 @@ EditorBuildSettings:
     path: Assets/Scenes/StartScreen.unity
     guid: 11223344556677889900aabbccddeeff
   - enabled: 1
-    path: Assets/Scenes/NewStartScreen.unity
-    guid: a345c7d9f6e0b42acb7032ec745f720d
-  - enabled: 1
     path: Assets/Scenes/Hallway.unity
     guid: 33445566778899aabbccddeeff001122
   - enabled: 1
     path: Assets/Scenes/Jungle.unity
     guid: 44556677889900aabbccddeeff112233
+  - enabled: 1
+    path: Assets/Scenes/IceCavern.unity
+    guid: 1ffcb72ef884143aca9a386b3dd1fba8
   - enabled: 1
     path: Assets/Scenes/IceMountain.unity
     guid: 989e156f14afe49e7b604cff6b189353
@@ -24,35 +24,14 @@ EditorBuildSettings:
     path: Assets/Scenes/Space.unity
     guid: 06839da93f1a64f348d5bdc0c975d61e
   - enabled: 1
-    path: Assets/Scenes/Track.unity
-    guid: c117b5da770b94c6d81e053f9770b932
-  - enabled: 1
     path: Assets/Scenes/Moon.unity
     guid: 5f0ed13170f6d4336b8e915d99173473
-  - enabled: 1
-    path: Assets/Scenes/Adventure.unity
-    guid: 753f1aef8b31f4cc3af68c20d86b95a7
-  - enabled: 1
-    path: Assets/Scenes/Climb.unity
-    guid: d7bf51d08cd0644849b376c0f3975545
   - enabled: 1
     path: Assets/Scenes/Race.unity
     guid: 628bca43fd4d842568717b33f1035fef
   - enabled: 1
     path: Assets/Scenes/Soccer.unity
     guid: 8f6bd3b462d724f4daa64e8f2d8401e3
-  - enabled: 1
-    path: Assets/Scenes/NewJungle.unity
-    guid: d2d6eb9025b4a42cb8f0c211c065202d
-  - enabled: 1
-    path: Assets/Scenes/FrameHall.unity
-    guid: f7d2fb166baa1449a8b78f1d0189be0a
-  - enabled: 1
-    path: Assets/Scenes/TennisCourt.unity
-    guid: cc4ec47245a9d4e8eb6ca6e7bcc023f4
-  - enabled: 1
-    path: Assets/Scenes/IceCavern.unity
-    guid: 1ffcb72ef884143aca9a386b3dd1fba8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
