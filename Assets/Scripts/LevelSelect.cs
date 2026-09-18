@@ -18,7 +18,7 @@ public class LevelSelect : MonoBehaviour
 {
     [Tooltip("★2026-09-08 이전 맵을 클리어해야 다음 맵이 열리는 진행 잠금(끄면 플로우의 모든 맵 바로 선택 가능). 기본 끔.")] public bool requireProgress = false;
     [System.Serializable]
-    public class Level { public string label; public string scene; public string thumb; }
+    public class Level { public string label; public string scene; public string thumb; [Tooltip("씬 안 시작 지점 id(SceneSpawnPoints 자식 이름, 비우면 기본)")] public string spawn; }
 
     public Level[] levels =   // ⚠️씬 인스턴스(StartScreen) 직렬화 배열도 갱신 필요(직렬화 함정)
     {
@@ -26,7 +26,7 @@ public class LevelSelect : MonoBehaviour
         new Level { label = "복도", scene = "Hallway",     thumb = "Thumbs/hallway" },
         new Level { label = "정글", scene = "Jungle",      thumb = "Thumbs/jungle"  },
         new Level { label = "동굴", scene = "IceCavern",   thumb = "Thumbs/cavern"  },
-        new Level { label = "빙산", scene = "IceMountain", thumb = "Thumbs/ice"     },
+        new Level { label = "빙산", scene = "IceCavern",   thumb = "Thumbs/ice",   spawn = "SnowmanCave" },   // ★2026-09-18 빙산 = 동굴 씬의 눈사람 동굴(레일 끝)에서 시작
         new Level { label = "우주", scene = "Space",       thumb = "Thumbs/space"   },
         new Level { label = "달",   scene = "Moon",        thumb = "Thumbs/moon"    },
     };
@@ -108,6 +108,7 @@ public class LevelSelect : MonoBehaviour
     static string MapLabel(Level lv)
     {
         if (L.Korean) return lv.label;
+        if (lv.spawn == "SnowmanCave") return "iceberg";
         switch (lv.scene)
         {
             case "Hallway": return "hallway";
@@ -440,7 +441,7 @@ public class LevelSelect : MonoBehaviour
     {
         Time.timeScale = 1f;
         Close();
-        NetScene.Load(lv.scene);
+        NetScene.Load(lv.scene, lv.spawn);
     }
 
     // ── ④ 난이도 선택(★2026-09-05, 1인 스테이지 전에): 겁쟁이(바로서기 무제한) / 보통(3개 + 링 충전) ──

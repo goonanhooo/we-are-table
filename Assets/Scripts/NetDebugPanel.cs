@@ -66,7 +66,9 @@ public class NetDebugPanel : MonoBehaviour
     static readonly string[] MapNamesEn = { "hallway", "jungle", "cave", "iceberg", "space", "moon", "race (vs)", "soccer (vs)" };
     static string LegName(int i) => L.Korean ? LegNames[i] : LegNamesEn[i];
     static string MapName(int i) => L.Korean ? MapNames[i] : MapNamesEn[i];
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceCavern", "IceMountain", "Space", "Moon", "Race", "Soccer" };
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceCavern", "IceCavern", "Space", "Moon", "Race", "Soccer" };
+    // ★2026-09-18 빙산 = 동굴 씬을 눈사람 동굴(레일 끝) 시작 지점으로(IceMountain 씬 폐기)
+    static readonly string[] MapSpawns = { null, null, null, "SnowmanCave", null, null, null, null };
 
     void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
     void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }
@@ -146,9 +148,9 @@ public class NetDebugPanel : MonoBehaviour
                     startPending = true;
                     var lk = link;
                     pv.Show(lk.MapIndex, 1);
-                    pv.Confirm(() => { startPending = false; lk.StartGame(); NetScene.Load(MapScenes[lk.MapIndex]); });
+                    pv.Confirm(() => { startPending = false; lk.StartGame(); NetScene.Load(MapScenes[lk.MapIndex], MapSpawns[lk.MapIndex]); });
                 }
-                else { link.StartGame(); NetScene.Load(MapScenes[link.MapIndex]); }
+                else { link.StartGame(); NetScene.Load(MapScenes[link.MapIndex], MapSpawns[link.MapIndex]); }
             }
             if (R(320f, ActionY, 150f, 48f).Contains(gm))
             {

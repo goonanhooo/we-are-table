@@ -278,6 +278,9 @@ public class ArtSceneReset : MonoBehaviour
 
     /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면
     /// JungleStage가 '지금 있던 쪽' 안전 지점(체크포인트 규칙)으로 가로챈다.</summary>
+    /// <summary>★2026-09-18 씬 안 시작 지점(SceneSpawnPoints)이 바뀔 때 F1 기준점·워치독 안전 XZ를 그 자리로.</summary>
+    public void SetSpawn(Vector3 p) { initPos = p; lastGoodXZ = new Vector2(p.x, p.z); haveGoodXZ = true; }
+
     public void Restart()
     {
         if (root == null || disableManualReset) return;

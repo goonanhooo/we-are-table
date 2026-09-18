@@ -1433,8 +1433,9 @@ MonoBehaviour:
     scene: IceCavern
     thumb: Thumbs/cavern
   - label: "\uBE59\uC0B0"
-    scene: IceMountain
+    scene: IceCavern
     thumb: Thumbs/ice
+    spawn: SnowmanCave
   - label: "\uC6B0\uC8FC"
     scene: Space
     thumb: Thumbs/space
