@@ -18,6 +18,8 @@ public class TitleLocalizer : MonoBehaviour
     Sprite enWe, enAre, enTable;
     Vector2 weBasePos, weBaseSize, tableBasePos, tableBaseSize;
     bool lastKorean, inited;
+    CanvasGroup visibility;StartScreenMenu home;
+    public bool TitleVisible=>visibility!=null&&visibility.alpha>0;
 
     void Awake()
     {
@@ -28,6 +30,9 @@ public class TitleLocalizer : MonoBehaviour
         enWe = we.sprite; enAre = are.sprite; enTable = table.sprite;
         weBasePos = weRt.anchoredPosition; weBaseSize = weRt.sizeDelta;
         tableBasePos = tableRt.anchoredPosition; tableBaseSize = tableRt.sizeDelta;
+        visibility=GetComponent<CanvasGroup>();if(visibility==null)visibility=gameObject.AddComponent<CanvasGroup>();
+        visibility.blocksRaycasts=false;visibility.interactable=false;
+        home=FindAnyObjectByType<StartScreenMenu>();
         inited = true;
         Apply();
     }
@@ -35,6 +40,13 @@ public class TitleLocalizer : MonoBehaviour
     void Update()
     {
         if (inited && lastKorean != L.Korean) Apply();
+    }
+
+    void LateUpdate()
+    {
+        if(visibility==null){visibility=GetComponent<CanvasGroup>();if(visibility==null)visibility=gameObject.AddComponent<CanvasGroup>();visibility.blocksRaycasts=false;visibility.interactable=false;}
+        if(home==null)home=FindAnyObjectByType<StartScreenMenu>();
+        if(visibility!=null)visibility.alpha=home!=null&&home.HomeVisible?1:0;
     }
 
     void Apply()

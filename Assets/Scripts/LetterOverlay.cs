@@ -1,87 +1,61 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>
-/// 편지를 화면 가득 띄워 읽는 오버레이. LetterOverlay.Show(id)로 호출(어느 씬에서든).
-/// 열려 있는 동안 게임 일시정지(timeScale 0) + 커서 표시. 클릭 또는 ESC로 닫기.
-/// PauseMenu는 IsOpen을 확인해 ESC 충돌을 피한다.
-/// </summary>
+/// <summary>Localized letter text and photograph; online readers never pause shared physics.</summary>
 public class LetterOverlay : MonoBehaviour
 {
     static LetterOverlay inst;
-    public static bool IsOpen => inst != null && inst.tex != null;
-
-    Texture2D tex;
-    string title;
+    public static bool IsOpen => LetterSystem.Enabled && inst != null && !string.IsNullOrEmpty(inst.letterId);
+    string letterId;
+    Texture2D photo;
     int openedFrame;
-    float prevTimeScale = 1f;
-    GUIStyle titleStyle, hintStyle;
-
-    public static void Show(string letterId)
+    float prevTimeScale=1;
+    bool pausedTime;
+    GUIStyle titleStyle,bodyStyle,hintStyle;
+    public static void Show(string id)
     {
-        if (inst == null)
-        {
-            var go = new GameObject("LetterOverlay");
-            DontDestroyOnLoad(go);
-            inst = go.AddComponent<LetterOverlay>();
-        }
-        inst.tex = LetterSystem.LoadImage(letterId);
-        inst.title = LetterSystem.TitleOf(letterId);
-        inst.openedFrame = Time.frameCount;
-        inst.prevTimeScale = Time.timeScale;
-        Time.timeScale = 0f;
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        if (inst.tex == null)
-            Debug.LogWarning("[LetterOverlay] Resources/Letters/" + letterId + " 텍스처 없음");
+        if (!LetterSystem.Enabled) return;
+        if(inst==null){var go=new GameObject("LetterOverlay");DontDestroyOnLoad(go);inst=go.AddComponent<LetterOverlay>();}
+        if(!IsOpen)inst.prevTimeScale=Time.timeScale;
+        inst.letterId=id;inst.photo=LetterSystem.LoadImage(id);inst.openedFrame=Time.frameCount;
+        var nm=Unity.Netcode.NetworkManager.Singleton;
+        inst.pausedTime=nm==null||!nm.IsListening;
+        if(inst.pausedTime)Time.timeScale=0;
+        Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
     }
-
-    void Close()
-    {
-        tex = null;
-        Time.timeScale = prevTimeScale;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-    }
-
+    void Close(){letterId=null;if(pausedTime)Time.timeScale=prevTimeScale;pausedTime=false;Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}
     void Update()
     {
-        if (tex == null) return;
-        if (Time.frameCount <= openedFrame + 1) return;   // 여는 클릭이 곧바로 닫지 않게
-        var kb = Keyboard.current; var m = Mouse.current;
-        if ((kb != null && kb.escapeKey.wasPressedThisFrame) ||
-            (m != null && m.leftButton.wasPressedThisFrame)) Close();
+        if (!LetterSystem.Enabled && !string.IsNullOrEmpty(letterId)) { Close(); return; }
+        if(!IsOpen||Time.frameCount<=openedFrame+1)return;
+        var k=Keyboard.current;var m=Mouse.current;
+        if((k!=null&&k.escapeKey.wasPressedThisFrame)||(m!=null&&m.leftButton.wasPressedThisFrame))Close();
     }
-
     void OnGUI()
     {
-        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
-        if (tex == null) return;
-        if (titleStyle == null)
+        if(!IsOpen)return;GUI.depth=-300;GUI.color=Color.white;GUI.contentColor=Color.white;LocaleFonts.Apply();
+        if(titleStyle==null){titleStyle=HandUI.Style(28,HandUI.Ink);bodyStyle=HandUI.Style(28,new Color(.27f,.22f,.17f));bodyStyle.wordWrap=true;hintStyle=HandUI.Style(18,HandUI.InkSoft);}
+        UiKit.Fill(new Rect(0,0,Screen.width,Screen.height),new Color(.97f,.96f,.92f,1f));
+        GUI.Label(new Rect(0,8,Screen.width,45),LetterSystem.TitleOf(letterId),titleStyle);
+        float h=Screen.height-120,w=Mathf.Min(Screen.width*.9f,h*.86f);
+        Rect paper=new Rect((Screen.width-w)/2,60,w,h);
+        UiKit.Fill(paper,new Color(.96f,.935f,.865f));
+        Color border=new Color(.70f,.65f,.54f);float pad=12;
+        UiKit.Fill(new Rect(paper.x+pad,paper.y+pad,w-2*pad,1),border);UiKit.Fill(new Rect(paper.x+pad,paper.yMax-pad,w-2*pad,1),border);
+        UiKit.Fill(new Rect(paper.x+pad,paper.y+pad,1,h-2*pad),border);UiKit.Fill(new Rect(paper.xMax-pad,paper.y+pad,1,h-2*pad),border);
+        bool withPhoto=(letterId=="Letter1"||letterId=="Letter2")&&photo!=null;
+        var content=new Rect(paper.x+w*.1f,paper.y+h*.065f,w*.8f,h*(withPhoto?.38f:.76f));
+        ThoughtBubbleUI.FittedLabel(content,LetterContents.Body(letterId),bodyStyle,Mathf.RoundToInt(Mathf.Clamp(w*.048f,18,34)),13);
+        if(withPhoto)
         {
-            Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-            titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 30, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            titleStyle.normal.textColor = ink;
-            hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-            hintStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
+            // Keep the original photograph as a texture region; the original text is outside the UV region.
+            Rect image=new Rect(paper.x+w*.13f,paper.y+h*.47f,w*.74f,h*.44f);
+            GUI.DrawTextureWithTexCoords(image,photo,new Rect(.17f,.115f,.63f,.52f));
         }
-        // 흰 배경(통일 스타일 — 편지가 종이 위에 놓인 느낌)
-        Color pc = GUI.color;
-        GUI.color = new Color(1f, 1f, 1f, 0.94f);
-        GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
-        GUI.color = pc;
-
-        GUI.Label(new Rect(0, 14f, Screen.width, 40f), title, titleStyle);
-
-        // 편지 이미지(비율 유지, 화면에 맞춤)
-        float top = 64f, bottom = 54f;
-        float availH = Screen.height - top - bottom;
-        float availW = Screen.width * 0.9f;
-        float ar = (float)tex.width / tex.height;
-        float h = availH, w = h * ar;
-        if (w > availW) { w = availW; h = w / ar; }
-        GUI.DrawTexture(new Rect((Screen.width - w) * 0.5f, top + (availH - h) * 0.5f, w, h), tex, ScaleMode.ScaleToFit, true);
-
-        GUI.Label(new Rect(0, Screen.height - 44f, Screen.width, 30f), "클릭 또는 ESC 로 닫기", hintStyle);
+        var sign=new Rect(paper.x+w*.12f,paper.yMax-h*.10f,w*.76f,h*.055f);
+        if(withPhoto)sign.y=paper.y+h*.405f;
+        ThoughtBubbleUI.FittedLabel(sign,L.T("— 의자가 —","— The chair —"),bodyStyle,Mathf.RoundToInt(w*.043f));
+        GUI.Label(new Rect(0,Screen.height-45,Screen.width,30),L.T("클릭 또는 ESC로 닫기","Click or press ESC to close"),hintStyle);
     }
+    void OnDestroy(){if(pausedTime)Time.timeScale=prevTimeScale;}
 }

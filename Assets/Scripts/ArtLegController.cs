@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// ★ ArticulationBody 판 다리 컨트롤러 — 2관절 체인(2026-07-05 재설계).
@@ -59,16 +60,30 @@ public class ArtLegController : MonoBehaviour
     bool frozen;
     bool yawFrozen;
     float holdTimer;
+    GiraffeMode giraffe;
+    BoxCollider footCollider;
+    readonly RaycastHit[] supportHits = new RaycastHit[16];
+    float airborneBlend, plantedBlend;
+    const float GaitBlendSeconds = .12f;
+
+    public bool FootSupported { get; private set; }
+    public float AirborneSpeedScale { get; private set; } = 1f;
+    public float PlantedYawHoldScale { get; private set; } = 1f;
 
     public ArticulationBody Body => ab;
 
+    void OnValidate() { LegLayout.Apply(transform,ref controlSet,ref altUp,ref altDown,ref altLeft,ref altRight); }
+
     void Awake()
     {
+        LegLayout.Apply(transform,ref controlSet,ref altUp,ref altDown,ref altLeft,ref altRight);
         ab = GetComponent<ArticulationBody>();
         tableInput = TableInput.Of(this);
         // 보조 키 등록(본게임 LegController와 동일 경로 — TableInput이 OR로 합침)
         if (tableInput != null) tableInput.RegisterAltKeys(controlSet, altUp, altDown, altLeft, altRight);
         if (transform.childCount > 0) { legMesh = transform.GetChild(0); baseLegScaleY = legMesh.localScale.y; }
+        footCollider = legMesh != null ? legMesh.GetComponent<BoxCollider>() : null;
+        giraffe = transform.root.GetComponentInChildren<GiraffeMode>(true);
         SetupJoint();
 
         // ★다리↔상판 충돌 무시(2026-07-05): PhysX는 '직접 연결' 링크만 자동 무시 —
@@ -155,21 +170,22 @@ public class ArtLegController : MonoBehaviour
     /// <summary>현재 yaw 각도(도, 무제한 누적).</summary>
     public float YawAngle => yawAb != null && yawAb.jointPosition.dofCount > 0 ? yawAb.jointPosition[0] * Mathf.Rad2Deg : 0f;
 
-    void Update()
+    void FixedUpdate()
     {
         if (ab == null) return;
+        UpdateGiraffeGait();
 
         // 리셋 보정: holdTimer 동안 수직(0도) 강제 유지
         if (holdTimer > 0f)
         {
-            holdTimer -= Time.deltaTime;
+            holdTimer -= Time.fixedDeltaTime;
             DriveHold(0f);
             YawHold(0f);
             return;
         }
 
         if (tableInput == null) tableInput = TableInput.Of(this);
-        LegInput inp = tableInput != null ? tableInput.Get(controlSet) : default;
+        LegInput inp = tableInput != null ? tableInput.GetPhysics(controlSet) : default;
         bool swingInput = inp.up || inp.down;
         bool spinInput = inp.left || inp.right;
 
@@ -201,9 +217,10 @@ public class ArtLegController : MonoBehaviour
             }
             else
             {
-                // ★붙음/뗌 전환 시 홀드 힘 재적용(붙은 다리 2배 보강이 이미 홀드 중인 다리에도 걸리게)
-                bool st = StuckMul() > 1f;
-                if (st != lastStuck) { DriveHold(angle); }
+                // Refresh force after stretching/mode/attachment changes, preserving the
+                // original held angle. Recapturing the current angle would allow slow drift.
+                bool stuck = StuckMul() > 1f;
+                DriveHold(stuck != lastStuck ? angle : ab.xDrive.target);
             }
             lastStuck = StuckMul() > 1f;
         }
@@ -222,10 +239,10 @@ public class ArtLegController : MonoBehaviour
             // 한계각 근처 감속(stopMargin) + 램프(motorAccel)
             // ★2026-08-20 벽타기: 감속 하한 30% — 하중이 걸려도 하드리밋(±swingLimit=수평)까지 밀어붙여 정확히 90° 도달
             float dir = (inp.down ? 1f : 0f) - (inp.up ? 1f : 0f);
-            float v = dir * swingVelocity * lenScale;
+            float v = dir * swingVelocity * lenScale * AirborneSpeedScale;
             if (v > 0f) v *= Mathf.Max(0.3f, Mathf.Clamp01((swingLimit - angle) / stopMargin));
             if (v < 0f) v *= Mathf.Max(0.3f, Mathf.Clamp01((angle + swingLimit) / stopMargin));
-            rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.deltaTime);
+            rampedV = Mathf.MoveTowards(rampedV, v, motorAccel * Time.fixedDeltaTime);
 
             var xd = ab.xDrive;
             xd.stiffness = 0f;
@@ -243,7 +260,7 @@ public class ArtLegController : MonoBehaviour
             var yd = yawAb.xDrive;
             yd.stiffness = 0f; yd.damping = driveDamping;   // 스톨 토크 보정(위 주석) — 기린 접지 스핀도 동일
             yd.forceLimit = yawForce * forceMultiplier;
-            yd.targetVelocity = spin * spinSpeed * lenScale;
+            yd.targetVelocity = spin * spinSpeed * lenScale * AirborneSpeedScale;
             yawAb.xDrive = yd;
             yawFrozen = false;
         }
@@ -252,6 +269,62 @@ public class ArtLegController : MonoBehaviour
             YawHold(YawAngle);
             yawFrozen = true;
         }
+        else YawHold(yawAb.xDrive.target);
+    }
+
+    void UpdateGiraffeGait()
+    {
+        float lengthRatio = legMesh != null && baseLegScaleY > 1e-4f
+            ? legMesh.localScale.y / baseLegScaleY : 1f;
+        float stretch = Mathf.InverseLerp(1f, 3f, lengthRatio);
+        if (giraffe == null || !giraffe.isActiveAndEnabled || !giraffe.active
+            || giraffe.netVisualOnly || stretch <= 0f || footCollider == null)
+        {
+            ResetGait();
+            return;
+        }
+
+        // A little release hysteresis avoids flickering at facet joins. Ground contact
+        // cancels the speed bonus immediately; lift-off eases into it over 0.12 seconds.
+        FootSupported = HasFootSupport(FootSupported ? .12f : .07f);
+        float step = Time.fixedDeltaTime / GaitBlendSeconds;
+        airborneBlend = FootSupported ? 0f : Mathf.MoveTowards(airborneBlend, 1f, step);
+        plantedBlend = Mathf.MoveTowards(plantedBlend, FootSupported ? 1f : 0f, step);
+        AirborneSpeedScale = Mathf.Lerp(1f, Mathf.Clamp(giraffe.airborneLegSpeed, 1f, 1.5f), stretch * airborneBlend);
+        PlantedYawHoldScale = Mathf.Lerp(1f, Mathf.Clamp(giraffe.plantedYawHold, 1f, 1.5f), stretch * plantedBlend);
+    }
+
+    bool HasFootSupport(float gap)
+    {
+        if (!footCollider.enabled || !footCollider.gameObject.activeInHierarchy) return false;
+        var physics = gameObject.scene.GetPhysicsScene();
+        Vector3 half = footCollider.size * .5f;
+        Vector3 tip = footCollider.center + Vector3.down * half.y;
+        // Test the end face, including its corners: a tilted leg can land on a corner
+        // while its center is still above the ground. Ignore triggers and our own table.
+        for (int sample = 0; sample < 5; sample++)
+        {
+            Vector3 local = tip;
+            if (sample > 0)
+            {
+                local.x += ((sample & 1) == 0 ? -1f : 1f) * half.x;
+                local.z += sample <= 2 ? -half.z : half.z;
+            }
+            Vector3 point = footCollider.transform.TransformPoint(local);
+            int count = physics.Raycast(point + Vector3.up * .15f, Vector3.down,
+                supportHits, .15f + gap, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+                if (supportHits[i].normal.y >= .55f
+                    && !supportHits[i].collider.transform.IsChildOf(transform.root)) return true;
+        }
+        return false;
+    }
+
+    void ResetGait()
+    {
+        FootSupported = false;
+        airborneBlend = plantedBlend = 0f;
+        AirborneSpeedScale = PlantedYawHoldScale = 1f;
     }
 
     // ★2026-08-20 벽타기: 테니스공으로 벽에 붙은 다리는 몸무게를 버텨야 하므로 힘 2배
@@ -268,9 +341,14 @@ public class ArtLegController : MonoBehaviour
         if (Mathf.Abs(angleDeg) > swingLimit - 4f) angleDeg = Mathf.Sign(angleDeg) * swingLimit;
         float sm = StuckMul();
         var xd = ab.xDrive;
-        xd.stiffness = holdStiffness * sm;
+        float stiffness = holdStiffness * sm;
+        float force = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f) * sm;
+        if (Mathf.Approximately(xd.stiffness, stiffness) && Mathf.Approximately(xd.damping, holdDamping)
+            && Mathf.Approximately(xd.forceLimit, force) && Mathf.Approximately(xd.target, angleDeg)
+            && xd.targetVelocity == 0f) return;
+        xd.stiffness = stiffness;
         xd.damping = holdDamping;
-        xd.forceLimit = idleHoldForce * Mathf.Min(forceMultiplier, 1.5f) * sm;
+        xd.forceLimit = force;
         xd.target = angleDeg;   // 도 단위
         xd.targetVelocity = 0f;
         ab.xDrive = xd;
@@ -280,9 +358,15 @@ public class ArtLegController : MonoBehaviour
     {
         if (yawAb == null) return;
         var yd = yawAb.xDrive;
-        yd.stiffness = yawHoldStiffness;
-        yd.damping = yawHoldDamping;
-        yd.forceLimit = yawForce;
+        float stiffness = yawHoldStiffness * PlantedYawHoldScale;
+        float damping = yawHoldDamping * PlantedYawHoldScale;
+        float force = yawForce * PlantedYawHoldScale;
+        if (Mathf.Approximately(yd.stiffness, stiffness) && Mathf.Approximately(yd.damping, damping)
+            && Mathf.Approximately(yd.forceLimit, force) && Mathf.Approximately(yd.target, angleDeg)
+            && yd.targetVelocity == 0f) return;
+        yd.stiffness = stiffness;
+        yd.damping = damping;
+        yd.forceLimit = force;
         yd.target = angleDeg;
         yd.targetVelocity = 0f;
         yawAb.xDrive = yd;
@@ -293,6 +377,7 @@ public class ArtLegController : MonoBehaviour
     /// <summary>관절 각도/속도/드라이브를 0으로(리셋) — 스윙+yaw 둘 다.</summary>
     public void ResetState()
     {
+        ResetGait();
         rampedV = 0f; frozen = false; yawFrozen = false;
         if (ab == null) return;
         if (ab.jointPosition.dofCount > 0)

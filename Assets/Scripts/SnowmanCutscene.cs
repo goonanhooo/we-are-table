@@ -5,7 +5,7 @@ using UnityEngine.Rendering;
 /// <summary>
 /// IceMountain: 굴러다니는 눈사람 '머리'가 고정된 '몸통' 근처로 오면 발동하는 컷신.
 /// 머리가 몸통 위로 올라가 조립 → 대사 2줄(말풍선) → 옆 앵글 → 파란 빛이 테이블로 들어가 번쩍 →
-/// IcePower 잠금 해제(3번으로 눈사람의 힘=얼음 테이블). 기린 컷신(GiraffeCutscene) 패턴을 본뜸.
+/// IcePower 잠금 해제(4번으로 눈사람의 힘=얼음 테이블). 기린 컷신(GiraffeCutscene) 패턴을 본뜸.
 /// </summary>
 public class SnowmanCutscene : MonoBehaviour
 {
@@ -197,6 +197,7 @@ public class SnowmanCutscene : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         FreezeTable(false);
         finished = true;
+        if(!netGuestVisual)CheckpointRuntime.Milestone(9);
     }
 
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
@@ -242,7 +243,7 @@ public class SnowmanCutscene : MonoBehaviour
             if (!transformed && u >= 0.45f)
             {
                 transformed = true;
-                if (icePower != null) { icePower.unlocked = true; icePower.SetActive(true); }
+                if (icePower != null) { icePower.unlocked = true; icePower.SetActive(true); AbilityHud.Acquire(icePower, "ice"); }
                 if (table != null) rends = table.root.GetComponentsInChildren<MeshRenderer>();  // 얼음재질로 스왑된 렌더러 재취득
             }
             Color emi = new Color(0.4f, 0.7f, 1.5f) * (k * 1.1f);   // 은은한 '몸빛'(과하지 않게)
@@ -258,7 +259,7 @@ public class SnowmanCutscene : MonoBehaviour
         // 빛 종료: MPB 비워 얼음재질 자체의 은은한 발광만 남긴다(검정 override 안 함).
         foreach (var r in rends) { if (r == null) continue; r.SetPropertyBlock(null); }
         // 혹시 절정 전에 끝났으면 확실히 변신 보장.
-        if (icePower != null && !icePower.active) { icePower.unlocked = true; icePower.SetActive(true); }
+        if (icePower != null && !icePower.active) { icePower.unlocked = true; icePower.SetActive(true); AbilityHud.Acquire(icePower, "ice"); }
     }
 
     GameObject MakeLight()
@@ -308,6 +309,12 @@ public class SnowmanCutscene : MonoBehaviour
                          headGuiY - bh * 0.43f,              // 꼬리 높이(43%)를 머리 중심에 맞춤
                          bw, bh);
         r.x = Mathf.Max(8f, r.x); r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
-        GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
+        LocalizedStoryBubble.Draw(r,currentBubble==bubble2,false,new Vector2(sp.x,headGuiY),rPix);
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines();started=finished=true;currentBubble=null;
+        if(head!=null&&body!=null){head.SetPositionAndRotation(body.position+Vector3.up*assembledHeadOffsetY,body.rotation);var rb=head.GetComponent<Rigidbody>();if(rb!=null)rb.isKinematic=true;}
+    }
+
 }

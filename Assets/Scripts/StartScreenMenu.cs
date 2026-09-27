@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// ★2026-07-13 B안 시작 메뉴 — 좌측 세로 손글씨 텍스트 메뉴(구 나무 표지판 대체).
 /// 항목: 시작하기(1인 스테이지 선택) / 함께하기(멀티 모드) / 설정(PauseMenu) / 나가기(웹 빌드에선 숨김).
 /// 호버 = 부드러운 확대 + 손그림 밑줄(스윽), 클릭 = Mouse.current(PauseMenu 패턴 — GUI.Button 안 먹음).
-/// 우상단 = 한/영 토글(L.Korean). 레벨선택/옵션이 열려 있으면 숨김.
+/// 언어 선택은 설정 메뉴에서만 제공.
 /// </summary>
 public class StartScreenMenu : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class StartScreenMenu : MonoBehaviour
 
     LevelSelect levelSelect;
     PauseMenu pauseMenu;
-    GUIStyle itemStyle, langStyle, verStyle;
+    GUIStyle itemStyle, verStyle;
     readonly float[] scale = { 1f, 1f, 1f, 1f };
     float ulWidth;   // 밑줄 스윽 애니메이션(0→목표 폭)
     int hover = -1;
@@ -40,7 +40,8 @@ public class StartScreenMenu : MonoBehaviour
         }
     }
 
-    bool MenuVisible =>
+    public bool HomeVisible => MenuVisible;
+    bool MenuVisible => !LetterOverlay.IsOpen &&
         !(levelSelect != null && levelSelect.Showing) &&
         !(pauseMenu != null && pauseMenu.IsOpen) &&
         !InNetSession;
@@ -62,8 +63,6 @@ public class StartScreenMenu : MonoBehaviour
         float y = Screen.height * topY + i * itemSpacing;
         return new Rect(x, y, 420f, 70f);
     }
-
-    Rect LangRect() => new Rect(Screen.width - 190f, 18f, 172f, 44f);
 
     void Update()
     {
@@ -89,7 +88,6 @@ public class StartScreenMenu : MonoBehaviour
         ulWidth = Mathf.Lerp(ulWidth, hover >= 0 ? 1f : 0f, Time.unscaledDeltaTime * 14f);
 
         if (!mouse.leftButton.wasPressedThisFrame) return;
-        if (LangRect().Contains(gm)) { L.Korean = !L.Korean; return; }
         if (hover < 0) return;
         switch (hover)
         {
@@ -107,12 +105,12 @@ public class StartScreenMenu : MonoBehaviour
 
     void OnGUI()
     {
+        if(LetterOverlay.IsOpen)return;
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트(스킨 기본)
         if (!MenuVisible) return;
         if (itemStyle == null)
         {
             itemStyle = HandUI.Style(fontSize, HandUI.Ink, TextAnchor.MiddleLeft);
-            langStyle = HandUI.Style(26, HandUI.InkSoft, TextAnchor.MiddleCenter);
             verStyle = HandUI.Style(18, new Color(0.55f, 0.55f, 0.55f, 1f), TextAnchor.MiddleLeft);
         }
 
@@ -133,12 +131,6 @@ public class StartScreenMenu : MonoBehaviour
             GUI.matrix = m;
         }
 
-        // 우상단 언어 토글(맨글씨 + 호버 밑줄 — 홈과 통일)
-        var lr = LangRect();
-        bool lh = lr.Contains(Event.current.mousePosition);
-        GUI.Label(lr, L.T("한국어 → English", "English → 한국어"), langStyle);
-        if (lh && HandUI.Underline != null)
-            GUI.DrawTexture(new Rect(lr.x + 10f, lr.yMax - 8f, lr.width - 20f, 12f), HandUI.Underline, ScaleMode.StretchToFill);
 
         // 좌하단 버전(출시작 디테일)
         GUI.Label(new Rect(Screen.width * leftX, Screen.height - 34f, 300f, 24f), "v0.9", verStyle);

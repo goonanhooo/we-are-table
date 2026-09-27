@@ -134,6 +134,7 @@ public class MoonHomeEnding : MonoBehaviour
         {
             if (StageTimer.Instance != null) StageTimer.Instance.Clear();
             Progress.MarkCleared("Moon");
+            CheckpointRuntime.Milestone(15);
         }
     }
 
@@ -153,7 +154,7 @@ public class MoonHomeEnding : MonoBehaviour
         var r = new Rect((Screen.width - w) * 0.5f, Screen.height - h - 28f, w, h);   // 화면 맨 아래(식탁을 가리지 않게)
         var prev = GUI.color; GUI.color = new Color(1f, 1f, 1f, captionAlpha);
         HandUI.Paper(r, HandUI.BoxWide, 0.94f);
-        GUI.Label(new Rect(r.x, r.y + 12f, w, 70f), caption, capStyle);
+        GUI.Label(new Rect(r.x, r.y + 12f, w, 70f), L.Text(caption), capStyle);
         GUI.Label(new Rect(r.x, r.y + 84f, w, 28f), "we are table", subStyle);
         GUI.color = prev;
     }

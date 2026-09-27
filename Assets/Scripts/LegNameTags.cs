@@ -10,8 +10,8 @@ public class LegNameTags : MonoBehaviour
 {
     [Tooltip("다리 피벗 기준 라벨 높이(m)")] public float height = 0.55f;
 
-    // 로비 슬롯 순서(0=WASD 앞왼, 1=TFGH 앞오, 2=IJKL 뒤왼, 3=Arrows 뒤오)
-    static readonly string[] LegBySlot = { "Leg_FL", "Leg_FR", "Leg_BL", "Leg_BR" };
+    // 로비 슬롯 순서(0=WASD 뒤왼, 1=TFGH 뒤오, 2=IJKL 앞왼, 3=Arrows 앞오)
+    static readonly string[] LegBySlot = LegLayout.MeshNames;
 
     readonly Transform[] legs = new Transform[4];
     readonly TextMesh[] tags = new TextMesh[4];
@@ -21,7 +21,7 @@ public class LegNameTags : MonoBehaviour
 
     void Start()
     {
-        var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        var font = Resources.Load<Font>("Fonts/CJK/NotoSansCJKjp-Regular");
         for (int i = 0; i < 4; i++)
         {
             legs[i] = FindLeg(LegBySlot[i]);
@@ -34,6 +34,7 @@ public class LegNameTags : MonoBehaviour
             tm.fontSize = 72;
             tm.characterSize = 0.016f;
             tm.fontStyle = FontStyle.Bold;
+            tm.richText = false;
             tm.anchor = TextAnchor.LowerCenter;
             tm.alignment = TextAlignment.Center;
             tm.color = i < LegPalette.BySlot.Length ? LegPalette.BySlot[i] : Color.white;
@@ -58,11 +59,11 @@ public class LegNameTags : MonoBehaviour
         {
             if (tags[i] == null) continue;
             long owner = inSession && link != null ? link.OwnerOf(i) : -2;
-            bool show = inSession && owner != -2;
+            bool show = inSession && owner != -2 && link.Started;
             if (tags[i].gameObject.activeSelf != show) tags[i].gameObject.SetActive(show);
             if (!show || legs[i] == null) continue;
 
-            tags[i].text = LegPalette.NickOf(owner);
+            tags[i].text = link.DisplayNameOf(owner);
             var t = tags[i].transform;
             t.position = legs[i].position + Vector3.up * height;
             if (cam != null)

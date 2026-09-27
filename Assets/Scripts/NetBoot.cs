@@ -11,7 +11,7 @@ public static class NetBoot
     {
         if (Unity.Netcode.NetworkManager.Singleton != null) return;
         var prefab = Resources.Load<GameObject>("NetworkManager");
-        if (prefab != null) Object.Instantiate(prefab);
+        if (prefab != null){var go=Object.Instantiate(prefab);var nm=go.GetComponent<Unity.Netcode.NetworkManager>();if(nm!=null)nm.NetworkConfig.ProtocolVersion=3;}
         else Debug.LogWarning("[NetBoot] Resources/NetworkManager 프리팹 없음 — 멀티 비활성");
     }
 }

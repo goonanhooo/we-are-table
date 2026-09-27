@@ -34,10 +34,12 @@ public class SteamManager : MonoBehaviour
     /// <summary>스팀 초기화(이미 살아 있으면 true). 실패 = 스팀 미실행 등 — 폴백 판단용.</summary>
     public static bool TryInit()
     {
-        if (SteamClient.IsValid) return true;
+        if (SteamClient.IsValid){SteamLobby.InitializeInvites();return true;}
         try
         {
             SteamClient.Init(AppId, false);
+            L.UseSteamDefault(SteamApps.GameLanguage);
+            SteamLobby.InitializeInvites();
             Debug.Log("[Steam] 초기화 완료 — " + SteamClient.Name + " (" + SteamClient.SteamId.Value + ")");
             return true;
         }

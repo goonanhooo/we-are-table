@@ -15,7 +15,8 @@ using UnityEngine;
 /// </summary>
 public static class NetSession
 {
-    public static string Status { get; private set; } = "";
+    static string status="";
+    public static string Status { get=>L.Text(status); private set=>status=value; }
     public static ISession Session { get; private set; }
     public static string JoinCode => SteamLobby.InLobby ? SteamLobby.JoinCode : (Session != null ? Session.Code : "");
     public static bool Busy { get; private set; }
@@ -36,13 +37,13 @@ public static class NetSession
     static async Task<T> WithTimeout<T>(Task<T> t, float seconds, string what)
     {
         var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
-        if (done != t) throw new System.TimeoutException(what + " 시간 초과(" + seconds + "s)");
+        if (done != t) throw new System.TimeoutException(L.T("연결 시간이 초과됐어요. 방 코드를 확인하고 다시 시도해 주세요.","Connection timed out. Check the room code and try again."));
         return await t;
     }
     static async Task WithTimeout(Task t, float seconds, string what)
     {
         var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
-        if (done != t) throw new System.TimeoutException(what + " 시간 초과(" + seconds + "s)");
+        if (done != t) throw new System.TimeoutException(L.T("연결 시간이 초과됐어요. 방 코드를 확인하고 다시 시도해 주세요.","Connection timed out. Check the room code and try again."));
         await t;
     }
 
@@ -72,7 +73,7 @@ public static class NetSession
         Busy = true;
         try
         {
-            // ★스팀 경로(2026-08-09): 스팀 클라이언트가 살아 있으면 스팀 로비 + SDR 릴레이(방코드 = 로비 번호)
+            // ★스팀 경로(2026-08-09): 스팀 클라이언트가 살아 있으면 스팀 로비 + SDR 릴레이(방코드 = 영문을 포함한 5자리)
             if (SteamLobby.Available)
             {
                 Status = L.T("스팀 방 생성 중...", "creating steam room...");
@@ -109,9 +110,10 @@ public static class NetSession
         Busy = true;
         try
         {
-            // ★스팀 방코드(로비 번호 = 긴 숫자열) → 스팀 경로 / 6자리 영숫자 코드 → Unity Relay 경로
-            string trimmed = code.Trim();
-            if (trimmed.Length >= 15 && ulong.TryParse(trimmed, out _))
+            // Five-character codes resolve through Steam. Preserve legacy numeric IDs and Relay codes.
+            string trimmed = RoomCodeInput.Normalize(code);
+            if (!RoomCodeInput.IsValid(trimmed)) { Status = L.T("잘못된 방코드", "invalid room code", "ルームコードが正しくありません", "房间代码无效"); return false; }
+            if (RoomCodeInput.IsSteamCode(trimmed) || RoomCodeInput.IsLegacySteamCode(trimmed))
             {
                 if (!SteamLobby.Available) { Status = L.T("스팀 방코드 — 스팀 실행 필요", "steam room code — steam must be running"); return false; }
                 Status = L.T("스팀 로비 참가 중...", "joining steam lobby...");
@@ -125,7 +127,7 @@ public static class NetSession
             Status = L.T("로그인 중...", "signing in...");
             if (!await EnsureSignedInAsync()) return false;
             Status = L.T("참가 중...", "joining...");
-            Session = await WithTimeout(MultiplayerService.Instance.JoinSessionByCodeAsync(code.Trim().ToUpperInvariant()), 30f, "참가");
+            Session = await WithTimeout(MultiplayerService.Instance.JoinSessionByCodeAsync(trimmed), 30f, "참가");
             Status = L.T("참가됨", "joined");
             Debug.Log("[NetSession] " + Status);
             return true;
@@ -137,6 +139,31 @@ public static class NetSession
             return false;
         }
         finally { Busy = false; }
+    }
+
+    /// <summary>Join the selected Steam friend's actual lobby, without asking for a room code.</summary>
+    public static async Task<bool> JoinFriendAsync(ulong lobbyId, ulong hostId)
+    {
+        var nm=Unity.Netcode.NetworkManager.Singleton;
+        if(Busy || (nm!=null && nm.IsListening))return false;
+        Busy=true;
+        try
+        {
+            if(!SteamLobby.Available){Status=L.T("Steam에 로그인해 주세요.","Please sign in to Steam.","Steamにログインしてください。","请登录 Steam。");return false;}
+            Status=L.T("친구의 방에 들어가는 중","Joining your friend's room","フレンドのルームに参加中","正在加入好友的房间");
+            NetLegLink.ResetSessionCache();
+            bool ok=await SteamLobby.JoinFriendRoomAsync(lobbyId,hostId);
+            Status=ok?L.T("참가됨","joined"):SteamLobby.LastError;
+            return ok;
+        }
+        catch(System.Exception e)
+        {
+            if(SteamLobby.InLobby)SteamLobby.Leave();
+            Status=SteamLobby.FriendRoomGone;
+            Debug.LogWarning("[NetSession] Friend join failed: "+e.Message);
+            return false;
+        }
+        finally{Busy=false;}
     }
 
     /// <summary>세션 잠금(호스트 전용) — 게임 시작 후 방코드 참가 차단(중간 난입 방지).</summary>

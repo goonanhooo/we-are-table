@@ -1,101 +1,129 @@
 using UnityEngine;
 
 /// <summary>
-/// ★2026-09-08 상상 말풍선(IMGUI) — codexcow의 방식을 그대로 옮김: SDF 구름 셰이더(`Resources/Shaders/ThoughtBubble`, 0=구름 16:9 / 1=퍼프)로
-/// `Graphics.DrawTexture(rect, white, material)` 드로잉, 1920×1080 가상 GUI 공간(GUI.matrix 균일 스케일+가로 중앙), 앵커 = 월드 점을 매 프레임 화면 투영
-/// (카메라를 돌리면 말풍선이 따라 움직임), 꼬리 = 앵커 바로 위에서 말풍선 아래까지 살짝 굽은 곡선 위의 작아지는 퍼프 5개.
-/// 사용: OnGUI에서 `Begin()` → `GuiPoint(world)` → `DrawBubble(rect, alpha, text)` + `DrawTail(rect, anchor, alpha)` → `End()`.
+/// Shared thought-bubble skin: empty PNG body + three original cutscene puffs.
+/// Text and keycaps are independent live UI; no words or controls are baked into the art.
+/// Resource contract: Resources/ThoughtBubbles/{BodyEmpty,Near,Mid,Tip,Layout}.
 /// </summary>
 public static class ThoughtBubbleUI
 {
-    public const float VW = 1920f, VH = 1080f;
-    static Material mat; static Matrix4x4 savedMatrix; static GUIStyle text, textSmall; static int textSize = -1;
-
-    static Material Mat()
+    public const float VW=1920f,VH=1080f;
+    [System.Serializable] class Part { public string name; public float x,y,w,h; }
+    [System.Serializable] class Layout { public Part[] parts; }
+    static Texture2D[] textures;
+    static Rect[] uvs;
+    static Texture2D wide; static Rect wideUv;
+    static Matrix4x4 savedMatrix;
+    static GUIStyle text;
+    static Material outline;
+    public const float OutlineWidth = 2.8f;
+    static void LoadOutline()
     {
-        if (mat != null) return mat;
-        var sh = Resources.Load<Shader>("Shaders/ThoughtBubble"); if (sh == null) sh = Shader.Find("Hidden/Table/ThoughtBubble");
-        if (sh == null) return null;
-        mat = new Material(sh) { name = "Thought Bubble Material", hideFlags = HideFlags.DontSave };
-        return mat;
+        if(outline!=null)return;
+        var shader=Resources.Load<Shader>("ThoughtBubbles/UniformOutline");
+        if(shader!=null)outline=new Material(shader){hideFlags=HideFlags.HideAndDontSave};
     }
-
-    public static float Scale => Mathf.Min(Screen.width / VW, Screen.height / VH);
-
-    /// <summary>가상 1920×1080 공간으로 GUI.matrix 설정(균일 스케일, 가로 중앙).</summary>
-    public static void Begin()
+    static void DrawSkin(Rect rect,Texture2D texture,Rect uv,float alpha)
     {
-        savedMatrix = GUI.matrix; float s = Scale;
-        GUI.matrix = Matrix4x4.TRS(new Vector3((Screen.width - VW * s) * 0.5f, 0f, 0f), Quaternion.identity, Vector3.one * s);
+        LoadOutline();
+        if(outline==null){var color=GUI.color;GUI.color=new Color(1,1,1,alpha);GUI.DrawTextureWithTexCoords(rect,texture,uv,true);GUI.color=color;return;}
+        outline.SetVector("_StrokeUV",new Vector4(OutlineWidth*uv.width/rect.width,OutlineWidth*uv.height/rect.height,0,0));
+        outline.SetFloat("_Opacity",alpha);
+        Graphics.DrawTexture(rect,texture,uv,0,0,0,0,Color.white,outline);
     }
-    public static void End() { GUI.matrix = savedMatrix; }
-
-    /// <summary>월드 점 → 가상 GUI 좌표(카메라 뒤면 false).</summary>
-    public static bool GuiPoint(Camera cam, Vector3 world, out Vector2 gui)
+    static void Load()
     {
-        gui = Vector2.zero; if (cam == null) return false;
-        Vector3 sp = cam.WorldToScreenPoint(world); if (sp.z <= 0f) return false;
-        float s = Scale; float ox = (Screen.width - VW * s) * 0.5f;
-        gui = new Vector2((sp.x - ox) / s, (Screen.height - sp.y) / s);
-        return true;
+        if(textures!=null)return;
+        var data=Resources.Load<TextAsset>("ThoughtBubbles/Layout");
+        if(data==null)return;
+        var layout=JsonUtility.FromJson<Layout>(data.text);
+        textures=new Texture2D[layout.parts.Length];uvs=new Rect[textures.Length];
+        for(int i=0;i<textures.Length;i++){var p=layout.parts[i];textures[i]=Resources.Load<Texture2D>("ThoughtBubbles/"+p.name);uvs[i]=new Rect(p.x,p.y,p.w,p.h);}
     }
-
-    /// <summary>앵커 위·오른쪽(또는 왼쪽)에 말풍선 사각형 배치(화면 안 클램프).</summary>
-    public static Rect PlaceRect(Vector2 anchor, float w, float h, bool right = true, float dx = 110f, float dy = 100f)
+    public static bool AssetsReady { get { Load();return textures!=null&&textures.Length==4&&textures[0]!=null&&textures[1]!=null&&textures[2]!=null&&textures[3]!=null; } }
+    static void LoadWide()
     {
-        var r = right ? new Rect(anchor.x + dx, anchor.y - dy - h, w, h) : new Rect(anchor.x - dx - w, anchor.y - dy - h, w, h);
-        r.x = Mathf.Clamp(r.x, 24f, VW - w - 24f); r.y = Mathf.Clamp(r.y, 70f, VH - h - 60f);
-        return r;
+        if(wide!=null)return;
+        wide=Resources.Load<Texture2D>("ThoughtBubbles/BodyWide");
+        var metadata=Resources.Load<TextAsset>("ThoughtBubbles/WideLayout");
+        if(metadata!=null){var p=JsonUtility.FromJson<Part>(metadata.text);wideUv=new Rect(p.x,p.y,p.w,p.h);}
+        else wideUv=new Rect(0,0,1,1);
     }
-
-    public static float EaseOut(float v) { float i = 1f - Mathf.Clamp01(v); return 1f - i * i * i; }
-    public static Rect ScaleFromCenter(Rect r, float k) { var c = r.center; r.width *= k; r.height *= k; r.center = c; return r; }
-
-    /// <summary>SDF 말풍선 모양(shape 0=구름, 1=퍼프).</summary>
-    public static void DrawShape(Rect rect, float shape, float alpha, Color fill)
+    public static void Prewarm() { Load();LoadWide();LoadOutline(); }
+    // One reference width keeps the smaller puffs proportional when a bubble grows.
+    const float ReferenceBodyWidth=543f;
+    public static float TailScale(Rect bubble)=>bubble.width/ReferenceBodyWidth;
+    public static bool WideReady { get { LoadWide();return wide!=null; } }
+    public static float WideHeight(float width) { LoadWide();return wide!=null?width*(wideUv.height*wide.height)/(wideUv.width*wide.width):width*.38f; }
+    public static Rect WideContent(Rect r)=>new Rect(r.x+r.width*.13f,r.y+r.height*.21f,r.width*.74f,r.height*.59f);
+    public static void FittedLabel(Rect rect,string value,GUIStyle style,int maxSize,int minSize=14)
     {
-        if (Event.current.type != EventType.Repaint || rect.width <= 0f || rect.height <= 0f) return;
-        var m = Mat(); if (m == null) return;
-        float s = Scale;
-        m.SetFloat("_Shape", shape); m.SetFloat("_UseTex", 0f); m.SetFloat("_HeightPx", rect.height * s); m.SetFloat("_OutlinePx", Mathf.Max(1.5f, 4f * s));
-        m.SetFloat("_Fade", 0f); m.SetFloat("_Alpha", alpha); m.SetFloat("_TexBlend", 0f); m.SetColor("_FillColor", fill.linear);
-        Graphics.DrawTexture(rect, Texture2D.whiteTexture, m, 0);
+        style.fontSize=maxSize;
+        value=L.Text(value);
+        var content=new GUIContent(value);
+        while(style.fontSize>minSize && style.CalcHeight(content,rect.width)>rect.height)style.fontSize--;
+        GUI.Label(rect,content,style);
     }
-    public static void DrawPuff(Vector2 center, float size, float alpha) => DrawShape(new Rect(center.x - size * 0.5f, center.y - size * 0.42f, size, size * 0.84f), 1f, alpha, new Color(0.97f, 0.99f, 1f, 1f));
-
-    /// <summary>구름 말풍선 + 가운데 정렬 손글씨(2줄 가능). k = 크기 비율(기준 폭 560).</summary>
-    public static void DrawBubble(Rect rect, float alpha, string body, int fontSize = 34)
+    public static void DrawWideBubble(Rect rect,float alpha,string body="",int fontSize=26)
     {
-        DrawShape(rect, 0f, alpha, new Color(0.98f, 0.99f, 1f, 1f));
-        float k = rect.width / 560f; int fs = Mathf.RoundToInt(fontSize * k);
-        if (text == null || textSize != fs) { textSize = fs; text = HandUI.Style(fs, HandUI.Ink); text.wordWrap = true; }
-        var prev = GUI.color; GUI.color = new Color(1f, 1f, 1f, alpha);
-        GUI.Label(new Rect(rect.x + rect.width * 0.09f, rect.y + rect.height * 0.14f, rect.width * 0.82f, rect.height * 0.72f), body, text);
-        GUI.color = prev;
-    }
-
-    /// <summary>꼬리: 앵커(머리) 바로 위에서 말풍선 근처까지 살짝 굽은 곡선 위 퍼프 5개(먼 쪽이 큼) — codexcow DrawCurvedTail.</summary>
-    public static void DrawTail(Rect bubble, Vector2 anchor, float alpha, float k = 1f)
-    {
-        bool right = bubble.center.x >= anchor.x;
-        Vector2 near = anchor + new Vector2(0f, -44f * k);
-        Vector2 far;
-        if (near.y > bubble.yMax + 40f * k)
-            far = right ? new Vector2(bubble.x + bubble.width * 0.15f, bubble.yMax + 30f * k) : new Vector2(bubble.x + bubble.width * 0.85f, bubble.yMax + 30f * k);
-        else
+        if(Event.current.type!=EventType.Repaint || alpha<=0f)return;
+        LoadWide();if(wide==null){DrawBubble(rect,alpha,body,fontSize);return;}
+        // Fit uniformly to the new art's native UV aspect. Never stretch the original cloud.
+        float width=Mathf.Min(rect.width,rect.height/WideHeight(1));
+        var fitted=new Rect(0,0,width,WideHeight(width));fitted.center=rect.center;
+        var old=GUI.color;GUI.color=new Color(1,1,1,alpha);
+        DrawSkin(fitted,wide,wideUv,alpha);
+        if(!string.IsNullOrEmpty(body))
         {
-            float fy = Mathf.Clamp(near.y, bubble.y + bubble.height * 0.35f, bubble.yMax - bubble.height * 0.22f);
-            far = right ? new Vector2(bubble.x - 30f * k, fy) : new Vector2(bubble.xMax + 30f * k, fy);
+            if(text==null){text=HandUI.Style(fontSize,Color.black,bold:true);text.wordWrap=true;}
+            FittedLabel(WideContent(fitted),body,text,fontSize);
         }
-        Vector2 chord = far - near; float len = chord.magnitude;
-        Vector2 perp = len > 1f ? new Vector2(-chord.y, chord.x) / len : Vector2.right;
-        if (perp.y < 0f) perp = -perp;
-        float bow = Mathf.Min(40f * k, len * 0.22f);
-        float[] size = { 46f, 39f, 33f, 28f, 24f }; float[] ts = { 1f, 0.78f, 0.58f, 0.42f, 0.28f };
-        for (int i = 0; i < size.Length; i++)
-        {
-            Vector2 at = Vector2.Lerp(near, far, ts[i]) + perp * bow * Mathf.Sin(ts[i] * Mathf.PI);
-            DrawPuff(at, size[i] * k, alpha);
-        }
+        GUI.color=old;
     }
+    public static float Scale=>Mathf.Min(Screen.width/VW,Screen.height/VH);
+    public static void Begin(){savedMatrix=GUI.matrix;float s=Scale;GUI.matrix=Matrix4x4.TRS(new Vector3((Screen.width-VW*s)*.5f,0,0),Quaternion.identity,Vector3.one*s);}
+    public static void End(){GUI.matrix=savedMatrix;}
+    public static bool GuiPoint(Camera cam,Vector3 world,out Vector2 gui)
+    {
+        gui=Vector2.zero;if(cam==null)return false;var sp=cam.WorldToScreenPoint(world);if(sp.z<=0)return false;
+        float s=Scale;gui=new Vector2((sp.x-(Screen.width-VW*s)*.5f)/s,(Screen.height-sp.y)/s);return true;
+    }
+    public static Rect PlaceRect(Vector2 anchor,float w,float h,bool right=true,float dx=110f,float dy=100f)
+    {
+        var r=right?new Rect(anchor.x+dx,anchor.y-dy-h,w,h):new Rect(anchor.x-dx-w,anchor.y-dy-h,w,h);
+        r.x=Mathf.Clamp(r.x,24,VW-w-24);r.y=Mathf.Clamp(r.y,130,VH-h-60);return r;
+    }
+    public static float EaseOut(float v){float i=1-Mathf.Clamp01(v);return 1-i*i*i;}
+    public static Rect ScaleFromCenter(Rect r,float k){var c=r.center;r.width*=k;r.height*=k;r.center=c;return r;}
+    static void DrawPart(int index,Rect rect,float alpha)
+    {
+        if(Event.current.type!=EventType.Repaint||alpha<=0||rect.width<=0||rect.height<=0)return;
+        Load();if(textures==null||textures[index]==null)return;
+        var old=GUI.color;
+        GUI.color=new Color(1,1,1,alpha);
+        DrawSkin(rect,textures[index],uvs[index],alpha);GUI.color=old;
+    }
+    public static void DrawPuff(Vector2 center,float size,float alpha,int variant=0)
+    {
+        Load();int index=Mathf.Clamp(variant,0,2)+1;
+        float ratio=textures!=null&&textures[index]!=null?(uvs[index].height*textures[index].height)/(uvs[index].width*textures[index].width):1;
+        // Use the original ink once: size, stroke and fade now share the body's scale.
+        DrawPart(index,new Rect(center.x-size*.5f,center.y-size*ratio*.5f,size,size*ratio),alpha);
+    }
+    public static void DrawBubble(Rect rect,float alpha,string body,int fontSize=34)
+    {
+        DrawPart(0,rect,alpha);if(string.IsNullOrEmpty(body))return;
+        if(text==null){text=HandUI.Style(fontSize,Color.black,bold:true);text.wordWrap=true;}
+        var old=GUI.color;GUI.color=new Color(1,1,1,alpha);
+        FittedLabel(new Rect(rect.x+rect.width*.16f,rect.y+rect.height*.23f,rect.width*.68f,rect.height*.54f),body,text,fontSize);
+        GUI.color=old;
+    }
+    public static Rect FitTail(Rect bubble,Vector2 target)=>ThoughtTailLayout.Fit(bubble,new Rect(target.x-32,target.y-32,64,64));
+    public static Rect FitTail(Rect bubble,Rect targetBounds)=>ThoughtTailLayout.Fit(bubble,targetBounds);
+    public static Rect TailPuffRect(Rect bubble,Vector2 target,int index)=>ThoughtTailLayout.Build(bubble,target)[Mathf.Clamp(index,0,2)];
+    public static void DrawPointingTail(Rect bubble,Vector2 target,float alpha)
+    {
+        for(int i=0;i<3;i++){var r=TailPuffRect(bubble,target,i);DrawPuff(r.center,r.width,alpha,i);}
+    }
+    public static void DrawTail(Rect bubble,Vector2 anchor,float alpha)=>DrawPointingTail(bubble,anchor,alpha);
 }

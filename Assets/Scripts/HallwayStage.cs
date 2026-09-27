@@ -42,6 +42,9 @@ public class HallwayStage : MonoBehaviour
     bool controllable, trapOpened, falling;
     float fallTimer;
 
+    public bool IntroFinished => controllable;
+    public bool IsFalling => falling;
+
     void Awake() { cam = GetComponent<Camera>(); }
 
     void Start()
@@ -177,8 +180,7 @@ public class HallwayStage : MonoBehaviour
         Vector3 pLook = tp + new Vector3(0f, 0.3f, 3f);
 
         SetCam(aPos, aLook);
-        // 1) 테이블 응시 — 상상 말풍선(ThoughtReveal)이 다 떴다가 **완전히 사라질 때까지** 카메라 정지 대기.
-        //    (말풍선 없으면 기존 lookSeconds 만큼 대기)
+        // Preserve the original chair-image thought reveal before the camera cutscene.
         var thought = Object.FindAnyObjectByType<ThoughtReveal>();
         if (thought != null)
         {
@@ -188,15 +190,18 @@ public class HallwayStage : MonoBehaviour
         else yield return new WaitForSeconds(lookSeconds);
         yield return CamLerp(aPos, aLook, cPos, cLook, panSeconds);        // 2) 의자로 팬(발견)
         yield return new WaitForSeconds(chairHoldSeconds);                 // 3) 의자 클로즈업 유지
-        yield return CamLerp(cPos, cLook, pPos, pLook, pullbackSeconds);   // 4) 천천히 뒤로 → 플레이 화면
+        yield return CamLerp(cPos, cLook, pPos, pLook, Mathf.Max(pullbackSeconds,Vector3.Distance(cPos,pPos)/5f),true);
+
+        var introduction=gameObject.AddComponent<HallwayLegIntroduction>();
+        yield return introduction.Play(table);
 
         FreezeTable(false);   // 이제 물리/조작 활성
         controllable = true;
 
-        // 컷씬 종료 → 조작법은 KeyTutorial(테이블 옆 떠 있는 키캡)이 자동 표시(★2026-09-07 조작법 이미지 폐지)
+        // All thoughts and camera close-ups finished; now accept each leg's four keys.
     }
 
-    IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur)
+    IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur, bool returnToTable=false)
     {
         // 위치는 smoothstep, 회전은 Slerp → 각속도가 고르게 부드럽게 전환(확 꺾이지 않음).
         Quaternion r0 = Quaternion.LookRotation(l0 - p0, Vector3.up);
@@ -206,8 +211,16 @@ public class HallwayStage : MonoBehaviour
         {
             t += Time.deltaTime;
             float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / Mathf.Max(0.01f, dur)));
-            cam.transform.position = Vector3.Lerp(p0, p1, u);
-            cam.transform.rotation = Quaternion.Slerp(r0, r1, u);
+            if(returnToTable)
+            {
+                // Rise beside the table before settling behind it; the old straight
+                // dolly went through its top at the end of the chair close-up.
+                Vector3 c0=p0+new Vector3(-1.1f,1.3f,-5f),c1=p1+new Vector3(-2f,.85f,3f);
+                float v=1-u;
+                cam.transform.position=v*v*v*p0+3*v*v*u*c0+3*v*u*u*c1+u*u*u*p1;
+            }
+            else cam.transform.position = Vector3.Lerp(p0, p1, u);
+            cam.transform.rotation = BlendCameraRotation(r0, r1, u);
             yield return null;
         }
         cam.transform.position = p1;
@@ -218,6 +231,14 @@ public class HallwayStage : MonoBehaviour
     {
         cam.transform.position = pos;
         cam.transform.rotation = Quaternion.LookRotation(look - pos, Vector3.up);
+    }
+
+    internal static Quaternion BlendCameraRotation(Quaternion from,Quaternion to,float t)
+    {
+        // Keep the horizon level. Quaternion blending can introduce roll between
+        // opposing shots; the floor guard removes that roll and caused a visible snap.
+        Vector3 a=from.eulerAngles,b=to.eulerAngles;
+        return Quaternion.Euler(Mathf.LerpAngle(a.x,b.x,t),Mathf.LerpAngle(a.y,b.y,t),0f);
     }
 
     // ---------- 조작 중 카메라 추적 ----------

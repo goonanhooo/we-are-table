@@ -1,0 +1,1531 @@
+{
+  "entries": [
+    {
+      "file": "Difficulty.cs",
+      "ko": "겁쟁이들을 위한 난이도",
+      "en": "for the cowards",
+      "ja": "こわがりさん向け",
+      "zh": "胆小鬼难度"
+    },
+    {
+      "file": "Difficulty.cs",
+      "ko": "겁쟁이를 위한 난이도",
+      "en": "for cowards",
+      "ja": "こわがりさん向け",
+      "zh": "胆小鬼难度"
+    },
+    {
+      "file": "Difficulty.cs",
+      "ko": "보통 난이도",
+      "en": "normal",
+      "ja": "ふつう",
+      "zh": "普通"
+    },
+    {
+      "file": "Difficulty.cs",
+      "ko": "바로서기(1 키)를 무한으로 쓸 수 있어요",
+      "en": "unlimited pose fixes (1 key)",
+      "ja": "起き上がり（1キー）は何度でも使えます",
+      "zh": "扶正（1键）可无限使用"
+    },
+    {
+      "file": "Difficulty.cs",
+      "ko": "바로서기(1 키)는 맵마다 3번까지 쓸 수 있어요",
+      "en": "3 pose fixes per map",
+      "ja": "起き上がり（1キー）は各マップ3回まで",
+      "zh": "每张地图可扶正3次（1键）"
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "로그인 실패: ",
+      "en": "sign-in failed: ",
+      "ja": "ログイン失敗：",
+      "zh": "登录失败："
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "스팀 방 생성 중...",
+      "en": "creating steam room...",
+      "ja": "Steamルームを作成中…",
+      "zh": "正在创建Steam房间…"
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "방 생성됨 — 코드: ",
+      "en": "room created — code: ",
+      "ja": "ルームを作成しました — コード：",
+      "zh": "房间已创建 — 房间码："
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "스팀 방 생성 실패: ",
+      "en": "steam room failed: ",
+      "ja": "Steamルーム作成失敗：",
+      "zh": "Steam房间创建失败："
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "로그인 중...",
+      "en": "signing in...",
+      "ja": "ログイン中…",
+      "zh": "正在登录…"
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "방 생성 중...",
+      "en": "creating room...",
+      "ja": "ルームを作成中…",
+      "zh": "正在创建房间…"
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "방 생성 실패: ",
+      "en": "room creation failed: ",
+      "ja": "ルーム作成失敗：",
+      "zh": "房间创建失败："
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "스팀 방코드 — 스팀 실행 필요",
+      "en": "steam room code — steam must be running",
+      "ja": "Steamの起動が必要です",
+      "zh": "使用Steam房间码需要启动Steam"
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "스팀 로비 참가 중...",
+      "en": "joining steam lobby...",
+      "ja": "Steamロビーに参加中…",
+      "zh": "正在加入Steam大厅…"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "참가됨",
+      "en": "joined",
+      "ja": "参加しました",
+      "zh": "已加入"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "참가 실패: ",
+      "en": "join failed: ",
+      "ja": "参加失敗：",
+      "zh": "加入失败："
+    },
+    {
+      "file": "NetSession.cs",
+      "ko": "참가 중...",
+      "en": "joining...",
+      "ja": "参加中…",
+      "zh": "正在加入…"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "세션 종료",
+      "en": "session ended",
+      "ja": "セッション終了",
+      "zh": "游戏会话已结束"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "NetworkManager 없음",
+      "en": "no NetworkManager",
+      "ja": "ネットワークの初期化に失敗しました",
+      "zh": "网络初始化失败"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "스팀 로비 생성 실패",
+      "en": "steam lobby creation failed",
+      "ja": "Steamロビーを作成できませんでした",
+      "zh": "无法创建Steam大厅"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": " (앱 라이선스 없음)",
+      "en": " (no app license)",
+      "ja": "（ゲームのライセンスがありません）",
+      "zh": "（没有游戏许可）"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "호스트 시작 실패",
+      "en": "failed to start host",
+      "ja": "ホストを開始できませんでした",
+      "zh": "无法启动主机"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "잘못된 방코드",
+      "en": "invalid room code",
+      "ja": "ルームコードが無効です",
+      "zh": "房间码无效"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "로비 참가 실패(코드 확인)",
+      "en": "lobby join failed (check the code)",
+      "ja": "参加できませんでした（コードを確認してください）",
+      "zh": "加入失败（请检查房间码）"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "초대 수락 — 참가 중...",
+      "en": "invite accepted — joining...",
+      "ja": "招待を承諾 — 参加中…",
+      "zh": "已接受邀请 — 正在加入…"
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "초대 참가 실패: ",
+      "en": "invite join failed: ",
+      "ja": "招待からの参加に失敗：",
+      "zh": "通过邀请加入失败："
+    },
+    {
+      "file": "SteamLobby.cs",
+      "ko": "클라이언트 시작 실패",
+      "en": "failed to start client",
+      "ja": "接続を開始できませんでした",
+      "zh": "无法启动连接"
+    },
+    {
+      "file": "CheatMode.cs",
+      "ko": "🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2 · 테니스3 · 눈사람4 · 오징어5)",
+      "en": "🛠 CHEAT ON  —  arrows=fly (camera-relative), Space/'>'=up, LeftCtrl/'<'=down, Shift=boost\nT=teleport to view,  `=open door,  all powers unlocked (giraffe 2, tennis 3, snowman 4, squid 5)",
+      "ja": "CHEAT ON — 矢印=飛行、Space / > = 上昇、左Ctrl / < = 下降、Shift = 加速\nT = 視線の先へ移動、` = 扉を開く、全能力解放（キリン2・テニス3・雪だるま4・イカ5）",
+      "zh": "CHEAT ON — 方向键=飞行，Space / > = 上升，左Ctrl / < = 下降，Shift = 加速\nT = 传送到视线位置，` = 开门，解锁全部能力（长颈鹿2·网球3·雪人4·鱿鱼5）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "호스트 연결 종료 — 세션 끝",
+      "en": "host left — session over",
+      "ja": "ホストが退出しました — セッション終了",
+      "zh": "房主已离开 — 游戏会话结束"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "맵을 먼저 선택하세요",
+      "en": "pick a map first",
+      "ja": "先にスタート地点を選んでください",
+      "zh": "请先选择起点"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "방코드 복사됨",
+      "en": "room code copied",
+      "ja": "ルームコードをコピーしました",
+      "zh": "房间码已复制"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "함께하기 — 로비",
+      "en": "play together — lobby",
+      "ja": "みんなで遊ぶ — ロビー",
+      "zh": "一起玩 — 大厅"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "방 코드:  ",
+      "en": "room code:  ",
+      "ja": "ルームコード：",
+      "zh": "房间码："
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "(로컬)",
+      "en": "(local)",
+      "ja": "（ローカル）",
+      "zh": "（本地）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "참가 완료 — 다리를 고르세요",
+      "en": "joined — pick your legs",
+      "ja": "参加しました — 脚を選んでください",
+      "zh": "已加入 — 请选择控制的桌腿"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "다리 클릭 = 선택/해제 — 여러 개 가능 (접속 ",
+      "en": "click a leg to take it — multiple ok (",
+      "ja": "脚を選択・解除（複数可／参加者",
+      "zh": "点击选择或取消桌腿，可多选（已加入"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "명)",
+      "en": " joined)",
+      "ja": "人）",
+      "zh": "人）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "선택 안 된 다리는 호스트 키보드가 조종합니다",
+      "en": "unclaimed legs follow the host's keyboard",
+      "ja": "未選択の脚はホストが操作します",
+      "zh": "未被选择的桌腿由房主控制"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "나",
+      "en": "me",
+      "ja": "自分",
+      "zh": "我"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "빈 자리",
+      "en": "open",
+      "ja": "空き",
+      "zh": "空位"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "맵 선택",
+      "en": "choose a map",
+      "ja": "スタート地点",
+      "zh": "选择起点"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "맵 (호스트가 선택): ",
+      "en": "map (host picks): ",
+      "ja": "スタート地点（ホストが選択）：",
+      "zh": "起点（由房主选择）："
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "선택 중…",
+      "en": "picking…",
+      "ja": "選択中…",
+      "zh": "正在选择…"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "난이도",
+      "en": "difficulty",
+      "ja": "難易度",
+      "zh": "难度"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "난이도 (호스트가 선택)",
+      "en": "difficulty (host picks)",
+      "ja": "難易度（ホストが選択）",
+      "zh": "难度（由房主选择）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "게임 시작",
+      "en": "start game",
+      "ja": "ゲーム開始",
+      "zh": "开始游戏"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "게임 시작 (맵 선택!)",
+      "en": "start (pick a map!)",
+      "ja": "開始（地点を選択！）",
+      "zh": "开始（请选择起点！）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "호스트 대기 중…",
+      "en": "waiting for host…",
+      "ja": "ホストを待っています…",
+      "zh": "正在等待房主…"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "나가기",
+      "en": "leave",
+      "ja": "退出",
+      "zh": "离开"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "친구 초대 (스팀)",
+      "en": "invite friends (steam)",
+      "ja": "フレンドを招待（Steam）",
+      "zh": "邀请好友（Steam）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "코드 복사",
+      "en": "copy code",
+      "ja": "コードをコピー",
+      "zh": "复制房间码"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "(빈 다리 전부)",
+      "en": "(all unclaimed legs)",
+      "ja": "（未選択の脚すべて）",
+      "zh": "（全部空闲桌腿）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "(없음)",
+      "en": "(none)",
+      "ja": "（なし）",
+      "zh": "（无）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "호스트",
+      "en": "host",
+      "ja": "ホスト",
+      "zh": "房主"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "게스트",
+      "en": "guest",
+      "ja": "ゲスト",
+      "zh": "访客"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "명 (F9 숨김)",
+      "en": " players (F9 hides)",
+      "ja": "人（F9で非表示）",
+      "zh": "人（F9隐藏）"
+    },
+    {
+      "file": "NetDebugPanel.cs",
+      "ko": "\n내 다리: ",
+      "en": "\nmy legs: ",
+      "ja": "\n担当する脚：",
+      "zh": "\n我的桌腿："
+    },
+    {
+      "file": "StageTimer.cs",
+      "ko": "바로서기 ",
+      "en": "pose resets ",
+      "ja": "起き上がり ",
+      "zh": "扶正 "
+    },
+    {
+      "file": "StageTimer.cs",
+      "ko": "회",
+      "en": "",
+      "ja": "回",
+      "zh": "次"
+    },
+    {
+      "file": "StageTimer.cs",
+      "ko": "  ★ 최소 기록!",
+      "en": "  ★ fewest!",
+      "ja": "  ★ 最少記録！",
+      "zh": "  ★ 最少纪录！"
+    },
+    {
+      "file": "StageTimer.cs",
+      "ko": "  (최소 ",
+      "en": "  (best ",
+      "ja": "  （最少 ",
+      "zh": "  （最少 "
+    },
+    {
+      "file": "StageTimer.cs",
+      "ko": "회)",
+      "en": ")",
+      "ja": "回）",
+      "zh": "次）"
+    },
+    {
+      "file": "SpaceIntroCutscene.cs",
+      "ko": "내 힘을 줄게!",
+      "en": "I'll give you my power!",
+      "ja": "ぼくの力をあげるよ！",
+      "zh": "把我的力量给你！"
+    },
+    {
+      "file": "SpaceIntroCutscene.cs",
+      "ko": "얼른 쫓아가!",
+      "en": "hurry, go after it!",
+      "ja": "さあ、早く追いかけて！",
+      "zh": "快去追吧！"
+    },
+    {
+      "file": "FrameHallClimb.cs",
+      "ko": "클릭하면 시작!",
+      "en": "click to start!",
+      "ja": "クリックして始めよう！",
+      "zh": "点击开始！"
+    },
+    {
+      "file": "FrameHallClimb.cs",
+      "ko": "테니스공의 힘은 여기까지 — 화분 속 버튼은 기린의 힘(2)으로 몸을 들어 밟아! 초록 링은 밟지 말 것",
+      "en": "the tennis power rests here — lift yourself with the giraffe power (2) to press the button in the pot! don't touch the green ring",
+      "ja": "ここではテニスの力はお休み。キリンの力（2）で体を持ち上げ、鉢の中のボタンを踏もう！緑の輪には触れないで。",
+      "zh": "网球之力暂时休息。用长颈鹿之力（2）抬高身体，踩下花盆里的按钮！别碰绿色圆环。"
+    },
+    {
+      "file": "DisplayMode.cs",
+      "ko": "화면: ",
+      "en": "display: ",
+      "ja": "画面：",
+      "zh": "显示："
+    },
+    {
+      "file": "DisplayMode.cs",
+      "ko": "창 모드",
+      "en": "windowed",
+      "ja": "ウィンドウ",
+      "zh": "窗口"
+    },
+    {
+      "file": "DisplayMode.cs",
+      "ko": "전체화면",
+      "en": "fullscreen",
+      "ja": "フルスクリーン",
+      "zh": "全屏"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "기본 조작",
+      "en": "basic moves",
+      "ja": "基本操作",
+      "zh": "基本操作"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "기린의 힘",
+      "en": "giraffe power",
+      "ja": "キリンの力",
+      "zh": "长颈鹿之力"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "테니스공의 힘",
+      "en": "tennis power",
+      "ja": "テニスボールの力",
+      "zh": "网球之力"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "눈사람의 힘",
+      "en": "snowman power",
+      "ja": "雪だるまの力",
+      "zh": "雪人之力"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "우주오징어",
+      "en": "space squid",
+      "ja": "宇宙イカ",
+      "zh": "宇宙鱿鱼"
+    },
+    {
+      "file": "StartScreenMenu.cs",
+      "ko": "설정",
+      "en": "options",
+      "ja": "設定",
+      "zh": "设置"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "계속하기",
+      "en": "resume",
+      "ja": "つづける",
+      "zh": "继续"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "소리",
+      "en": "master",
+      "ja": "全体音量",
+      "zh": "总音量"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "배경음",
+      "en": "music",
+      "ja": "音楽",
+      "zh": "音乐"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "효과음",
+      "en": "sfx",
+      "ja": "効果音",
+      "zh": "音效"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "다리 색 표시: ",
+      "en": "leg colors: ",
+      "ja": "脚の色表示：",
+      "zh": "桌腿颜色："
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "켜짐",
+      "en": "on",
+      "ja": "オン",
+      "zh": "开"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "꺼짐",
+      "en": "off",
+      "ja": "オフ",
+      "zh": "关"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "조작법",
+      "en": "controls",
+      "ja": "操作ガイド",
+      "zh": "操作说明"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "언어: 한국어",
+      "en": "language: English",
+      "ja": "言語：日本語",
+      "zh": "语言：简体中文"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "다시 시작",
+      "en": "restart",
+      "ja": "やり直す",
+      "zh": "重新开始"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "메인 메뉴",
+      "en": "main menu",
+      "ja": "メインメニュー",
+      "zh": "主菜单"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "게임 종료",
+      "en": "quit game",
+      "ja": "ゲームを終了",
+      "zh": "退出游戏"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "뒤로",
+      "en": "back",
+      "ja": "戻る",
+      "zh": "返回"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "치트: ",
+      "en": "cheat: ",
+      "ja": "チート：",
+      "zh": "作弊："
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "조작법 — ",
+      "en": "controls — ",
+      "ja": "操作ガイド — ",
+      "zh": "操作说明 — "
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어",
+      "en": "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid",
+      "ja": "2 キリン · 3 テニス · 4 雪だるま · 5 宇宙イカ",
+      "zh": "2 长颈鹿 · 3 网球 · 4 雪人 · 5 宇宙鱿鱼"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "◀ 이전",
+      "en": "◀ prev",
+      "ja": "◀ 前へ",
+      "zh": "◀ 上一页"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "다음 ▶",
+      "en": "next ▶",
+      "ja": "次へ ▶",
+      "zh": "下一页 ▶"
+    },
+    {
+      "file": "PauseMenu.cs",
+      "ko": "닫기",
+      "en": "close",
+      "ja": "閉じる",
+      "zh": "关闭"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "2 = 기린의 힘",
+      "en": "2 = giraffe power",
+      "ja": "2 = キリンの力",
+      "zh": "2 = 长颈鹿之力"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "늘리기 / 줄이기 · 2 = 끄기",
+      "en": "stretch / shrink · 2 = off",
+      "ja": "伸ばす／縮める · 2 = オフ",
+      "zh": "伸长／缩短 · 2 = 关闭"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "다리 늘리기 / 줄이기",
+      "en": "stretch / shrink legs",
+      "ja": "脚を伸ばす／縮める",
+      "zh": "伸长／缩短桌腿"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "3 = 테니스공의 힘",
+      "en": "3 = tennis power",
+      "ja": "3 = テニスボールの力",
+      "zh": "3 = 网球之力"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "테니스공 · 붙기 · 3 = 켜기/끄기",
+      "en": "tennis · stick · 3 = on/off",
+      "ja": "テニス · くっつく · 3 = オン／オフ",
+      "zh": "网球 · 附着 · 3 = 开／关"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "테니스공 · 떼기",
+      "en": "tennis balls · let go",
+      "ja": "テニスボール · 離す",
+      "zh": "网球 · 松开"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "4 = 눈사람의 힘 끄기 / 켜기",
+      "en": "4 = snowman off / on",
+      "ja": "4 = 雪だるまの力 オフ／オン",
+      "zh": "4 = 雪人之力 关／开"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "4 = 눈사람의 힘",
+      "en": "4 = snowman power",
+      "ja": "4 = 雪だるまの力",
+      "zh": "4 = 雪人之力"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "5 = 우주오징어의 힘",
+      "en": "5 = space squid power",
+      "ja": "5 = 宇宙イカの力",
+      "zh": "5 = 宇宙鱿鱼之力"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "발끝 분사 · 5 = 켜기/끄기",
+      "en": "thrust from feet · 5 = on/off",
+      "ja": "足先から噴射 · 5 = オン／オフ",
+      "zh": "脚尖喷射 · 5 = 开／关"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "바로서기를 다 썼어요…\nF1로 다시 시작",
+      "en": "no pose fixes left…\nrestart with F1",
+      "ja": "起き上がりを使い切った…\nF1でやり直そう",
+      "zh": "扶正次数用完了…\n按F1重新开始"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "뒤집혔어요!\n1을 누르면 바로서기\n(이 난이도에선 무제한)",
+      "en": "flipped over!\npress 1 to stand up\n(unlimited here)",
+      "ja": "ひっくり返っちゃった！\n1で起き上がろう\n（この難易度では無制限）",
+      "zh": "翻倒了！\n按1扶正\n（此难度不限次数）"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "뒤집혔어요!\n1을 누르면 바로서기\n남은 횟수는 왼쪽 위 동그라미",
+      "en": "flipped over!\npress 1 to stand up\ntop-left circle = tries left",
+      "ja": "ひっくり返っちゃった！\n1で起き上がろう\n残り回数は左上の丸を見てね",
+      "zh": "翻倒了！\n按1扶正\n左上角圆圈显示剩余次数"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "뒤집혔어요!\n1을 누르면 바로서기",
+      "en": "flipped over!\npress 1 to stand up",
+      "ja": "ひっくり返っちゃった！\n1で起き上がろう",
+      "zh": "翻倒了！\n按1扶正"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "1 = 바로서기",
+      "en": "1 = stand up",
+      "ja": "1 = 起き上がる",
+      "zh": "1 = 扶正"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "다리마다 자기 색이 켜졌어요 (키 색과 같아요)\nESC 설정에서 끌 수 있어요",
+      "en": "each leg now shows its color (same as the keys)\nturn it off in ESC settings",
+      "ja": "脚がキーと同じ色に光ったよ\nESCの設定で消せるよ",
+      "zh": "桌腿亮起了对应按键的颜色\n可在ESC设置中关闭"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "이제 네 다리의 색이 모두 켜졌어!\nESC → 옵션에서\n다리 색 표시를 끌 수 있어.",
+      "en": "All four leg colors are on!\nTurn them off in\nESC → Options.",
+      "ja": "4本の脚が全部光ったよ！\nESC → 設定で\n脚の色表示を消せるよ。",
+      "zh": "四条桌腿都亮起来了！\n可以在ESC → 设置中\n关闭桌腿颜色。"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "네 방향을 모두 움직여 보자!",
+      "en": "Try all four directions!",
+      "ja": "4方向すべてに動かしてみよう！",
+      "zh": "试着向四个方向移动！"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "물체에 닿은 발을 붙여 보자",
+      "en": "Touch an object, then stick a foot",
+      "ja": "物に触れた足をくっつけてみよう",
+      "zh": "碰到物体后试着附着脚尖"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "붙인 발을 떼어 보자",
+      "en": "Let go with an attached foot",
+      "ja": "くっついている足を離してみよう",
+      "zh": "试着松开附着的脚尖"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "같은 색 다리를 늘리거나 줄여 보자",
+      "en": "Stretch or shrink the matching leg",
+      "ja": "同じ色の脚を伸ばしたり縮めたりしよう",
+      "zh": "试着伸长或缩短对应颜色的桌腿"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "발끝에서 힘을 뿜어 보자",
+      "en": "Try thrusting from a foot",
+      "ja": "足先から噴射してみよう",
+      "zh": "试着用脚尖喷射"
+    },
+    {
+      "file": "KeyTutorial.cs",
+      "ko": "표시된 키를 눌러 해 보자",
+      "en": "Try the highlighted keys",
+      "ja": "光っているキーを押してみよう",
+      "zh": "试着按下高亮按键"
+    },
+    {
+      "file": "HallwayLegIntroduction.cs",
+      "ko": "책상에게 가고 싶다..",
+      "en": "I want to reach that table..",
+      "ja": "あのテーブルのところに行きたいな…",
+      "zh": "好想去那张桌子身边…"
+    },
+    {
+      "file": "HallwayLegIntroduction.cs",
+      "ko": "의자에게 가볼까?",
+      "en": "Shall we go to the chair?",
+      "ja": "椅子のところへ行ってみようか？",
+      "zh": "去椅子那里看看吧？"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "방 만드는 중",
+      "en": "creating room",
+      "ja": "ルームを作成中",
+      "zh": "正在创建房间"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "참가 중",
+      "en": "joining",
+      "ja": "参加中",
+      "zh": "正在加入"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "잠시만 기다려 주세요",
+      "en": "just a moment",
+      "ja": "少しお待ちください",
+      "zh": "请稍候"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "구현중인 맵들",
+      "en": "maps in progress",
+      "ja": "制作中のマップ",
+      "zh": "制作中的地图"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "스테이지 선택",
+      "en": "choose a stage",
+      "ja": "スタート地点を選ぶ",
+      "zh": "选择起点"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "아직 만드는 중이라 미완성일 수 있어요",
+      "en": "still under construction — may be rough",
+      "ja": "制作中のため未完成の部分があります",
+      "zh": "仍在制作中，部分内容尚未完成"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "구현중인 맵들 ▶",
+      "en": "wip maps ▶",
+      "ja": "制作中のマップ ▶",
+      "zh": "制作中的地图 ▶"
+    },
+    {
+      "file": "StartScreenMenu.cs",
+      "ko": "함께하기",
+      "en": "play together",
+      "ja": "みんなで遊ぶ",
+      "zh": "一起玩"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "어떻게 플레이할까요?",
+      "en": "how do you want to play?",
+      "ja": "どうやって遊ぶ？",
+      "zh": "想怎么玩？"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "1인 플레이",
+      "en": "solo",
+      "ja": "ひとりで遊ぶ",
+      "zh": "单人游戏"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "방 만드는 중…",
+      "en": "creating room…",
+      "ja": "ルームを作成中…",
+      "zh": "正在创建房间…"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "온라인 — 방 만들기 (호스트)",
+      "en": "online — host a room",
+      "ja": "オンライン — ルームを作る",
+      "zh": "在线 — 创建房间"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "방을 만들면 여기서 코드가 발급되고, 사람을 모은 뒤 게임을 시작해요",
+      "en": "hosting gives you a room code — gather friends, then start",
+      "ja": "ルームコードを友達に伝えて、集まったら始めよう",
+      "zh": "创建后将获得房间码，邀请朋友加入后即可开始"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "온라인 — 코드로 참가",
+      "en": "online — join with a code",
+      "ja": "オンライン — コードで参加",
+      "zh": "在线 — 输入房间码加入"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "난이도 선택",
+      "en": "choose a difficulty",
+      "ja": "難易度を選ぶ",
+      "zh": "选择难度"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "방 코드로 참가",
+      "en": "join with a room code",
+      "ja": "ルームコードで参加",
+      "zh": "使用房间码加入"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "친구의 방 코드를 입력하세요 (엔터 = 참가)",
+      "en": "type your friend's room code (enter = join)",
+      "ja": "友達のルームコードを入力（Enterで参加）",
+      "zh": "输入朋友的房间码（按Enter加入）"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "참가 중…",
+      "en": "joining…",
+      "ja": "参加中…",
+      "zh": "正在加入…"
+    },
+    {
+      "file": "LevelSelect.cs",
+      "ko": "참가",
+      "en": "join",
+      "ja": "参加する",
+      "zh": "加入"
+    },
+    {
+      "file": "RocketLaunchCutscene.cs",
+      "ko": "발사!",
+      "en": "liftoff!",
+      "ja": "発射！",
+      "zh": "发射！"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "바로서기",
+      "en": "Stand up",
+      "ja": "起き上がる",
+      "zh": "扶正"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "기린의 힘",
+      "en": "Giraffe",
+      "ja": "キリンの力",
+      "zh": "长颈鹿之力"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "테니스공의 힘",
+      "en": "Tennis",
+      "ja": "テニスの力",
+      "zh": "网球之力"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "눈사람의 힘",
+      "en": "Snowman",
+      "ja": "雪だるまの力",
+      "zh": "雪人之力"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "우주오징어의 힘",
+      "en": "Space squid",
+      "ja": "宇宙イカの力",
+      "zh": "宇宙鱿鱼之力"
+    },
+    {
+      "file": "AbilityHud.cs",
+      "ko": "새로운 힘이 깨어났다",
+      "en": "A new power awakens",
+      "ja": "新たな力が目覚めた",
+      "zh": "新的力量觉醒了"
+    },
+    {
+      "file": "StartScreenMenu.cs",
+      "ko": "시작하기",
+      "en": "play",
+      "ja": "はじめる",
+      "zh": "开始游戏"
+    },
+    {
+      "file": "StartScreenMenu.cs",
+      "ko": "나가기",
+      "en": "quit",
+      "ja": "終了",
+      "zh": "退出"
+    },
+    {
+      "file": "StartScreenMenu.cs",
+      "ko": "한국어 → English",
+      "en": "English → 한국어",
+      "ja": "日本語 → 简体中文",
+      "zh": "简体中文 → 한국어"
+    },
+    {
+      "file": "LegLayout.cs",
+      "ko": "방향키",
+      "en": "arrow keys",
+      "ja": "矢印キー",
+      "zh": "方向键"
+    },
+    {
+      "file": "SceneReset.cs",
+      "ko": "F1 — 다시 시작",
+      "en": "F1 — restart",
+      "ja": "F1 — やり直す",
+      "zh": "F1 — 重新开始"
+    },
+    {
+      "file": "SceneReset.cs",
+      "ko": "테이블이 뒤집혔어요",
+      "en": "the table flipped over",
+      "ja": "テーブルがひっくり返った",
+      "zh": "桌子翻倒了"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "파랑  ",
+      "en": "blue  ",
+      "ja": "青  ",
+      "zh": "蓝队  "
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "  빨강     ",
+      "en": "  red     ",
+      "ja": "  赤     ",
+      "zh": "  红队     "
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "파랑 득점!",
+      "en": "blue scores!",
+      "ja": "青の得点！",
+      "zh": "蓝队得分！"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "빨강 득점!",
+      "en": "red scores!",
+      "ja": "赤の得点！",
+      "zh": "红队得分！"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "무승부!",
+      "en": "draw!",
+      "ja": "引き分け！",
+      "zh": "平局！"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "파랑 승리!",
+      "en": "blue wins!",
+      "ja": "青の勝ち！",
+      "zh": "蓝队获胜！"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "빨강 승리!",
+      "en": "red wins!",
+      "ja": "赤の勝ち！",
+      "zh": "红队获胜！"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "경기 종료 — ",
+      "en": "full time — ",
+      "ja": "試合終了 — ",
+      "zh": "比赛结束 — "
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "  (곧 재경기)",
+      "en": "  (rematch soon)",
+      "ja": "  （まもなく再戦）",
+      "zh": "  （即将开始下一场）"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "내 팀: ",
+      "en": "my team: ",
+      "ja": "自分のチーム：",
+      "zh": "我的队伍："
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "파랑",
+      "en": "blue",
+      "ja": "青",
+      "zh": "蓝队"
+    },
+    {
+      "file": "SoccerStage.cs",
+      "ko": "빨강",
+      "en": "red",
+      "ja": "赤",
+      "zh": "红队"
+    },
+    {
+      "file": "MoonHomeEnding.cs",
+      "ko": "끝",
+      "en": "the end",
+      "ja": "おしまい",
+      "zh": "完"
+    },
+    {
+      "file": "MoonHomeEnding.cs",
+      "ko": "ESC = 메뉴",
+      "en": "ESC = menu",
+      "ja": "ESC = メニュー",
+      "zh": "ESC = 菜单"
+    },
+    {
+      "ko": "왼쪽 뒷다리",
+      "en": "back-left leg",
+      "ja": "左うしろの脚",
+      "zh": "左后腿"
+    },
+    {
+      "ko": "오른쪽 뒷다리",
+      "en": "back-right leg",
+      "ja": "右うしろの脚",
+      "zh": "右后腿"
+    },
+    {
+      "ko": "왼쪽 앞다리",
+      "en": "front-left leg",
+      "ja": "左まえの脚",
+      "zh": "左前腿"
+    },
+    {
+      "ko": "오른쪽 앞다리",
+      "en": "front-right leg",
+      "ja": "右まえの脚",
+      "zh": "右前腿"
+    },
+    {
+      "ko": "걷기 · {0}",
+      "en": "Walk · {0}",
+      "ja": "歩く · {0}",
+      "zh": "移动 · {0}"
+    },
+    {
+      "ko": "내 {0}는",
+      "en": "My {0}",
+      "ja": "ぼくの{0}は",
+      "zh": "我的{0}"
+    },
+    {
+      "ko": "이 네 방향키로 움직이고.",
+      "en": "moves with these four keys.",
+      "ja": "この4つのキーで動くんだ。",
+      "zh": "用这四个方向键移动。"
+    },
+    {
+      "ko": "내 {0}는\n{1} 네 방향키로 움직이고.",
+      "en": "My {0} moves\nwith the four {1} keys.",
+      "ja": "ぼくの{0}は\n{1}の4つのキーで動くんだ。",
+      "zh": "我的{0}\n用{1}这四个方向键移动。"
+    },
+    {
+      "ko": "{0}를 모두 눌러 보자!",
+      "en": "Try every {0} key!",
+      "ja": "{0}を全部押してみよう！",
+      "zh": "试着按下所有{0}键！"
+    },
+    {
+      "ko": "손을 떼면 다음 다리",
+      "en": "release to continue",
+      "ja": "離すと次の脚へ",
+      "zh": "松开进入下一步"
+    },
+    {
+      "ko": "네 방향",
+      "en": "press every key",
+      "ja": "全部のキーを押そう",
+      "zh": "按下所有按键"
+    },
+    {
+      "ko": "[ {0} ]  능력 전환",
+      "en": "[ {0} ]  Switch power",
+      "ja": "[ {0} ]  能力を切り替え",
+      "zh": "[ {0} ]  切换能力"
+    },
+    {
+      "ko": "날 도와줘서 고마워..",
+      "en": "Thank you for helping me..",
+      "ja": "助けてくれてありがとう…",
+      "zh": "谢谢你帮了我…"
+    },
+    {
+      "ko": "내 힘을 줄게...",
+      "en": "You can have my power...",
+      "ja": "ぼくの力をあげるよ…",
+      "zh": "把我的力量给你…"
+    },
+    {
+      "ko": "잘했어...",
+      "en": "Well done...",
+      "ja": "よくできたね…",
+      "zh": "做得好…"
+    },
+    {
+      "ko": "★ 신기록!",
+      "en": "★ New record!",
+      "ja": "★ 新記録！",
+      "zh": "★ 新纪录！"
+    },
+    {
+      "ko": "최고 기록  ",
+      "en": "Best time  ",
+      "ja": "ベストタイム  ",
+      "zh": "最佳时间  "
+    },
+    {
+      "ko": "계속 돌아다녀도 돼요 · ESC = 메뉴",
+      "en": "Keep exploring · ESC = menu",
+      "ja": "探索を続けられます · ESC = メニュー",
+      "zh": "可以继续探索 · ESC = 菜单"
+    },
+    {
+      "ko": "클릭 또는 ESC로 닫기",
+      "en": "Click or press ESC to close",
+      "ja": "クリックかESCで閉じる",
+      "zh": "点击或按ESC关闭"
+    },
+    {
+      "ko": "편지 {0}",
+      "en": "Letter {0}",
+      "ja": "手紙 {0}",
+      "zh": "信件 {0}"
+    },
+    {
+      "ko": "— 의자가 —",
+      "en": "— The chair —",
+      "ja": "— いすより —",
+      "zh": "— 椅子 —"
+    },
+    {
+      "ko": "가끔은 땅 속으로 숨고 싶을 때가 있죠..\n그래서 저는 이 구멍 안으로 들어갔답니다.\n혹시 따라오고 싶으면 따라오셔도 괜찮습니다.\n사실은 따라오길 기대하고 있어요..",
+      "en": "Sometimes you just want to hide underground..\nSo I slipped into this hole.\nYou're welcome to follow me if you'd like.\nTo tell the truth, I'm hoping you will..",
+      "ja": "ときどき、地面の下に隠れたくなることがありますよね…\nだから、この穴の中に入ってみました。\nもし来たくなったら、ついてきてもいいんですよ。\n本当は、来てくれるのを待っています…",
+      "zh": "有时候，会想躲到地下去吧…\n所以，我钻进了这个洞里。\n如果你想跟来，当然也可以。\n其实，我正期待着你来呢…"
+    },
+    {
+      "ko": "가끔은 하늘을 날 듯이 기쁠 때가 있죠..\n그래서 저는 하늘로 날아갔답니다.\n혹시 따라오고 싶으면 따라오셔도 괜찮습니다.\n사실은 따라오길 기대하고 있어요..",
+      "en": "Sometimes you feel so happy you could fly..\nSo I flew up into the sky.\nYou're welcome to follow me if you'd like.\nTo tell the truth, I'm hoping you will..",
+      "ja": "ときどき、空を飛べそうなくらいうれしくなることがありますよね…\nだから、空へ飛んでいきました。\nもし来たくなったら、ついてきてもいいんですよ。\n本当は、来てくれるのを待っています…",
+      "zh": "有时候，会开心得像要飞起来一样吧…\n所以，我飞向了天空。\n如果你想跟来，当然也可以。\n其实，我正期待着你来呢…"
+    },
+    {
+      "ko": "말도 안 되게 멀리\n떠나고 싶은 날엔\n별들 사이로 가렴..\n\n은하수가 길을\n비춰줄 거야.",
+      "en": "On days when you want to go\nfarther than you can imagine,\nfind your way among the stars..\n\nThe Milky Way\nwill light your path.",
+      "ja": "想像もできないほど遠くへ\n行きたくなった日は、\n星たちの間へおいで…\n\n天の川が\n道を照らしてくれるよ。",
+      "zh": "想去遥远得\n不可思议的地方时，\n就到群星之间来吧…\n\n银河会\n为你照亮前路。"
+    },
+    {
+      "ko": "숨이 차게 달리고\n싶은 날엔\n트랙을 달리렴.\n\n결승선은 언제나\n너를 기다린단다.",
+      "en": "On days when you want to run\nuntil you're out of breath,\nhead for the track.\n\nThe finish line\nis always waiting for you.",
+      "ja": "息が切れるほど\n走りたくなった日は、\nトラックを走ってごらん。\n\nゴールはいつでも\nきみを待っているよ。",
+      "zh": "想要跑得\n气喘吁吁时，\n就来跑道奔跑吧。\n\n终点线一直\n都在等着你。"
+    },
+    {
+      "ko": "높이 뛰어오르고\n싶은 날엔\n달로 가렴.\n\n그곳에선 모두가\n가볍게 난단다.",
+      "en": "On days when you want\nto leap up high,\ncome to the moon.\n\nEveryone floats\na little lighter here.",
+      "ja": "高く跳びたく\nなった日は、\n月へおいで。\n\nここではみんな\nふわりと飛べるんだ。",
+      "zh": "想要高高\n跃起的时候，\n就来月亮吧。\n\n在这里，大家都能\n轻盈地飞起来。"
+    },
+    {
+      "ko": "겁이 나서 발이 안 떨어지는\n날엔 이 협곡에 와 보렴.\n\n높은 절벽 앞에선 다리를\n길게 늘이고,\n\n미끄러운 얼음 위에선\n그대로 미끄러지고,\n\n바닥이 없는 골짜기는\n훨훨 날아 건너면 된단다.\n\n한 걸음씩 가다 보면\n못 가는 곳이 없어.",
+      "en": "On days when fear keeps your feet still,\ncome to this canyon.\n\nStretch your legs\nto climb the tall cliffs.\n\nGlide across\nthe slippery ice.\n\nFly over the valleys\nwith no ground below.\n\nTake one step at a time,\nand there's nowhere you can't go.",
+      "ja": "怖くて足が動かない日は、\nこの峡谷へおいで。\n\n高い崖の前では\n脚をぐんと伸ばして、\n\nつるつるの氷の上では\nそのまますべって、\n\n底のない谷は\nひらりと飛び越えればいい。\n\n一歩ずつ進めば、\n行けない場所なんてないよ。",
+      "zh": "害怕得迈不开脚的时候，\n就来这片峡谷吧。\n\n面对高高的悬崖，\n把腿伸得长长的，\n\n在滑溜溜的冰面上，\n就顺势滑过去，\n\n遇到底下空空的山谷，\n轻轻飞过去就好。\n\n一步一步地向前，\n就没有去不了的地方。"
+    },
+    {
+      "ko": "켜기 / 끄기",
+      "en": "ON / OFF",
+      "ja": "オン / オフ",
+      "zh": "开启 / 关闭"
+    },
+    {
+      "ko": "한 번에 한 가지 힘만 사용할 수 있어요",
+      "en": "Use one power at a time",
+      "ja": "使える能力は一度にひとつ",
+      "zh": "一次只能使用一种能力"
+    },
+    {
+      "ko": "같은 색 키로 같은 색 다리를 움직여요",
+      "en": "Match each key group to its leg color",
+      "ja": "同じ色のキーで同じ色の脚を動かそう",
+      "zh": "用对应颜色的按键控制桌腿"
+    },
+    {
+      "ko": "늘리기",
+      "en": "Stretch",
+      "ja": "伸ばす",
+      "zh": "伸长"
+    },
+    {
+      "ko": "줄이기",
+      "en": "Shrink",
+      "ja": "縮める",
+      "zh": "缩短"
+    },
+    {
+      "ko": "부착",
+      "en": "Attach",
+      "ja": "くっつく",
+      "zh": "附着"
+    },
+    {
+      "ko": "부착 취소",
+      "en": "Release",
+      "ja": "離す",
+      "zh": "松开"
+    },
+    {
+      "ko": "분사",
+      "en": "Thrust",
+      "ja": "噴射",
+      "zh": "喷射"
+    },
+    {
+      "ko": "얼음이 되어 미끄러져요",
+      "en": "Turn to ice and slide",
+      "ja": "氷になってすべろう",
+      "zh": "变成冰滑行"
+    },
+    {
+      "ko": "화살표 또는 [ ' ; Enter",
+      "en": "Arrows or [ ' ; Enter",
+      "ja": "矢印 または [ ' ; Enter",
+      "zh": "方向键或 [ ' ; Enter"
+    },
+    {
+      "ko": "마우스로 카메라 회전 · 휠로 확대/축소",
+      "en": "Mouse: camera · Wheel: zoom",
+      "ja": "マウス：カメラ · ホイール：ズーム",
+      "zh": "鼠标：转动视角 · 滚轮：缩放"
+    },
+    {
+      "ko": "체크포인트",
+      "en": "Checkpoints",
+      "ja": "チェックポイント",
+      "zh": "检查点"
+    },
+    {
+      "ko": "도착한 지점부터 다시 시작할 수 있어요",
+      "en": "Return to any checkpoint you have reached",
+      "ja": "到達した地点から再開できます",
+      "zh": "可以从已到达的检查点重新开始"
+    },
+    {
+      "ko": "호스트가 해금한 지점을 선택합니다",
+      "en": "The host selects an unlocked checkpoint",
+      "ja": "ホストが解放済みの地点を選びます",
+      "zh": "房主选择已解锁的检查点"
+    },
+    {
+      "ko": "체크포인트 저장됨",
+      "en": "Checkpoint saved",
+      "ja": "チェックポイントを保存しました",
+      "zh": "检查点已保存"
+    },
+    {
+      "ko": "처음 시작 · 복도",
+      "en": "The beginning · Hallway",
+      "ja": "はじまり · 廊下",
+      "zh": "最初的起点 · 走廊"
+    },
+    {
+      "ko": "정글에 도착",
+      "en": "Jungle arrival",
+      "ja": "ジャングルに到着",
+      "zh": "抵达丛林"
+    },
+    {
+      "ko": "기린의 힘 획득",
+      "en": "Giraffe power acquired",
+      "ja": "キリンの力を獲得",
+      "zh": "获得长颈鹿之力"
+    },
+    {
+      "ko": "용암을 건넌 뒤",
+      "en": "Across the lava",
+      "ja": "溶岩を越えて",
+      "zh": "越过熔岩"
+    },
+    {
+      "ko": "스위치 앞",
+      "en": "At the switches",
+      "ja": "スイッチの前",
+      "zh": "开关前"
+    },
+    {
+      "ko": "동굴에 도착",
+      "en": "Cave arrival",
+      "ja": "洞窟に到着",
+      "zh": "抵达洞窟"
+    },
+    {
+      "ko": "테니스공의 힘 획득",
+      "en": "Tennis power acquired",
+      "ja": "テニスの力を獲得",
+      "zh": "获得网球之力"
+    },
+    {
+      "ko": "첫 광차",
+      "en": "The first minecart",
+      "ja": "最初のトロッコ",
+      "zh": "第一辆矿车"
+    },
+    {
+      "ko": "눈사람 동굴에 도착",
+      "en": "Snowman's cave",
+      "ja": "雪だるまの洞窟",
+      "zh": "抵达雪人洞窟"
+    },
+    {
+      "ko": "눈사람의 힘 획득",
+      "en": "Snowman power acquired",
+      "ja": "雪だるまの力を獲得",
+      "zh": "获得雪人之力"
+    },
+    {
+      "ko": "먼 플랫폼에 도착",
+      "en": "The distant platform",
+      "ja": "遠くの足場",
+      "zh": "抵达远处平台"
+    },
+    {
+      "ko": "우주오징어의 힘 획득",
+      "en": "Space squid power acquired",
+      "ja": "宇宙イカの力を獲得",
+      "zh": "获得宇宙鱿鱼之力"
+    },
+    {
+      "ko": "달에 접근",
+      "en": "Approaching the moon",
+      "ja": "月のそばへ",
+      "zh": "接近月球"
+    },
+    {
+      "ko": "달에서 시작",
+      "en": "Moon arrival",
+      "ja": "月に到着",
+      "zh": "抵达月球"
+    },
+    {
+      "ko": "집에 도착",
+      "en": "Home at last",
+      "ja": "家に到着",
+      "zh": "终于到家"
+    },
+    {
+      "ko": "끝 · 다시 보기",
+      "en": "The ending · Replay",
+      "ja": "エンディング · もう一度",
+      "zh": "结局 · 重看"
+    },
+    {
+      "ko": "호스트만 다시 시작할 수 있어요",
+      "en": "Only the host can restart",
+      "ja": "やり直せるのはホストだけです",
+      "zh": "只有房主可以重新开始"
+    },
+    {
+      "ko": "연결 시간이 초과됐어요. 방 코드를 확인하고 다시 시도해 주세요.",
+      "en": "Connection timed out. Check the room code and try again.",
+      "ja": "接続がタイムアウトしました。コードを確認して、もう一度お試しください。",
+      "zh": "连接超时。请检查房间码后重试。"
+    },
+    {
+      "ko": "연결이 끊어졌어요",
+      "en": "Connection lost",
+      "ja": "接続が切れました",
+      "zh": "连接已断开"
+    },
+    {
+      "ko": "게임 버전이 달라요. 모두 같은 버전으로 업데이트해 주세요.",
+      "en": "Game versions differ. Everyone must update to the same version.",
+      "ja": "ゲームのバージョンが違います。全員同じバージョンに更新してください。",
+      "zh": "游戏版本不同。请所有人更新到同一版本。"
+    }
+  ]
+}

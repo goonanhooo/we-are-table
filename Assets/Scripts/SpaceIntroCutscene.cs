@@ -111,7 +111,8 @@ public class SpaceIntroCutscene : MonoBehaviour
         //   게스트는 호스트의 시작 신호(PlayRemote(경과초))를 기다리고, 그동안 테이블(호스트 위치로 텔레포트 중)은 숨긴다.
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (debugForceRemote || (nm != null && nm.IsListening && !nm.IsServer)) netRemoteDriven = true;
-        if (netRemoteDriven) PrepareRemote(); else Play();
+        if(CheckpointRuntime.WillRestore(11))RestoreCompleted();
+        else if (netRemoteDriven) PrepareRemote(); else Play();
     }
 
     public void Play()
@@ -389,7 +390,7 @@ public class SpaceIntroCutscene : MonoBehaviour
         {
             float u = g / glowSeconds;
             float k = Mathf.Pow(Mathf.Clamp01(u / 0.2f) * Mathf.Clamp01((1f - u) / 0.3f), 0.6f);
-            if (!remote && squidMode != null && u >= 0.45f && squidMode.thrustLocked) { squidMode.thrustLocked = false; squidMode.unlocked = true; squidMode.active = true; }
+            if (!remote && squidMode != null && u >= 0.45f && squidMode.thrustLocked) { squidMode.thrustLocked = false; squidMode.unlocked = true; squidMode.active = true; AbilityHud.Acquire(squidMode, "squid"); }
             foreach (var r in rends)
             {
                 if (r == null) continue;
@@ -401,13 +402,14 @@ public class SpaceIntroCutscene : MonoBehaviour
             yield return null;
         }
         foreach (var r in rends) { if (r == null) continue; r.GetPropertyBlock(mpb); mpb.SetColor("_EmissionColor", Color.black); r.SetPropertyBlock(mpb); }   // 발광만 끔(SquidMode의 보라 틴트 블록은 유지)
-        if (squidMode != null) { squidMode.thrustLocked = false; squidMode.unlocked = true; if (!remote) squidMode.active = true; SquidMode.Unlocked = true; }
+        if (squidMode != null) { squidMode.thrustLocked = false; squidMode.unlocked = true; if (!remote) { squidMode.active = true; AbilityHud.Acquire(squidMode, "squid"); } SquidMode.Unlocked = true; }
         // 조작 힌트 텍스트는 KeyTutorial 키캡(발끝 분사 E/Y/O/])이 대신함(★2026-09-07)
 
         // ⑥ 오징어 퇴장 + 카메라 복귀 (+ 타이머 다시 표시·0부터)
         if (camC != null) camC.fieldOfView = baseFov;
         if (camFollow != null) { camFollow.BlendFrom(1.4f); camFollow.enabled = true; }
         StageTimer.Suppress = false; if (StageTimer.Instance != null) StageTimer.Instance.RestartClock();
+        if(!remote)CheckpointRuntime.Milestone(11);
         if (squid != null)
         {
             Vector3 e0 = squid.position, e1 = squidExit != null ? squidExit.position : e0 + new Vector3(80f, 30f, 60f);
@@ -524,10 +526,10 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (!string.IsNullOrEmpty(bubbleText) && squidHead != null) DrawBubble(squidHead.position + Vector3.up * 0.6f, bubbleText, bubbleStyle, 30f);
         if (!string.IsNullOrEmpty(hintText))
         {
-            var sz = hintStyle.CalcSize(new GUIContent(hintText));
+            var sz = hintStyle.CalcSize(new GUIContent(L.Text(hintText)));
             var r = new Rect((Screen.width - sz.x - 44f) * 0.5f, Screen.height - sz.y - 60f, sz.x + 44f, sz.y + 20f);
             UiKit.Fill(r, new Color(1f, 1f, 1f, 0.6f));
-            GUI.Label(r, hintText, hintStyle);
+            GUI.Label(r, L.Text(hintText), hintStyle);
             if (HandUI.Underline != null) GUI.DrawTexture(new Rect(r.center.x - 200f, r.yMax - 9f, 400f, 12f), HandUI.Underline, ScaleMode.StretchToFill);
         }
     }
@@ -539,4 +541,15 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (squidExit != null) { Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(squidExit.position, 3f); }
         if (chaseShots != null) { Gizmos.color = new Color(1f, 0.6f, 0.1f); foreach (var s in chaseShots) if (s != null && s.cam != null) Gizmos.DrawWireSphere(s.cam.position, 0.6f); }
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines();started=true;bubbleText=hintText="";flashAlpha=0;
+        CollectTable();foreach(var r in tableRenderers)if(r!=null)r.enabled=true;
+        if(tableRoot!=null&&CheckpointRuntime.Authority)tableRoot.immovable=false;
+        foreach(var t in new[]{tableShip,chairShip,squid,orb})if(t!=null)t.gameObject.SetActive(false);
+        if(flashLight!=null)flashLight.enabled=false;
+        var camera=Camera.main;if(camera!=null){camera.fieldOfView=60;var follow=camera.GetComponent<CameraFollow>();if(follow!=null)follow.enabled=true;}
+        StageTimer.Suppress=false;
+    }
+
 }

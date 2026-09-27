@@ -50714,7 +50714,7 @@ MonoBehaviour:
   distance: 6
   height: 1.5
   mouseSensitivity: 0.12
-  minPitch: -10
+  minPitch: -65
   maxPitch: 75
   lockCursor: 1
   clickToRelock: 1

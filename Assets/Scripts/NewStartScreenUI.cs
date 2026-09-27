@@ -78,11 +78,7 @@ public class NewStartScreenUI : MonoBehaviour
         if (step != Step.Join || busy) return;
         var kb = Keyboard.current;
         if (kb == null) return;
-        for (Key k = Key.A; k <= Key.Z; k++)
-            if (kb[k].wasPressedThisFrame && codeInput.Length < 8) codeInput += k.ToString();
-        for (Key k = Key.Digit1; k <= Key.Digit0; k++)
-            if (kb[k].wasPressedThisFrame && codeInput.Length < 8) codeInput += (k == Key.Digit0 ? "0" : ((int)k - (int)Key.Digit1 + 1).ToString());
-        if (kb.backspaceKey.wasPressedThisFrame && codeInput.Length > 0) codeInput = codeInput.Substring(0, codeInput.Length - 1);
+        codeInput = RoomCodeInput.Read(codeInput, kb);
         if (kb.enterKey.wasPressedThisFrame && codeInput.Length >= 4) JoinRoom();
     }
 

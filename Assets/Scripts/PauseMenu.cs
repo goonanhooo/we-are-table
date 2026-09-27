@@ -24,9 +24,14 @@ public class PauseMenu : MonoBehaviour
     public Texture2D controlsSquid;
     [Tooltip("테니스공의 힘 조작 이미지 — TennisMode.Unlocked 일 때만 표시")]
     public Texture2D controlsTennis;
+    public Texture2D controlsSnowman;
 
     LegColorXray xray;
     bool paused;
+    public static bool InputBlocked {get;private set;}
+    float UiScale=>showControls?1f:Mathf.Min(1f,Screen.height/(handMode?1160f:860f),Screen.width/760f);
+    float ViewWidth=>Screen.width/UiScale;
+    float ViewHeight=>Screen.height/UiScale;
     bool showControls;      // 조작법 화면 표시 중
     int controlsPage;       // 현재 조작법 페이지
     int dragSlider;         // 드래그 중인 슬라이더: 0 없음 / 1 마스터 / 2 BGM / 3 SFX
@@ -65,8 +70,11 @@ public class PauseMenu : MonoBehaviour
         var nms = new System.Collections.Generic.List<string>();
         if (controlsMove != null) { texs.Add(controlsMove); nms.Add(L.T("기본 조작", "basic moves")); }
         if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add(L.T("기린의 힘", "giraffe power")); }
-        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "space squid")); }
         if (TennisMode.Unlocked && controlsTennis != null) { texs.Add(controlsTennis); nms.Add(L.T("테니스공의 힘", "tennis power")); }
+        if(controlsSnowman==null)controlsSnowman=ControlGuideAssets.Load("ControlsSnowman");
+        var ice=GetComponent<IcePower>();
+        if(ice!=null && ice.unlocked && controlsSnowman!=null){texs.Add(controlsSnowman);nms.Add(L.T("눈사람의 힘","snowman power"));}
+        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "space squid")); }
         names = nms.ToArray(); return texs.ToArray();
     }
 
@@ -76,8 +84,8 @@ public class PauseMenu : MonoBehaviour
     {
         if (handMode) { ComputeHandLayout(); return; }
 
-        float x = (Screen.width - PanelW) * 0.5f;
-        float y = (Screen.height - PanelH) * 0.5f;
+        float x = (ViewWidth - PanelW) * 0.5f;
+        float y = (ViewHeight - PanelH) * 0.5f;
         panel = new Rect(x, y, PanelW, PanelH);
 
         float ix = x + 34f, iw = PanelW - 68f;
@@ -104,8 +112,8 @@ public class PauseMenu : MonoBehaviour
     /// Update의 클릭/드래그 판정이 같은 Rect 필드를 쓰므로 위치만 바꾸면 로직 공유.</summary>
     void ComputeHandLayout()
     {
-        float lx = Screen.width * 0.09f;
-        float cy = Screen.height * 0.34f;   // 타이틀 그래픽 아래(LevelSelect와 같은 기준대)
+        float lx = ViewWidth * 0.09f;
+        float cy = ViewHeight * 0.34f;   // 타이틀 그래픽 아래(LevelSelect와 같은 기준대)
         float sw = 340f;   // 슬라이더 폭
 
         panel = Off;
@@ -120,7 +128,7 @@ public class PauseMenu : MonoBehaviour
         controlsBtn = new Rect(lx, cy, 420f, 50f); cy += 58f;
         langBtn    = new Rect(lx, cy, 420f, 50f);  cy += 58f;
         displayBtn = new Rect(lx, cy, 420f, 50f);  cy += 58f;
-        resumeBtn  = new Rect(lx, cy, 150f, 50f);  cy += 58f;   // = 뒤로(닫기)
+        resumeBtn  = new Rect(lx, cy, 195f, 50f);  cy += 58f;   // = 뒤로(닫기)
         cheatBtn   = new Rect(lx, cy, 420f, 44f);               // 숨은 치트(호버 시만 표시)
         restartBtn = Off; menuBtn = Off; quitBtn = Off;          // 시작 화면에선 의미 없음
     }
@@ -136,7 +144,7 @@ public class PauseMenu : MonoBehaviour
         ctrlPageLbl = new Rect(cx - 120f, by - 30f, 240f, 24f);
 
         // 이미지(16:9) 화면에 맞춤
-        float top = 62f, bottom = by - 36f;
+        float top = 92f, bottom = by - 36f;
         float availH = bottom - top, availW = Screen.width - 48f;
         float ar = 16f / 9f;
         float w = availW, h = w / ar;
@@ -150,7 +158,7 @@ public class PauseMenu : MonoBehaviour
         var m = Mouse.current;
         if (m == null) return new Vector2(-1f, -1f);
         Vector2 p = m.position.ReadValue();
-        return new Vector2(p.x, Screen.height - p.y);
+        return new Vector2(p.x, Screen.height - p.y)/UiScale;
     }
 
     void Update()
@@ -161,8 +169,17 @@ public class PauseMenu : MonoBehaviour
         var kb = Keyboard.current;
         if (kb != null && kb.escapeKey.wasPressedThisFrame)
         {
+            // ESC has one owner: child menu -> lobby -> pause menu.
+            if (!paused)
+            {
+                var select = FindAnyObjectByType<LevelSelect>();
+                if (select != null && select.Showing) { select.Back(); return; }
+                var lobby = FindAnyObjectByType<NetDebugPanel>();
+                if (lobby != null && lobby.HandleBack()) return;
+            }
             if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
             else SetPaused(!paused);
+            return;
         }
 
         if (!paused) return;
@@ -206,11 +223,12 @@ public class PauseMenu : MonoBehaviour
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
-            else if (langBtn.Contains(gm)) { L.Korean = !L.Korean; }
+            else if (langBtn.Contains(gm)) { LanguageSelector.HandleClick(langBtn, gm, true); }
             else if (displayBtn.Contains(gm)) { DisplayMode.Toggle(); }
             else if (restartBtn.Contains(gm))
             {
-                Time.timeScale = 1f;
+                if(!CheckpointRuntime.Authority)return;
+                SetPaused(false);
                 NetScene.Reload(); // 현재 씬 처음부터(멀티: 호스트만 유효 — 전원 재시작)
             }
             else if (cheatBtn.Contains(gm)) { CheatMode.Active = !CheatMode.Active; }
@@ -235,7 +253,9 @@ public class PauseMenu : MonoBehaviour
     void SetPaused(bool p)
     {
         paused = p;
-        Time.timeScale = p ? 0f : 1f;
+        InputBlocked=p;
+        var nm=Unity.Netcode.NetworkManager.Singleton;
+        if(nm==null||!nm.IsListening)Time.timeScale=p?0f:1f;
         if (p)
         {
             // ★시작 화면(홈 메뉴 존재)이면 손글씨 왼쪽 열 모드
@@ -261,11 +281,13 @@ public class PauseMenu : MonoBehaviour
         EnsureStyles();
         Vector2 gm = GuiMouse();
 
-        if (showControls) { DrawControlsScreen(gm); return; }
-
-        ComputeLayout();
-
-        DrawHandMenu(gm);
+        var matrix=GUI.matrix;GUI.matrix=Matrix4x4.Scale(Vector3.one*UiScale);
+        try
+        {
+            if(showControls){DrawControlsScreen(gm);return;}
+            ComputeLayout();DrawHandMenu(gm);
+        }
+        finally{GUI.matrix=matrix;}
     }
 
     /// <summary>★손글씨 옵션(두 모드 공통 룩): 시작 화면=왼쪽 열 맨글씨, 인게임=딤+손그림 흰 종이 박스.
@@ -295,7 +317,7 @@ public class PauseMenu : MonoBehaviour
         bool on = xray != null && xray.IsOn;
         HandItem(colorBtn, L.T("다리 색 표시: ", "leg colors: ") + (on ? L.T("켜짐", "on") : L.T("꺼짐", "off")), gm);
         HandItem(controlsBtn, L.T("조작법", "controls"), gm);
-        HandItem(langBtn, L.T("언어: 한국어", "language: English"), gm);
+        LanguageSelector.Draw(langBtn, gm, true);
         HandItem(displayBtn, DisplayMode.Label(), gm);
 
         if (!handMode)
@@ -304,7 +326,7 @@ public class PauseMenu : MonoBehaviour
             HandItem(menuBtn, L.T("메인 메뉴", "main menu"), gm);
             HandItem(quitBtn, L.T("게임 종료", "quit game"), gm);
         }
-        else HandItem(resumeBtn, L.T("뒤로", "back"), gm);
+        else { JourneyMenuUI.BackArrow(resumeBtn,HandUI.Ink); HandItem(new Rect(resumeBtn.x+54,resumeBtn.y,resumeBtn.width-54,resumeBtn.height), L.T("뒤로", "back"), gm); }
 
         // 숨은 치트: 맨 아래 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
@@ -356,8 +378,11 @@ public class PauseMenu : MonoBehaviour
         Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
 
         GUI.Label(ctrlTitle, L.T("조작법 — ", "controls — ") + names[controlsPage], handTitleC);
+        GUI.Label(new Rect(12f, 55f, Screen.width - 24f, 28f),
+            L.T("2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어",
+                "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid"), handPage);
         if (pages[controlsPage] != null)
-            GUI.DrawTexture(ctrlImg, pages[controlsPage], ScaleMode.ScaleToFit, true);
+            LocalizedControlGuide.Draw(ctrlImg,pages[controlsPage]);
 
         GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, handPage);
 
@@ -409,4 +434,7 @@ public class PauseMenu : MonoBehaviour
         handTitleC = HandUI.Style(32, HandUI.Ink, TextAnchor.MiddleCenter);
         handPage = HandUI.Style(20, HandUI.InkSoft, TextAnchor.MiddleCenter);
     }
+    void OnDestroy(){if(paused){InputBlocked=false;if(Time.timeScale==0)Time.timeScale=1;}}
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]static void ResetInputBlock(){InputBlocked=false;}
+
 }

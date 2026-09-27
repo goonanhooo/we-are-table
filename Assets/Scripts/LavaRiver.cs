@@ -4,7 +4,7 @@ using UnityEngine;
 /// IslandTerrain 이 파 놓은 용암 강 도랑을 따라 흐르는 용암 리본 메시 + 분화구 용암 웅덩이를 만든다.
 /// - 지형의 강 경로(IslandTerrain.RiverPoint)와 바닥 높이(HeightAt)를 그대로 따라가 도랑에 정확히 얹힌다.
 /// - Custom/Lava 머티리얼(흐르는 이미시브 HDR). ExecuteAlways 라 에디터에서도 보임.
-/// 콜라이더 없음(시각 전용). 사망 판정은 JungleStage 가 IslandTerrain.DistanceToRiver 로 처리.
+/// 고체 콜라이더 없이, 보이는 표면 아래의 삼각 기둥과 테이블 콜라이더의 겹침으로 접촉을 검사한다.
 /// </summary>
 [ExecuteAlways]
 [RequireComponent(typeof(MeshFilter))]
@@ -24,6 +24,81 @@ public class LavaRiver : MonoBehaviour
     public float craterBlend = 0.13f;
 
     Mesh mesh;
+    Vector3[] surfaceVertices;
+    int[] surfaceTriangles;
+    Vector3[] worldVertices;
+    Bounds[] triangleBounds;
+    Matrix4x4 contactMatrix;
+    const float ContactDepth = 30f;
+    readonly Vector3[] prism = new Vector3[6];
+
+    /// <summary>Rendered surface, including its ends and crater blend. SAT also catches submerged or tilted legs.</summary>
+    public bool Touches(Collider col, float skin = .025f)
+    {
+        if (col == null || !col.enabled || col.isTrigger || !col.gameObject.activeInHierarchy) return false;
+        if (surfaceVertices == null) Rebuild();
+        if (surfaceVertices == null) return false;
+        var matrix = transform.localToWorldMatrix;
+        if (worldVertices == null || matrix != contactMatrix)
+        {
+            contactMatrix = matrix;
+            worldVertices = new Vector3[surfaceVertices.Length];
+            for (int i=0;i<worldVertices.Length;i++) worldVertices[i]=matrix.MultiplyPoint3x4(surfaceVertices[i]);
+            triangleBounds = new Bounds[surfaceTriangles.Length/3];
+            for(int i=0;i<triangleBounds.Length;i++)
+            {
+                var bounds=new Bounds(worldVertices[surfaceTriangles[i*3]],Vector3.zero);
+                bounds.Encapsulate(worldVertices[surfaceTriangles[i*3+1]]);
+                bounds.Encapsulate(worldVertices[surfaceTriangles[i*3+2]]);
+                bounds.Encapsulate(bounds.min+Vector3.down*ContactDepth);
+                triangleBounds[i]=bounds;
+            }
+        }
+        skin=Mathf.Max(0,skin);
+        var box=col as BoxCollider;
+        // All current table parts are boxes. Other shapes use their conservative world bounds.
+        var toBox=box!=null?box.transform.worldToLocalMatrix:Matrix4x4.Translate(-col.bounds.center);
+        var center=box!=null?box.center:Vector3.zero;
+        var half=box!=null?box.size*.5f:col.bounds.extents;
+        var broad=col.bounds;broad.Expand(skin*2);
+        for(int triangle=0;triangle<triangleBounds.Length;triangle++)
+        {
+            if(!broad.Intersects(triangleBounds[triangle]))continue;
+            for(int k=0;k<3;k++)
+            {
+                var v=worldVertices[surfaceTriangles[triangle*3+k]];
+                prism[k]=toBox.MultiplyPoint3x4(v+Vector3.up*skin)-center;
+                prism[k+3]=toBox.MultiplyPoint3x4(v+Vector3.down*ContactDepth)-center;
+            }
+            if(PrismIntersectsBox(half))return true;
+        }
+        return false;
+    }
+
+    bool PrismIntersectsBox(Vector3 half)
+    {
+        if(Separates(Vector3.right,half)||Separates(Vector3.up,half)||Separates(Vector3.forward,half))return false;
+        var vertical=prism[3]-prism[0];
+        if(Separates(Vector3.Cross(prism[1]-prism[0],prism[2]-prism[0]),half))return false;
+        for(int edge=0;edge<4;edge++)
+        {
+            var direction=edge==3?vertical:prism[(edge+1)%3]-prism[edge];
+            if(edge<3&&Separates(Vector3.Cross(direction,vertical),half))return false;
+            if(Separates(Vector3.Cross(direction,Vector3.right),half)
+                ||Separates(Vector3.Cross(direction,Vector3.up),half)
+                ||Separates(Vector3.Cross(direction,Vector3.forward),half))return false;
+        }
+        return true;
+    }
+
+    bool Separates(Vector3 axis,Vector3 half)
+    {
+        if(axis.sqrMagnitude<1e-12f)return false;
+        float min=float.PositiveInfinity,max=float.NegativeInfinity;
+        for(int i=0;i<6;i++){float d=Vector3.Dot(axis,prism[i]);min=Mathf.Min(min,d);max=Mathf.Max(max,d);}
+        float radius=Mathf.Abs(axis.x)*half.x+Mathf.Abs(axis.y)*half.y+Mathf.Abs(axis.z)*half.z;
+        return min>radius+1e-6f||max < -radius-1e-6f;
+    }
 
     /// <summary>용암이 바다에 닿아 끝나는 경로 비율(0..1). 옵시디언 마개 위치 산출용.</summary>
     public float SeaEndU { get; private set; } = 1f;
@@ -119,5 +194,6 @@ public class LavaRiver : MonoBehaviour
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
         GetComponent<MeshFilter>().sharedMesh = mesh;
+        surfaceVertices=verts;surfaceTriangles=tris;worldVertices=null;triangleBounds=null;
     }
 }

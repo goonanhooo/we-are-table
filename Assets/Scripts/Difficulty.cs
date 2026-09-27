@@ -54,7 +54,7 @@ public static class Difficulty
     public static string Desc(Mode m)
     {
         if (m == Mode.Coward)
-            return L.T("바로서기(1 키)를 무한으로 쓸 수 있어요", "unlimited pose fixes (1 key)");
-        return L.T("바로서기(1 키)는 맵마다 3번까지 쓸 수 있어요", "3 pose fixes per map");
+            return L.T("바로서기(1) 무제한", "Unlimited stand-ups (1)", "起き上がり（1）無制限", "扶正（1）无限次");
+        return L.T("바로서기(1) 맵마다 3회", "3 stand-ups per map (1)", "起き上がり（1）各マップ3回", "扶正（1）每张地图3次");
     }
 }

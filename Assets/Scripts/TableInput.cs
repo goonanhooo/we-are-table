@@ -31,6 +31,8 @@ public class TableInput : MonoBehaviour
     readonly LegSource[] source = new LegSource[4];
     readonly LegInput[] current = new LegInput[4];
     readonly LegInput[] external = new LegInput[4];
+    readonly LegInput[] pendingPhysics = new LegInput[4];
+    readonly LegInput[] physics = new LegInput[4];
     readonly Key[][] altKeys = new Key[4][];   // [set] = {up,down,left,right} 보조키(없으면 null)
 
     // 키셋별 기본 매핑: {up, down, left, right, longer, shorter}
@@ -75,6 +77,8 @@ public class TableInput : MonoBehaviour
 
     /// <summary>이 키셋 다리의 현재 프레임 입력.</summary>
     public LegInput Get(LegControlSet set) => current[(int)set];
+    // Every physics consumer sees the same sample; short presses survive until one tick.
+    public LegInput GetPhysics(LegControlSet set) => physics[(int)set];
 
     public bool IsLocal(LegControlSet set) => source[(int)set] == LegSource.Local;
 
@@ -82,11 +86,17 @@ public class TableInput : MonoBehaviour
     public void SetSource(LegControlSet set, LegSource s)
     {
         source[(int)set] = s;
+        current[(int)set] = pendingPhysics[(int)set] = physics[(int)set] = default;
         if (s == LegSource.External) external[(int)set] = default;   // 이전 잔여 입력 제거
     }
 
     /// <summary>원격 입력 주입(매 프레임/틱). SetSource(set, External) 상태에서만 반영된다.</summary>
-    public void SetExternal(LegControlSet set, LegInput input) => external[(int)set] = input;
+    public void SetExternal(LegControlSet set, LegInput input)
+    {
+        int i = (int)set;
+        external[i] = input;
+        if (source[i] == LegSource.External) pendingPhysics[i] = Merge(pendingPhysics[i], input);
+    }
 
     /// <summary>보조 키 등록(LegController가 Awake에서 호출 — Arrows 다리의 추가 키 등).</summary>
     public void RegisterAltKeys(LegControlSet set, Key up, Key down, Key left, Key right)
@@ -99,26 +109,47 @@ public class TableInput : MonoBehaviour
     {
         var kb = Keyboard.current;
         for (int i = 0; i < 4; i++)
+        {
             current[i] = source[i] == LegSource.Local ? PollLocal(kb, i) : external[i];
+            pendingPhysics[i] = source[i] == LegSource.Local && (PauseMenu.InputBlocked || LetterOverlay.IsOpen)
+                ? default : Merge(pendingPhysics[i], current[i]);
+        }
     }
 
-    /// <summary>키셋 하나의 로컬 키보드 상태(보조키 제외) — 게스트가 자기 다리 입력을 읽어 서버로 보낼 때도 사용.</summary>
-    // ★2026-08-20 테니스 붙이기/떼기 키(아랫줄) — 키셋 순서 WASD/TFGH/IJKL/Arrows
-    static readonly Key[] GrabKeys = { Key.C, Key.N, Key.Period, Key.RightShift };
-    static readonly Key[] ReleaseKeys = { Key.Z, Key.V, Key.M, Key.Slash };
+    void FixedUpdate()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            bool blocked = source[i] == LegSource.Local && (PauseMenu.InputBlocked || LetterOverlay.IsOpen);
+            physics[i] = blocked ? default : Merge(pendingPhysics[i], source[i] == LegSource.Local ? current[i] : external[i]);
+            pendingPhysics[i] = default;
+        }
+    }
+
+    static LegInput Merge(LegInput a, LegInput b) => new LegInput
+    {
+        up = a.up || b.up, down = a.down || b.down, left = a.left || b.left, right = a.right || b.right,
+        longer = a.longer || b.longer, shorter = a.shorter || b.shorter,
+        grab = a.grab || b.grab, release = a.release || b.release
+    };
+
+    /// <summary>키셋 하나의 로컬 키보드 상태(방향키 보조 키 포함) — 게스트가 자기 다리 입력을 읽어 서버로 보낼 때도 사용.</summary>
+    // ★2026-08-20 테니스 붙이기/떼기 키(신축/분사와 공유) — 키셋 순서 WASD/TFGH/IJKL/Arrows
+    static readonly Key[] GrabKeys = { Key.E, Key.Y, Key.O, Key.RightBracket };
+    static readonly Key[] ReleaseKeys = { Key.Q, Key.R, Key.U, Key.P };
 
     public static LegInput PollKeyset(LegControlSet set)
     {
         var kb = Keyboard.current;
-        if (kb == null) return default;
+        if (kb == null || PauseMenu.InputBlocked || LetterOverlay.IsOpen) return default;
         var m = Map[(int)set];
         int k = (int)set;
         return new LegInput
         {
-            up      = kb[m[0]].isPressed,
-            down    = kb[m[1]].isPressed,
-            left    = kb[m[2]].isPressed,
-            right   = kb[m[3]].isPressed,
+            up      = kb[m[0]].isPressed || (k==3 && kb[Key.LeftBracket].isPressed),
+            down    = kb[m[1]].isPressed || (k==3 && kb[Key.Quote].isPressed),
+            left    = kb[m[2]].isPressed || (k==3 && kb[Key.Semicolon].isPressed),
+            right   = kb[m[3]].isPressed || (k==3 && kb[Key.Enter].isPressed),
             longer  = kb[m[4]].isPressed,
             shorter = kb[m[5]].isPressed,
             grab    = k >= 0 && k < 4 && kb[GrabKeys[k]].isPressed,
@@ -128,7 +159,7 @@ public class TableInput : MonoBehaviour
 
     LegInput PollLocal(Keyboard kb, int i)
     {
-        if (kb == null) return default;
+        if (kb == null || PauseMenu.InputBlocked || LetterOverlay.IsOpen) return default;
         var inp = PollKeyset((LegControlSet)i);
         var alt = altKeys[i];
         if (alt != null)

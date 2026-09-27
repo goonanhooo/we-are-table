@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Collections.Generic;
 
 /// <summary>
 /// ArticulationBody 테이블용 리셋/리스폰. 테이블 루트에 부착.
@@ -49,6 +50,17 @@ public class ArtSceneReset : MonoBehaviour
     ArticulationBody[] bodies;
     ArtLegController[] legs;
     float tableHeight = 0.8f, boardClearance = 0.75f;   // MeasureGeometry로 갱신
+    Bounds uprightBounds;
+    Vector3[] uprightFeet;
+    UprightRecoverySearch recovery;
+    readonly List<Vector3> safeUprightHistory = new List<Vector3>(24);
+    Vector3 recoverySpawn;
+    float recoverySpawnFloor;
+    bool haveRecoverySpawn;
+    float nextRecoverySample;
+    float nextAutomaticRecovery;
+    bool pendingPoseRecovery, pendingPoseCharge;
+    public bool PendingPoseRecovery => pendingPoseRecovery;
     float flippedTime;
     Vector2 lastGoodXZ; bool haveGoodXZ;                 // NaN/폭발 워치독용(원본 SceneReset 이식)
     Vector3 initPos;                                     // F1 다시 시작용 초기 스폰(루트 위치, Awake 캡처)
@@ -72,6 +84,11 @@ public class ArtSceneReset : MonoBehaviour
         poseResetsLeft = poseResetMax;   // 맵당 충전(씬 로드마다 새 인스턴스)
         PoseResetCount = 0;
         MeasureGeometry();
+        MeasureUprightBounds();
+        recovery = new UprightRecoverySearch(transform.root);
+        CaptureRecoverySpawn();
+        if (root != null && root.GetComponent<TableGroundedWeight>() == null)
+            root.gameObject.AddComponent<TableGroundedWeight>();
     }
 
     void Start()
@@ -99,13 +116,13 @@ public class ArtSceneReset : MonoBehaviour
     }
     TennisMode tennisRef; SquidMode squidRef;
 
-    /// <summary>자세 다시 잡기 시도('1' 키): 남은 횟수 소모. 치트/겁쟁이 난이도면 무제한.</summary>
+    /// <summary>자세 다시 잡기('1'): 안전한 자리로 복원한 경우에만 횟수 소모. 치트/겁쟁이는 무제한.</summary>
     public void TryPoseReset()
     {
-        if (disableManualReset || root == null) return;
+        if (disableManualReset || root == null || root.immovable || pendingPoseRecovery || !CheckpointRuntime.Authority) return;
         bool cheat = Unlimited;
         if (!cheat && poseResetsLeft <= 0) return;   // 다 씀 — 맵의 충전 아이템(추후)으로 회복
-        ResetPoseInPlace();
+        if (!TryResetPoseInPlace()) { QueueAutomaticRecovery(true); return; }
         PoseResetCount++;
         if (!cheat) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1);
     }
@@ -136,6 +153,16 @@ public class ArtSceneReset : MonoBehaviour
         }
         else if (haveGoodXZ)
             ResetPoseAtXZ(lastGoodXZ.x, lastGoodXZ.y);   // TeleportRoot가 사슬 전체를 유한 좌표로 복구
+        if (!anyBad && pendingPoseRecovery && Time.unscaledTime >= nextAutomaticRecovery)
+        {
+            nextAutomaticRecovery = Time.unscaledTime + .35f;
+            TryPendingRecovery();
+        }
+        if (!anyBad && !pendingPoseRecovery && Time.time >= nextRecoverySample)
+        {
+            nextRecoverySample = Time.time + .4f;
+            RememberSafeUprightPose();
+        }
     }
 
     /// <summary>콜라이더 기하로 테이블 전체 높이/상판 원점의 최저점 위 높이를 1회 측정(원본 MeasureGeometry).</summary>
@@ -158,20 +185,136 @@ public class ArtSceneReset : MonoBehaviour
     /// <summary>XZ 지점의 지면 높이 — fromY에서 아래로 RaycastAll, 테이블 자신 제외, 가장 높은 지점. 못 찾으면 fromY.</summary>
     float GroundYAt(Vector2 xz, float fromY, out bool found)
     {
-        var hits = Physics.RaycastAll(new Vector3(xz.x, fromY, xz.y), Vector3.down, 2000f, ~0, QueryTriggerInteraction.Ignore);
-        float gy = float.NegativeInfinity; found = false;
-        foreach (var h in hits)
-        {
-            if (h.collider.transform.root == transform.root) continue;   // 테이블 자신 제외
-            if (h.point.y > gy) { gy = h.point.y; found = true; }
-        }
+        if (recovery == null) recovery = new UprightRecoverySearch(transform.root);
+        found = recovery.Ground(xz, fromY, 2000f, out float gy);
         return found ? gy : fromY;
     }
+
+    // Cache the neutral footprint before the player bends or lengthens any leg.
+    void MeasureUprightBounds()
+    {
+        if (root == null) return;
+        bool any = false;
+        Quaternion inverse = Quaternion.Inverse(root.transform.rotation);
+        foreach (var collider in transform.root.GetComponentsInChildren<Collider>(true))
+        {
+            if (collider.isTrigger || !collider.enabled || !collider.gameObject.activeInHierarchy) continue;
+            var box = collider as BoxCollider;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 sign = new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f);
+                Vector3 point = box != null
+                    ? box.transform.TransformPoint(box.center + Vector3.Scale(box.size * .5f, sign))
+                    : collider.bounds.center + Vector3.Scale(collider.bounds.extents, sign);
+                point = inverse * (point - root.transform.position);
+                if (!any) { uprightBounds = new Bounds(point, Vector3.zero); any = true; }
+                else uprightBounds.Encapsulate(point);
+            }
+        }
+        if (!any) uprightBounds = new Bounds(new Vector3(0f, -.35f, 0f), new Vector3(1.6f, .9f, 1.6f));
+        uprightFeet = new Vector3[legs.Length];
+        for (int i = 0; i < legs.Length; i++)
+        {
+            var box = legs[i].GetComponentInChildren<BoxCollider>(true);
+            Vector3 foot = box != null ? box.transform.TransformPoint(box.center + Vector3.down * box.size.y * .5f) : legs[i].transform.position;
+            uprightFeet[i] = inverse * (foot - root.transform.position);
+        }
+    }
+
+    Bounds UprightEnvelope()
+    {
+        Bounds result = uprightBounds;
+        if (tennisRef == null) tennisRef = transform.root.GetComponentInChildren<TennisMode>(true);
+        if (tennisRef != null && tennisRef.active && uprightFeet != null)
+        {
+            Vector3 scale = root.transform.lossyScale;
+            float radius = tennisRef.ballRadius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            foreach (var foot in uprightFeet)
+            {
+                result.Encapsulate(foot - Vector3.one * radius);
+                result.Encapsulate(foot + Vector3.one * radius);
+            }
+        }
+        return result;
+    }
+
+    bool FindUprightSpace(Vector2 requested, float fromY, Quaternion rotation, out Vector3 result)
+    {
+        Physics.SyncTransforms();
+        if (recovery == null) recovery = new UprightRecoverySearch(transform.root);
+        recovery.Begin(UprightEnvelope(), rotation, keepYIfNoGround);
+        Vector3 origin = new Vector3(requested.x, fromY - .05f, requested.y);
+        Vector2 bias = Vector2.zero;
+        if (safeUprightHistory.Count > 0)
+            bias = new Vector2(safeUprightHistory[0].x - origin.x, safeUprightHistory[0].z - origin.z);
+        else if (Camera.main != null)
+            bias = new Vector2(Camera.main.transform.position.x - origin.x, Camera.main.transform.position.z - origin.z);
+        if (recovery.Find(origin, 18f, true, bias, out result)) return true;
+
+        // A closed door or a low enclosure can make every local point inaccessible.
+        // Recover to a previously occupied safe area, rechecking it against current geometry.
+        safeUprightHistory.Sort((a, b) => (a - origin).sqrMagnitude.CompareTo((b - origin).sqrMagnitude));
+        foreach (var safe in safeUprightHistory)
+            if (recovery.Find(safe, 4f, false, Vector2.zero, out result, safe.y + UprightEnvelope().min.y - .08f)) return true;
+        if (recovery.FindLastBank(out result)) return true;
+        if (haveRecoverySpawn)
+        {
+            if (recovery.Find(recoverySpawn, 12f, false, Vector2.zero, out result, recoverySpawnFloor)) return true;
+        }
+        else if (keepYIfNoGround && recovery.Find(initPos, 12f, false, Vector2.zero, out result)) return true;
+        return false;
+    }
+
+    void RememberSafeUprightPose()
+    {
+        if (root == null || root.immovable || root.transform.up.y < .8f || root.linearVelocity.sqrMagnitude > 2f) return;
+        if (recovery == null) recovery = new UprightRecoverySearch(transform.root);
+        int supported = 0;
+        foreach (var leg in legs)
+        {
+            var box = leg != null ? leg.GetComponentInChildren<BoxCollider>() : null;
+            if (box == null) continue;
+            var foot = box.transform.TransformPoint(box.center + Vector3.down * box.size.y * .5f);
+            if (recovery.Ground(new Vector2(foot.x, foot.z), foot.y + .12f, .35f, out _)) supported++;
+        }
+        if (supported < 2 && !keepYIfNoGround) return;
+        recovery.Begin(UprightEnvelope(), Quaternion.Euler(0f, root.transform.eulerAngles.y, 0f), keepYIfNoGround);
+        if (!recovery.TryAt(root.transform.position, out var safe)) return;
+        for (int i = safeUprightHistory.Count - 1; i >= 0; i--)
+            if ((safeUprightHistory[i] - safe).sqrMagnitude < 1f) safeUprightHistory.RemoveAt(i);
+        safeUprightHistory.Insert(0, safe);
+        if (safeUprightHistory.Count > 24) safeUprightHistory.RemoveAt(24);
+    }
+
+    void QueueAutomaticRecovery(bool charge)
+    {
+        if (pendingPoseRecovery || !isActiveAndEnabled) return;
+        pendingPoseRecovery = true; pendingPoseCharge = charge;
+        nextAutomaticRecovery = Time.unscaledTime + .35f;
+    }
+
+    void TryPendingRecovery()
+    {
+        if (!pendingPoseRecovery) return;
+        if (root == null || !CheckpointRuntime.Authority) { CancelAutomaticRecovery(); return; }
+        if (Time.timeScale <= 0f || PauseMenu.InputBlocked || LetterOverlay.IsOpen || root.immovable) return;
+        if (pendingPoseCharge && !Unlimited && poseResetsLeft <= 0) { CancelAutomaticRecovery(); return; }
+        if (!TryResetPoseInPlace()) return;
+        if (pendingPoseCharge) { PoseResetCount++; if (!Unlimited) poseResetsLeft = Mathf.Max(0, poseResetsLeft - 1); }
+        CancelAutomaticRecovery();
+    }
+
+    void CancelAutomaticRecovery()
+    {
+        pendingPoseRecovery = pendingPoseCharge = false;
+    }
+
+    void OnDisable() { CancelAutomaticRecovery(); }
 
     void Update()
     {
         var kb = Keyboard.current;
-        if (kb == null || root == null) return;
+        if (kb == null || root == null || PauseMenu.InputBlocked || LetterOverlay.IsOpen) return;
         if (!disableManualReset && kb.f1Key.wasPressedThisFrame) Restart();
         if (!disableManualReset && kb.digit1Key.wasPressedThisFrame) TryPoseReset();   // ★부활: 맵당 3회 충전제
 
@@ -240,10 +383,20 @@ public class ArtSceneReset : MonoBehaviour
         ice = transform.root.GetComponentInChildren<IcePower>(true);
     }
 
+    public void DrawPoseCharges(Rect rect)
+    {
+        if(disableManualReset || inMenuScene)return;
+        EnsureUiAssets();
+        int left=Unlimited?3:Mathf.Clamp(poseResetsLeft,0,3);
+        if(pieTex[left]!=null)GUI.DrawTexture(rect,pieTex[left],ScaleMode.ScaleToFit,true);
+        else {float d=rect.width/3;for(int i=0;i<3;i++)GUI.DrawTexture(new Rect(rect.x+i*d,rect.center.y-d/2,d,d),i<left?circleFull:circleEmpty);}
+    }
+
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (disableManualReset || inMenuScene) return;   // 규칙 씬/시작 화면에선 숨김
+        var hud=GetComponent<AbilityHud>();if(hud!=null && hud.isActiveAndEnabled)return;
         EnsureUiAssets();
 
         // ── 우상단 '자세 다시 잡기' 충전 UI — 3등분 파이(마리오 갤럭시식, 손그림) + 중앙 모드 아이콘 ──
@@ -279,11 +432,20 @@ public class ArtSceneReset : MonoBehaviour
     /// <summary>F1/[다시 시작] 버튼: 처음 스폰 위치에서 재스폰. 정글은 강을 건넌 뒤면
     /// JungleStage가 '지금 있던 쪽' 안전 지점(체크포인트 규칙)으로 가로챈다.</summary>
     /// <summary>★2026-09-18 씬 안 시작 지점(SceneSpawnPoints)이 바뀔 때 F1 기준점·워치독 안전 XZ를 그 자리로.</summary>
-    public void SetSpawn(Vector3 p) { initPos = p; lastGoodXZ = new Vector2(p.x, p.z); haveGoodXZ = true; }
+    public void SetSpawn(Vector3 p) { initPos = p; lastGoodXZ = new Vector2(p.x, p.z); haveGoodXZ = true; CaptureRecoverySpawn(); }
+
+    void CaptureRecoverySpawn()
+    {
+        if (recovery == null) recovery = new UprightRecoverySearch(transform.root);
+        haveRecoverySpawn = recovery.Ground(new Vector2(initPos.x, initPos.z), initPos.y + .1f, 2000f, out recoverySpawnFloor);
+        if (haveRecoverySpawn) recoverySpawn = new Vector3(initPos.x, recoverySpawnFloor - UprightEnvelope().min.y + .08f, initPos.z);
+    }
 
     public void Restart()
     {
-        if (root == null || disableManualReset) return;
+        if (root == null || disableManualReset || !CheckpointRuntime.Authority) return;
+        CancelAutomaticRecovery();
+        if(CheckpointRuntime.Instance!=null&&CheckpointRuntime.Instance.Respawn())return;
         var js = Object.FindAnyObjectByType<JungleStage>();
         if (js != null && js.RestartRespawn(this)) return;
         // ★2026-09-04 광차(IceCavern): 정거장으로 되돌리고 복구 기준 초기화
@@ -292,19 +454,23 @@ public class ArtSceneReset : MonoBehaviour
         ResetPoseAtXZ(initPos.x, initPos.z, initPos.y + 2f);
     }
 
-    /// <summary>'1': 지금 자리(XZ)·카메라 방향(yaw) 유지, 기울기/다리만 똑바로.
-    /// 지면 스캔을 '테이블 바로 위'에서 → 옆 건물 옥상이 아니라 테이블이 딛고 선 땅을 잡는다.</summary>
-    public void ResetPoseInPlace()
+    /// <summary>'1': 현재 XZ부터 시작해 근처의 안전한 자리를 찾고 카메라 방향으로 바로선다.
+    /// 근처가 막히면 기억한 안전 구역까지 탐색하고, 동적 장애물로 막혔다면 자동 재시도한다.</summary>
+    public void ResetPoseInPlace() { if (!TryResetPoseInPlace()) QueueAutomaticRecovery(false); }
+
+    public bool TryResetPoseInPlace()
     {
-        if (root == null) return;
+        if (root == null || !CheckpointRuntime.Authority) return false;
         var p = root.transform.position;
-        ResetPoseInternal(new Vector2(p.x, p.z), p.y + 0.5f);
+        if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z)) return false;
+        return ResetPoseInternal(new Vector2(p.x, p.z), p.y + .05f, true);
     }
 
     /// <summary>지정 XZ의 땅 위에 복원(용암 사망 → 안전한 땅 리스폰용). 고지대로 보낼 수 있어 높은 곳에서 스캔.</summary>
     public void ResetPoseAtXZ(float x, float z)
     {
         if (root == null) return;
+        CancelAutomaticRecovery();
         ResetPoseInternal(new Vector2(x, z), 500f);
     }
 
@@ -312,13 +478,12 @@ public class ArtSceneReset : MonoBehaviour
     public void ResetPoseAtXZ(float x, float z, float scanFromY)
     {
         if (root == null) return;
+        CancelAutomaticRecovery();
         ResetPoseInternal(new Vector2(x, z), scanFromY);
     }
 
-    void ResetPoseInternal(Vector2 xz, float scanFromY)
+    bool ResetPoseInternal(Vector2 xz, float scanFromY, bool avoidObstacles = false)
     {
-        // ★2026-09-04 테니스공 조인트 먼저 전부 놓기(광차/벽에 붙은 채 순간이동 방지)
-        foreach (var tm in Object.FindObjectsByType<TennisMode>(FindObjectsSortMode.None)) if (tm != null) tm.ReleaseAll();
         // ★ yaw = 카메라가 보는 방향(원본과 동일) — 리셋 후 조작-화면 매핑 일관. 폴백=현재 yaw, NaN→0.
         float yaw = root.transform.eulerAngles.y;
         var cam = Camera.main;
@@ -336,13 +501,18 @@ public class ArtSceneReset : MonoBehaviour
         if (!grounded && keepYIfNoGround) gy = root.transform.position.y - lift;   // 무중력: 지금 높이에서 자세만 복원
         if (!float.IsFinite(gy)) gy = 30f;
 
-        root.TeleportRoot(new Vector3(xz.x, gy + lift, xz.y), rot);
-        root.linearVelocity = Vector3.zero;
-        root.angularVelocity = Vector3.zero;
-        foreach (var l in legs) if (l != null) { l.ResetState(); l.HoldVertical(verticalHoldSeconds); }
+        Vector3 destination = new Vector3(xz.x, gy + lift, xz.y);
+        if (avoidObstacles && !FindUprightSpace(xz, scanFromY, rot, out destination)) return false;
 
+        // Only release attachments after a safe destination has been found.
+        foreach (var tm in transform.root.GetComponentsInChildren<TennisMode>(true)) tm.ReleaseAll();
+        foreach (var l in legs) if (l != null) { l.ResetState(); l.HoldVertical(verticalHoldSeconds); }
         var gm = GetComponentInChildren<GiraffeMode>(true);
-        if (gm == null) gm = FindAnyObjectByType<GiraffeMode>();
         if (gm != null) gm.ResetLegs();
+        root.TeleportRoot(destination, rot);
+        foreach (var body in bodies)
+            if (body != null) { body.linearVelocity = Vector3.zero; body.angularVelocity = Vector3.zero; }
+        Physics.SyncTransforms();
+        return true;
     }
 }

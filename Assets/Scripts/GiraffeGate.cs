@@ -136,4 +136,10 @@ public class GiraffeGate : MonoBehaviour
         yield return new WaitForSeconds(cutsceneHold);
         if (follow != null) follow.enabled = true;
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines();opened=true;
+        if(lid!=null)lid.gameObject.SetActive(false);
+    }
+
 }

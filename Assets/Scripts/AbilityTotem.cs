@@ -4,7 +4,7 @@ using UnityEngine;
 /// ★ 모험 맵(Adventure) 능력 토템 — 테이블이 가까이 오면 능력 하나를 해금/발동한다.
 /// SnowmanDummy(눈사람 접촉 해금) 패턴의 일반화: kind로 기린/얼음/오징어 선택.
 /// - Giraffe: GiraffeMode.locked=false (켜기는 플레이어가 2번 키)
-/// - Ice:     IcePower.unlocked=true (켜기는 3번 키)
+/// - Ice:     IcePower.unlocked=true (켜기는 4번 키)
 /// - Squid:   SquidMode unlocked+active 즉시 발동(무중력) + 기린 잠금(E/Y/O/] 키 충돌 방지) + 얼음 해제
 /// 획득 순간 상단에 UiKit 칩 안내문을 messageTime초 표시. "Orb" 자식은 봉투처럼 bob+회전 연출.
 /// </summary>
@@ -54,15 +54,15 @@ public class AbilityTotem : MonoBehaviour
         {
             case Kind.Giraffe:
                 var g = FindAnyObjectByType<GiraffeMode>();
-                if (g != null) { g.locked = false; GiraffeMode.Unlocked = true; }
+                if (g != null) { g.locked = false; GiraffeMode.Unlocked = true; AbilityHud.Acquire(g, "giraffe"); }
                 break;
             case Kind.Ice:
                 var ice = FindAnyObjectByType<IcePower>();
-                if (ice != null) ice.unlocked = true;
+                if (ice != null) { ice.unlocked = true; AbilityHud.Acquire(ice, "ice"); }
                 break;
             case Kind.Squid:
                 var sq = FindAnyObjectByType<SquidMode>();
-                if (sq != null) { sq.unlocked = true; sq.active = true; }
+                if (sq != null) { sq.unlocked = true; sq.active = true; AbilityHud.Acquire(sq, "squid"); }
                 var g2 = FindAnyObjectByType<GiraffeMode>();
                 if (g2 != null) { g2.active = false; g2.locked = true; }
                 var ice2 = FindAnyObjectByType<IcePower>();

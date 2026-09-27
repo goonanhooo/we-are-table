@@ -20,8 +20,11 @@ public class LetterPickup : MonoBehaviour
     Vector3 visualBase;
     float lastShow = -999f;
 
+    void Awake() { if (!LetterSystem.Enabled) gameObject.SetActive(false); }
+
     void Start()
     {
+        if (!LetterSystem.Enabled) { gameObject.SetActive(false); return; }
         // 이미 수집한 편지는 다시 안 나타남(재열람은 메뉴에서)
         if (LetterSystem.IsCollected(letterId)) { gameObject.SetActive(false); return; }
         var v = transform.Find("Visual");
@@ -41,6 +44,7 @@ public class LetterPickup : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        if(!LetterSystem.Enabled || !CheckpointRuntime.Authority)return;
         if (Time.unscaledTime - lastShow < cooldown) return;
         Transform bodyRoot = other.attachedRigidbody != null ? other.attachedRigidbody.transform.root
                            : other.attachedArticulationBody != null ? other.attachedArticulationBody.transform.root : null;

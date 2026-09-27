@@ -21,10 +21,14 @@ public class CameraFollow : MonoBehaviour
     public float distance = 6f;
     [Tooltip("대상 피벗의 높이 오프셋(대상의 중심보다 위를 바라보게 함)")]
     public float height = 1.5f;
+    [Tooltip("천장을 올려다볼 때 시선 중심을 높여 테이블 상판에 시야가 막히지 않게 함")]
+    [Min(0f)] public float lookUpPivotLift = 0.9f;
+    public Vector3 FocusPosition => target.position + Vector3.up *
+        (height + lookUpPivotLift * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(10f, 55f, -pitch)));
 
     [Header("Mouse Look")]
     public float mouseSensitivity = 0.12f;
-    public float minPitch = -10f;
+    public float minPitch = -65f;
     public float maxPitch = 75f;
     [Tooltip("시작 시 커서를 잠글지 여부. (ESC는 PauseMenu 일시정지가 담당)")]
     public bool lockCursor = true;
@@ -37,6 +41,8 @@ public class CameraFollow : MonoBehaviour
     public LayerMask collisionMask = ~0;
     [Tooltip("막힘이 풀릴 때 원래 거리로 돌아가는 속도(m/s)")] public float collisionRecover = 8f;
     float curDist = -1f;
+    CameraOcclusionFade occlusionFade;
+    CameraGroundGuard groundGuard;
 
     /// <summary>[검증/컷씬용] 시점 각도 직접 설정.</summary>
     public void SetYawPitch(float y, float p) { yaw = y; pitch = Mathf.Clamp(p, minPitch, maxPitch); }
@@ -71,6 +77,9 @@ public class CameraFollow : MonoBehaviour
         Vector3 e = transform.eulerAngles;
         yaw = e.y;
 
+        occlusionFade = CameraOcclusionFade.For(GetComponent<Camera>());
+        if (occlusionFade != null) occlusionFade.target = target;
+        groundGuard = GetComponent<CameraGroundGuard>();
         SetCursor(lockCursor);
     }
 
@@ -118,26 +127,35 @@ public class CameraFollow : MonoBehaviour
         }
 
         Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
-        Vector3 pivot = target.position + Vector3.up * height;
+        Vector3 pivot = FocusPosition;
         // ★대상(테이블)이 NaN/폭발로 비정상 위치가 되면 카메라를 따라보내지 않는다(이전 위치 유지).
         //   안 그러면 카메라/오디오리스너가 non-finite가 되어 'IsFinite(distanceAlongView)','Invalid worldAABB' 어설션 폭주.
         if (!Sane(pivot)) return;
-        float useDist = distance;
+        float desiredDistance = distance;
+        Vector3 backward = -(rot * Vector3.forward);
+        // Shorten the orbit before reaching the supporting floor. Keep the requested
+        // pitch, even when the camera is beyond a platform edge and a cast misses it.
+        if (groundGuard != null && groundGuard.enabled && backward.y < -.001f
+            && groundGuard.TrySupportHeight(target, distance + 4f, collisionMask, out float floor))
+            desiredDistance = Mathf.Min(desiredDistance,
+                Mathf.Max(.1f, (pivot.y - floor - groundGuard.SafeRadius - .03f) / -backward.y));
+        float useDist = desiredDistance;
         if (collide)
         {
             // 피벗에서 카메라 방향으로 구체 캐스트 — 테이블 자신은 제외, 트리거 제외
-            Vector3 dir = -(rot * Vector3.forward);
-            float blocked = distance;
-            var hits = Physics.SphereCastAll(pivot, collisionRadius, dir, distance, collisionMask, QueryTriggerInteraction.Ignore);
+            Vector3 dir = backward;
+            float blocked = desiredDistance;
+            var hits = Physics.SphereCastAll(pivot, collisionRadius, dir, desiredDistance, collisionMask, QueryTriggerInteraction.Ignore);
             foreach (var h in hits)
             {
                 if (h.collider == null || h.collider.transform.root == target.root) continue;
+                if (occlusionFade != null && occlusionFade.CanFadeCollider(h.collider)) continue;
                 if (h.distance <= 0f) continue;   // 시작점부터 겹침(피벗이 이미 벽 속) — 무시
                 if (h.distance < blocked) blocked = h.distance;
             }
             if (curDist < 0f) curDist = distance;
             curDist = blocked < curDist ? blocked : Mathf.MoveTowards(curDist, blocked, collisionRecover * Time.deltaTime);
-            useDist = Mathf.Max(0.6f, curDist);
+            useDist = Mathf.Min(desiredDistance, Mathf.Max(0.6f, curDist));
         }
         Vector3 pos = pivot - rot * Vector3.forward * useDist;
         if (!Sane(pos)) return;

@@ -11,6 +11,22 @@ using UnityEngine;
 /// </summary>
 public class NetStageSync : NetworkBehaviour
 {
+    readonly NetworkVariable<Unity.Collections.FixedString4096Bytes> checkpointRestore = new(default,
+        NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<Unity.Collections.FixedString4096Bytes> reachedCheckpoint=new(default,NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
+    string receivedCheckpoint="";
+    bool restoredCheckpoint;
+    public void PublishCheckpoint(CheckpointProgress.Snapshot point)
+    {
+        if(IsSpawned&&IsServer)reachedCheckpoint.Value=new Unity.Collections.FixedString4096Bytes(JsonUtility.ToJson(point));
+    }
+    [Rpc(SendTo.NotServer)]
+    void CheckpointReachedRpc(string json,RpcParams rpc=default)
+    {
+        if(rpc.Receive.SenderClientId!=Unity.Netcode.NetworkManager.ServerClientId)return;
+        CheckpointRuntime.ReceiveReached(json);
+    }
+
     readonly NetworkVariable<bool> cagePressed = new(false,
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     readonly NetworkVariable<bool> gateOpened = new(false,
@@ -69,6 +85,8 @@ public class NetStageSync : NetworkBehaviour
     StageTimer stageTimer;
     CavernChairCutscene cavernChair;
     MoonHomeEnding moonEnding;
+    MoonKitchenEnding kitchenEnding;
+    readonly NetworkVariable<double> kitchenEndingStartTime = new(0.0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     bool guestRocket, guestSpaceIntro, guestMoon, guestCleared, guestCavernChair, guestMoonEnding;
     bool guestFrame, guestClimb;
     Rigidbody headRb;
@@ -79,6 +97,7 @@ public class NetStageSync : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        if(IsServer)checkpointRestore.Value=new Unity.Collections.FixedString4096Bytes(CheckpointRuntime.LoadingJson);
         cage = FindAnyObjectByType<CageButton>();
         gate = FindAnyObjectByType<GiraffeGate>();
         snowman = FindAnyObjectByType<SnowmanCutscene>();
@@ -91,14 +110,16 @@ public class NetStageSync : NetworkBehaviour
         stageTimer = FindAnyObjectByType<StageTimer>();
         cavernChair = FindAnyObjectByType<CavernChairCutscene>();
         moonEnding = FindAnyObjectByType<MoonHomeEnding>();
+        kitchenEnding = FindAnyObjectByType<MoonKitchenEnding>();
         var head = GameObject.Find("SnowmanHead");
         if (head != null) headRb = head.GetComponent<Rigidbody>();
 
         // 편지: letterId 정렬로 호스트/게스트 인덱스 일치
-        letters = FindObjectsByType<LetterPickup>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        letters = LetterSystem.Enabled ? FindObjectsByType<LetterPickup>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            : System.Array.Empty<LetterPickup>();
         System.Array.Sort(letters, (a, b) => string.CompareOrdinal(a.letterId, b.letterId));
         letterWasActive = new bool[letters.Length];
-        for (int i = 0; i < letters.Length; i++) letterWasActive[i] = letters[i].gameObject.activeSelf;
+        for (int i = 0; i < letters.Length; i++) letterWasActive[i] = letters[i].gameObject.activeSelf && !LetterSystem.IsCollected(letters[i].letterId);
 
         if (!IsServer)
         {
@@ -112,14 +133,20 @@ public class NetStageSync : NetworkBehaviour
             if (moonCapture != null) moonCapture.netRemoteDriven = true;
             if (cavernChair != null) cavernChair.netRemoteDriven = true;
             if (moonEnding != null) moonEnding.netRemoteDriven = true;
+            if (kitchenEnding != null) kitchenEnding.netRemoteDriven = true;
         }
     }
 
     void Update()
     {
         if (!IsSpawned) return;
+        if(!IsServer&&!restoredCheckpoint&&checkpointRestore.Value.Length>0&&CheckpointRuntime.Instance!=null)
+        {CheckpointRuntime.ReceiveRestore(checkpointRestore.Value.ToString());restoredCheckpoint=true;}
+
         if (IsServer)
         {
+            string reached=CheckpointRuntime.Instance!=null?CheckpointRuntime.Instance.ReachedJson:null;
+            if(!string.IsNullOrEmpty(reached)&&reachedCheckpoint.Value.ToString()!=reached)reachedCheckpoint.Value=new Unity.Collections.FixedString4096Bytes(reached);
             if (cage != null && cage.PressedState && !cagePressed.Value) cagePressed.Value = true;
             if (gate != null && gate.Opened && !gateOpened.Value) gateOpened.Value = true;
             if (snowman != null && snowman.Started && !snowmanPlayed.Value) snowmanPlayed.Value = true;
@@ -136,6 +163,8 @@ public class NetStageSync : NetworkBehaviour
             if (stageTimer != null && stageTimer.Cleared && !stageCleared.Value) stageCleared.Value = true;
             if (cavernChair != null && cavernChair.Started && !cavernChairStarted.Value) cavernChairStarted.Value = true;
             if (moonEnding != null && moonEnding.Started && !moonEndingStarted.Value) moonEndingStarted.Value = true;
+            if (kitchenEnding != null && kitchenEnding.Started && !moonEndingStarted.Value)
+            { kitchenEndingStartTime.Value = kitchenEnding.StartServerTime; moonEndingStarted.Value = true; }
             if (ArtSceneReset.PoseResetCount != poseResets.Value) poseResets.Value = ArtSceneReset.PoseResetCount;
             if (rail != null)
             {
@@ -152,6 +181,8 @@ public class NetStageSync : NetworkBehaviour
         }
         else
         {
+            string reached=reachedCheckpoint.Value.ToString();
+            if(!string.IsNullOrEmpty(reached)&&reached!=receivedCheckpoint){CheckpointRuntime.ReceiveReached(reached);receivedCheckpoint=reached;}
             if (cagePressed.Value && !guestCage) { guestCage = true; if (cage != null) cage.PlayRemote(); }
             if (gateOpened.Value && !guestGate) { guestGate = true; if (gate != null && !gate.Opened) gate.ForceOpen(); }
             if (snowmanPlayed.Value && !guestSnowman) { guestSnowman = true; if (snowman != null) snowman.PlayRemote(); }
@@ -175,7 +206,12 @@ public class NetStageSync : NetworkBehaviour
             if (moonCaptured.Value && !guestMoon) { guestMoon = true; if (moonCapture != null) moonCapture.PlayRemote(); }
             if (stageCleared.Value && !guestCleared) { guestCleared = true; if (stageTimer != null && !stageTimer.Cleared) stageTimer.Clear(); }
             if (cavernChairStarted.Value && !guestCavernChair) { guestCavernChair = true; if (cavernChair != null) cavernChair.PlayRemote(); }
-            if (moonEndingStarted.Value && !guestMoonEnding) { guestMoonEnding = true; if (moonEnding != null) moonEnding.PlayRemote(); }
+            if (moonEndingStarted.Value && !guestMoonEnding)
+            {
+                guestMoonEnding = true;
+                if (kitchenEnding != null) kitchenEnding.PlayRemote(Mathf.Max(0f,(float)(NetworkManager.ServerTime.Time-kitchenEndingStartTime.Value)));
+                else if (moonEnding != null) moonEnding.PlayRemote();
+            }
             ArtSceneReset.PoseResetCount = poseResets.Value;   // 게스트: 호스트 횟수 표시
             // 편지: 호스트가 주우면 전원 함께 수집(협동 공유 진행)
             int fresh = letterBits.Value & ~guestLetterSeen;

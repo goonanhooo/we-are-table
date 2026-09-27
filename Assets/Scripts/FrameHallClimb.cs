@@ -359,7 +359,7 @@ public class FrameHallClimb : MonoBehaviour
             SetCam(camW, lookW); yield return null;
         }
         if (orbIsScene) orbGo.SetActive(false); else Object.Destroy(orbGo);
-        if (tennis != null && !netGuest) tennis.unlocked = true;
+        if (tennis != null && !netGuest) { tennis.unlocked = true; AbilityHud.Acquire(tennis, "tennis"); }
         yield return FlashTable(camW, lookW);
 
         // 4) ★어깨 너머 시점: 테이블 뒤에 가만히 서서 시선만 애벌레를 따라감(벽을 타고 구멍으로 퇴장)
@@ -393,7 +393,11 @@ public class FrameHallClimb : MonoBehaviour
         FreezeTable(false);
         StartCoroutine(SpotFadeOut(1.6f));
         cutsceneDone = true;
-        if (guideTex != null) { showGuide = true; guideShownAt = Time.time; }
+        if(!netGuest)CheckpointRuntime.Milestone(6);
+        // The live key tutorial replaces the old full-screen controls sheet.
+        var tutorial = tennis != null ? tennis.GetComponent<KeyTutorial>() : null;
+        if (guideTex != null && (tutorial == null || !tutorial.isActiveAndEnabled))
+        { showGuide = true; guideShownAt = Time.time; }
     }
 
     /// <summary>발광 도중(40%) TennisMode ON — 모은 공 제거(모드 공으로 교체됨).</summary>
@@ -640,7 +644,7 @@ public class FrameHallClimb : MonoBehaviour
             float ar = 16f / 9f;
             float w = availW, h = w / ar;
             if (h > availH) { h = availH; w = h * ar; }
-            GUI.DrawTexture(new Rect((Screen.width - w) * 0.5f, top + (availH - h) * 0.5f, w, h), guideTex, ScaleMode.ScaleToFit, true);
+            LocalizedControlGuide.Draw(new Rect((Screen.width - w) * 0.5f, top + (availH - h) * 0.5f, w, h),guideTex);
             GUI.Label(new Rect(0f, Screen.height - 52f, Screen.width, 30f),
                 L.T("클릭하면 시작!", "click to start!"), txt);
             if (Time.time - guideShownAt > 0.6f && Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
@@ -661,7 +665,7 @@ public class FrameHallClimb : MonoBehaviour
                 var r = new Rect(bcx - bw * 0.5f, bcy - bh * 0.5f, bw, bh);
                 r.x = Mathf.Max(8f, r.x);
                 r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
-                GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
+                LocalizedStoryBubble.Draw(r,currentBubble==bubble2,true,new Vector2(sp.x,Screen.height-sp.y));
             }
         }
 
@@ -700,4 +704,14 @@ public class FrameHallClimb : MonoBehaviour
         }
         GUI.color = pc;
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines();cutsceneStarted=cutsceneDone=true;currentBubble=null;showGuide=false;
+        if(looseBalls!=null)foreach(var b in looseBalls)if(b!=null)b.gameObject.SetActive(false);
+        if(carried!=null)foreach(var b in carried)if(b!=null)b.gameObject.SetActive(false);
+        if(cutsceneChain!=null)cutsceneChain.gameObject.SetActive(false);
+        if(goodbyeCat!=null)goodbyeCat.gameObject.SetActive(false);
+        if(orb!=null)orb.SetActive(false);if(cutsceneSpot!=null)cutsceneSpot.enabled=false;
+    }
+
 }

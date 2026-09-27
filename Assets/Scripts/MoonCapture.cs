@@ -43,7 +43,7 @@ public class MoonCapture : MonoBehaviour
         if ((tableRoot.transform.position - moon.position).sqrMagnitude < captureRadius * captureRadius) Play();
     }
 
-    public void Play() { if (started) return; started = true; remote = false; StartCoroutine(Run()); }
+    public void Play() { if (started) return; CheckpointRuntime.Milestone(12); started = true; remote = false; StartCoroutine(Run()); }
     public void PlayRemote() { if (started) return; started = true; remote = true; StartCoroutine(Run()); }
 
     IEnumerator Run()

@@ -49,7 +49,7 @@ public class PerTableMode : NetworkBehaviour
     {
         ulong v = OwnerOfSlot(i);
         if (v == NONE) return "-";
-        return v == NetworkManager.ServerClientId ? "호스트" : "P" + v;
+        return v == NetworkManager.ServerClientId ? L.T("호스트","host") : "P" + v;
     }
 
     /// <summary>트리거에 들어온 콜라이더가 몇 번 슬롯 테이블인지(-1=테이블 아님/미배정).</summary>

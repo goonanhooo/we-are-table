@@ -13,16 +13,40 @@ public class CoinPickup : MonoBehaviour
     public float spinSpeed = 120f;
 
     bool collected;
+    Renderer[] visuals;
+    Collider[] colliders;
+    bool[] visualEnabled, colliderEnabled;
+    bool hidden;
+
+    void Awake()
+    {
+        visuals = GetComponentsInChildren<Renderer>(true);
+        colliders = GetComponentsInChildren<Collider>(true);
+        visualEnabled = new bool[visuals.Length]; colliderEnabled = new bool[colliders.Length];
+        for (int i = 0; i < visuals.Length; i++) visualEnabled[i] = visuals[i].enabled;
+        for (int i = 0; i < colliders.Length; i++) colliderEnabled[i] = colliders[i].enabled;
+        ApplyDifficulty();
+    }
+
+    void ApplyDifficulty()
+    {
+        if (visuals == null) return;
+        hidden = Difficulty.Coward;
+        for (int i = 0; i < visuals.Length; i++) if (visuals[i] != null) visuals[i].enabled = !hidden && visualEnabled[i];
+        for (int i = 0; i < colliders.Length; i++) if (colliders[i] != null) colliders[i].enabled = !hidden && colliderEnabled[i];
+    }
 
     void Update()
     {
+        if (hidden != Difficulty.Coward) ApplyDifficulty();
+        if (hidden) return;
         if (spin != null)
             spin.Rotate(0f, spinSpeed * Time.deltaTime, 0f, Space.World);
     }
 
     void OnTriggerEnter(Collider other)
     {
-        if (collected) return;
+        if (collected || Difficulty.Coward || !CheckpointRuntime.Authority) return;
         Transform bodyRoot = other.attachedRigidbody != null ? other.attachedRigidbody.transform.root
                            : other.attachedArticulationBody != null ? other.attachedArticulationBody.transform.root : null;
         if (bodyRoot == null) return;

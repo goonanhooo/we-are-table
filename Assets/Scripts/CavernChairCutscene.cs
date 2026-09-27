@@ -141,4 +141,6 @@ public class CavernChairCutscene : MonoBehaviour
         Gizmos.DrawWireCube(new Vector3(cx, (stationMinY + stationMaxY) * 0.5f, (stationMinZ + stationMaxZ) * 0.5f), new Vector3(stationHalfX * 2f, stationMaxY - stationMinY, stationMaxZ - stationMinZ));
         if (trackA != null) { trackA.Sample(); Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(trackA.PosAt(startU), 1.5f); }
     }
+    public void RestoreCompleted(){StopAllCoroutines();started=true;if(chairCart!=null)chairCart.gameObject.SetActive(false);}
+
 }

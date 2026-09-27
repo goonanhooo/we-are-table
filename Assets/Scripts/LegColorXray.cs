@@ -42,6 +42,14 @@ public class LegColorXray : MonoBehaviour
     readonly Vector3[] _buf = new Vector3[2];
     Material _mat;
     bool _on;
+    public const string PreferenceKey = "options.legColorXray";
+    int tutorialMask = -1;
+    readonly List<int> lineSlots = new List<int>();
+    public int VisibleLegMask => gameObject.scene.name == "StartScreen" ? 0 : tutorialMask >= 0 ? tutorialMask : (_on ? 15 : 0);
+    static readonly int[] DefaultSlots = { 3, 2, 1, 0 };
+    int Slot(int index) => _ctrl[index] != null ? (int)_ctrl[index].controlSet : DefaultSlots[index];
+    bool Visible(int slot) => (VisibleLegMask & (1 << slot)) != 0;
+
 
     // ★2026-07-14 v8: 입력 방향 화살표 — 색 모드 중 '키를 누르는 동안만' 그 다리 색 납작 삼각형이
     //   다리 옆 공중에 나타나 지금 명령한 이동/회전 방향(앞뒤 스윙=앞/뒤, 좌우 스핀=왼/오른쪽,
@@ -68,7 +76,7 @@ public class LegColorXray : MonoBehaviour
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && nm.IsListening)
         {
-            startOn = true;
+            if (!PlayerPrefs.HasKey(PreferenceKey)) startOn = true;
             lineWidth = Mathf.Max(lineWidth, 0.025f);
         }
 
@@ -134,6 +142,7 @@ public class LegColorXray : MonoBehaviour
                 lr.endColor = col;
                 lr.positionCount = 2;
 
+                lineSlots.Add(Slot(i));
                 _legOf.Add(leg);
                 _aLocal.Add(corners[Edges[e, 0]]);
                 _bLocal.Add(corners[Edges[e, 1]]);
@@ -141,7 +150,8 @@ public class LegColorXray : MonoBehaviour
             }
         }
 
-        SetOn(startOn);
+        _on = PlayerPrefs.GetInt(PreferenceKey, startOn ? 1 : 0) != 0;
+        ApplyVisibility();
     }
 
     /// <summary>납작 XZ 다각형(볼록) — 반투명 채움 메시 + 같은 색 진한 테두리 LineRenderer(로컬 좌표).
@@ -196,7 +206,7 @@ public class LegColorXray : MonoBehaviour
 
     void LateUpdate()
     {
-        if (!_on) return;
+        if (VisibleLegMask == 0) return;
         for (int i = 0; i < _lines.Count; i++)
         {
             var leg = _legOf[i];
@@ -218,7 +228,7 @@ public class LegColorXray : MonoBehaviour
         {
             if (_arrowGO[i] == null) continue;
             bool showArrow = false, showBar = false;
-            if (_on && _ctrl[i] != null && _tin != null && _legT[i] != null && _yawT[i] != null)
+            if (Visible(Slot(i)) && _ctrl[i] != null && _tin != null && _legT[i] != null && _yawT[i] != null)
             {
                 LegInput inp = _tin.Get(_ctrl[i].controlSet);
                 float fw = (inp.up ? 1f : 0f) - (inp.down ? 1f : 0f);
@@ -250,19 +260,32 @@ public class LegColorXray : MonoBehaviour
         }
     }
 
-    public void SetOn(bool value)
+    // Tutorial focus is temporary; it never overwrites the player's option.
+    public void SetTutorialMask(int mask)
+    {
+        mask = mask < 0 ? -1 : mask & 15;
+        if (tutorialMask == mask) return;
+        tutorialMask = mask;
+        ApplyVisibility();
+    }
+
+    public void SetOn(bool value, bool save = true)
     {
         _on = value;
-        foreach (var lr in _lines)
-            if (lr != null) lr.enabled = value;
-        if (!value)
+        if (save) { PlayerPrefs.SetInt(PreferenceKey, value ? 1 : 0); PlayerPrefs.Save(); }
+        ApplyVisibility();
+    }
+
+    void ApplyVisibility()
+    {
+        for (int i = 0; i < _lines.Count; i++)
+            if (_lines[i] != null) _lines[i].enabled = Visible(lineSlots[i]);
+        for (int i = 0; i < 4; i++) if (!Visible(Slot(i)))
         {
-            foreach (var g in _arrowGO)
-                if (g != null) g.SetActive(false);
-            foreach (var g in _spinGO)
-                if (g != null) g.SetActive(false);
+            if (_arrowGO[i] != null) _arrowGO[i].SetActive(false);
+            if (_spinGO[i] != null) _spinGO[i].SetActive(false);
         }
-        if (value) LateUpdate(); // 켜는 즉시 위치 갱신
+        if (VisibleLegMask != 0) LateUpdate();
     }
 
     public void Toggle() => SetOn(!_on);

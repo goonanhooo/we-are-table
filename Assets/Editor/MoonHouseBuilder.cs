@@ -237,6 +237,7 @@ public static class MoonHouseBuilder
         var chair = BorrowChair(H, wood);
         if (chair != null) { chair.SetPositionAndRotation(chairWait.position, chairWait.rotation); }
 
+        MoonHouseCeilingUpgrade.ApplyToHouse(H);
         // 엔딩 스크립트
         var endGo = new GameObject("MoonHomeEnding"); var end = endGo.AddComponent<MoonHomeEnding>();
         end.tablePlace = tablePlace; end.chair = chair; end.chairWait = chairWait; end.chairSeat = chairSeat; end.camFinal = camFinal; end.lamp = lamp; end.steam = steam; end.finalFov = 48f;

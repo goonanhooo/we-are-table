@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// 둥글지만 자연스러운(노이즈 해안선) 섬 지형을 절차적으로 생성한다.
@@ -95,6 +96,8 @@ public class IslandTerrain : MonoBehaviour
     public bool facetShading = false;
     [Tooltip("면별 밝기 지터(±) — '약간씩' 다르게. 0.05~0.08 권장.")]
     public float facetColorJitter = 0.06f;
+    [Tooltip("불규칙한 삼각형과 협곡 윤곽에 맞춘 면 분할. 평지 높이와 강 경로는 유지한다.")]
+    public bool naturalFacets = false;
 
     [Header("기린 케이지 아래 평탄화 — design 좌표")]
     public bool cageFlatten = true;
@@ -113,7 +116,8 @@ public class IslandTerrain : MonoBehaviour
     public float canyonRimNoise = 1.2f;
 
     /// <summary>협곡 림 절반 폭(노이즈 포함 대략 최대). 리스폰이 협곡 밖인지 판정에 사용. (월드 스케일 반영)</summary>
-    public float CanyonRimHalf => (canyonRimHalf + canyonRimNoise) * worldScale;
+    public float CanyonRimHalf => (Mathf.Max(0.4f, canyonFloorHalf + Mathf.Abs(canyonRimNoise))
+        + Mathf.Max(0.6f, canyonRimHalf - canyonFloorHalf)) * worldScale;
 
     Mesh mesh;
     Mesh physMesh;   // 페이셋 모드일 때 콜라이더용 공유 정점 메시(쿠킹 비용 절감 — 지오메트리는 동일)
@@ -149,6 +153,7 @@ public class IslandTerrain : MonoBehaviour
             h = h * 31 + (bankFlatten ? 1 : 0) + bankFlatA.GetHashCode() + bankFlatB.GetHashCode() + bankFlatRadius.GetHashCode() + bankFlatHeight.GetHashCode();
             h = h * 31 + (cageFlatten ? 1 : 0) + cageFlatCenter.GetHashCode() + cageFlatRadius.GetHashCode() + cageFlatHeight.GetHashCode();
             h = h * 31 + (facetShading ? 1 : 0) + facetColorJitter.GetHashCode();
+            h = h * 31 + (naturalFacets ? 1 : 0);
             if (riverPath != null) foreach (var p in riverPath) h = h * 31 + p.GetHashCode();
             return h;
         }
@@ -175,6 +180,12 @@ public class IslandTerrain : MonoBehaviour
                 int i = z * vside + x;
                 float wx = -half + x * step;
                 float wz = -half + z * step;
+                if (naturalFacets && x > 0 && x < res && z > 0 && z < res)
+                {
+                    // Move vertices horizontally only. Equal floor heights remain exactly equal.
+                    wx += (Hash01(i * 2 + seed) - 0.5f) * step * 0.6f;
+                    wz += (Hash01(i * 2 + seed + 7919) - 0.5f) * step * 0.6f;
+                }
                 float h = HeightDesign(wx, wz);   // design 좌표로 메시 생성 후 아래에서 worldScale 적용
                 verts[i] = new Vector3(wx, h, wz);
             }
@@ -191,20 +202,30 @@ public class IslandTerrain : MonoBehaviour
             }
         }
 
-        // 섬 전체를 worldScale 로 균등 축소(메시·콜라이더). 색/경사는 design 값으로 이미 계산됨(불변).
-        if (worldScale != 1f)
-            for (int i = 0; i < verts.Length; i++) verts[i] *= worldScale;
-
         int t = 0;
         for (int z = 0; z < res; z++)
         {
             for (int x = 0; x < res; x++)
             {
                 int i = z * vside + x;
-                tris[t++] = i; tris[t++] = i + vside; tris[t++] = i + 1;
-                tris[t++] = i + 1; tris[t++] = i + vside; tris[t++] = i + vside + 1;
+                int a=i, b=i+vside, c=i+1, d=i+vside+1;
+                bool alternate=naturalFacets && Hash01(i+seed+3571)>.5f;
+                if(naturalFacets)
+                {
+                    bool originalValid=Vector3.Cross(verts[b]-verts[a],verts[c]-verts[a]).y>0f
+                        && Vector3.Cross(verts[b]-verts[c],verts[d]-verts[c]).y>0f;
+                    bool alternateValid=Vector3.Cross(verts[b]-verts[a],verts[d]-verts[a]).y>0f
+                        && Vector3.Cross(verts[d]-verts[a],verts[c]-verts[a]).y>0f;
+                    alternate=alternateValid && (alternate || !originalValid);
+                }
+                if(alternate){tris[t++]=a;tris[t++]=b;tris[t++]=d;tris[t++]=a;tris[t++]=d;tris[t++]=c;}
+                else {tris[t++]=a;tris[t++]=b;tris[t++]=c;tris[t++]=c;tris[t++]=b;tris[t++]=d;}
             }
         }
+        if(naturalFacets && canyonRimNoise==0f)ConformCanyon(ref verts,ref cols,ref tris);
+        // Render and collision use the same refined surface.
+        if (worldScale != 1f)
+            for (int i = 0; i < verts.Length; i++) verts[i] *= worldScale;
 
         if (mesh == null) { mesh = new Mesh { name = "IslandMesh" }; mesh.hideFlags = HideFlags.DontSave; }
         mesh.Clear();
@@ -260,6 +281,67 @@ public class IslandTerrain : MonoBehaviour
         }
         else mc.sharedMesh = mesh;
         builtHash = hash;
+    }
+
+    // Split intersected triangles along both banks and both bottom edges. This removes
+    // the grid-sized stair steps without widening the gorge or rounding its floor upward.
+    void ConformCanyon(ref Vector3[] vertices,ref Color[] colors,ref int[] triangles)
+    {
+        float floor=Mathf.Max(.4f,canyonFloorHalf), rim=floor+Mathf.Max(.6f,canyonRimHalf-canyonFloorHalf);
+        float[] cuts={-rim,-floor,floor,rim};
+        var v=new List<Vector3>(vertices);var col=new List<Color>(colors);var signed=new List<float>(vertices.Length);
+        foreach(var p in vertices)signed.Add(SignedDesign(p.x,p.z)*DistDesign(p.x,p.z));
+        var output=new List<int>(triangles.Length+12000);
+        var intersections=new Dictionary<(int,int,int),int>();
+        int Intersection(int a,int b,int cut)
+        {
+            float level=cuts[cut];
+            if(Mathf.Abs(signed[a]-level)<.00001f)return a;
+            if(Mathf.Abs(signed[b]-level)<.00001f)return b;
+            int lo=Mathf.Min(a,b),hi=Mathf.Max(a,b);var key=(lo,hi,cut);
+            if(intersections.TryGetValue(key,out int found))return found;
+            float u=(level-signed[lo])/(signed[hi]-signed[lo]);
+            Vector3 p=Vector3.Lerp(v[lo],v[hi],u);
+            // Keep the intersection on its shared grid edge. Projecting it onto the
+            // river would fold triangles at bends and beyond the river endpoints.
+            p.y=HeightDesign(p.x,p.z);
+            int index=v.Count;v.Add(p);col.Add(VertexColor(p.x,p.z,p.y,0f));signed.Add(level);
+            intersections.Add(key,index);return index;
+        }
+        void Emit(List<int> polygon)
+        {
+            for(int k=1;k+1<polygon.Count;k++)
+            {
+                int a=polygon[0],b=polygon[k],c=polygon[k+1];
+                if(a==b||b==c||c==a)continue;
+                float area=Vector3.Cross(v[b]-v[a],v[c]-v[a]).y;
+                if(area==0f)continue;
+                output.Add(a);output.Add(area>0?b:c);output.Add(area>0?c:b);
+            }
+        }
+        for(int t=0;t<triangles.Length;t+=3)
+        {
+            int a=triangles[t],b=triangles[t+1],c=triangles[t+2];
+            float min=Mathf.Min(signed[a],Mathf.Min(signed[b],signed[c]));
+            float max=Mathf.Max(signed[a],Mathf.Max(signed[b],signed[c]));
+            bool split=false;foreach(float cut in cuts)if(min<cut && max>cut){split=true;break;}
+            if(!split){output.Add(a);output.Add(b);output.Add(c);continue;}
+            var remaining=new List<int>{a,b,c};
+            for(int cut=0;cut<cuts.Length && remaining.Count>=3;cut++)
+            {
+                var below=new List<int>(6);var above=new List<int>(6);
+                for(int k=0;k<remaining.Count;k++)
+                {
+                    int from=remaining[k],to=remaining[(k+1)%remaining.Count];
+                    bool fromBelow=signed[from]<=cuts[cut],toBelow=signed[to]<=cuts[cut];
+                    (fromBelow?below:above).Add(from);
+                    if(fromBelow!=toBelow){int at=Intersection(from,to,cut);below.Add(at);above.Add(at);}
+                }
+                Emit(below);remaining=above;
+            }
+            Emit(remaining);
+        }
+        vertices=v.ToArray();colors=col.ToArray();triangles=output.ToArray();
     }
 
     float Slope(Vector3[] v, int x, int z, int vside, float step)

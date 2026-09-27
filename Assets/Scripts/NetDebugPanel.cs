@@ -1,350 +1,163 @@
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 
-/// <summary>
-/// 멀티 세션 UI(NetworkManager 프리팹에 부착 — 전 씬 존재).
-/// ★ 세션이 활성일 때만 그린다 — 싱글/로컬 플레이 화면에는 아무것도 안 보임.
-///   (방 만들기/참가는 시작 화면의 LevelSelect '온라인 멀티' 메뉴가 담당)
-/// - 로비(세션 중, 시작 전): 중앙 큰 창 — 방코드 표시 + 다리 2×2 클릭 선택 + 호스트 [게임 시작]/[나가기]
-/// - 인게임(시작 후): 우상단 미니(내 다리 + 나가기, F9 숨김)
-/// - 호스트 퇴장 → 게스트 세션 종료 + 씬 재로드(설계대로)
-/// ⚠️ GUI.Button은 New Input System에서 안 먹음 — Rect+Mouse.current 수동 판정.
-/// </summary>
+/// <summary>A shared lobby: choose real table legs, then choose the journey's starting point.</summary>
 public class NetDebugPanel : MonoBehaviour
 {
-    bool visible = true;
-    string status = "";
-    GUIStyle label, btn, big, small;
-    Texture2D white;
-
-    NetworkManager NM => NetworkManager.Singleton;
-    NetLegLink Link => FindAnyObjectByType<NetLegLink>();
-
-    // ★2026-07-14 로딩/오버레이 겹침 방지: LevelSelect가 아직 떠 있으면(방 만드는 중 로딩 화면 포함)
-    //   로비를 그리지도, 클릭을 받지도 않는다 — HostAsync 완료 전 세션이 먼저 열려 둘이 겹치던 문제.
-    LevelSelect ls;
-    float lsFindAt;
-    bool OverlayBlocked
+    bool visible=true,startPending,wasMap;string status="";float statusUntil;
+    readonly CheckpointJourney journey=new();readonly JourneyWheel mapWheel=new();
+    readonly LobbyTablePreview tablePreview=new();
+    LevelSelect select;NetLegLink cachedLink;
+    NetworkManager NM=>NetworkManager.Singleton;
+    NetLegLink Link {get{if(cachedLink==null)cachedLink=FindAnyObjectByType<NetLegLink>();return cachedLink;}}
+    bool InSession=>NM!=null&&(NM.IsHost||NM.IsConnectedClient);
+    bool InLobby=>InSession&&Link!=null&&!Link.Started;
+    public static bool LobbyOpen {get;private set;}
+    public bool MapPage=>InLobby&&Link.ChoosingMap;
+    public bool TablePreviewReady=>tablePreview.Ready;
+    public Vector2 PreviewLegPoint(int slot)=>tablePreview.LegPoint(slot,TableRect);
+    public static readonly Rect TableRect=new Rect(450,302,700,496);
+    public static readonly Rect NextRect=new Rect(1180,821,340,54);
+    public static readonly Rect LeaveRect=new Rect(80,821,280,54);
+    public static readonly Rect CopyRect=new Rect(525,223,255,44),InviteRect=new Rect(800,223,275,44);
+    public static Rect LegButton(int i)=>new Rect(i%2==0?80:1200,i<2?604:371,320,146);
+    bool OverlayBlocked {get{if(select==null)select=FindAnyObjectByType<LevelSelect>();return PauseMenu.InputBlocked||LetterOverlay.IsOpen||(select!=null&&select.Showing);}}
+    void Start(){if(NM!=null)NM.OnClientDisconnectCallback+=OnDisconnected;}
+    void OnDestroy(){LobbyOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
+    void OnDisable(){LobbyOpen=false;tablePreview.SetVisible(false);}
+    void OnDisconnected(ulong id)
     {
-        get
-        {
-            if (ls == null && Time.unscaledTime > lsFindAt)
-            {
-                ls = FindAnyObjectByType<LevelSelect>();
-                lsFindAt = Time.unscaledTime + 2f;
-            }
-            return ls != null && ls.Showing;
-        }
+        if(NM==null||NM.IsServer||id!=NM.LocalClientId)return;
+        Difficulty.NetOverride=-1;if(!NetScene.IntentionalLeave)NetSessionRecovery.Begin();
     }
-
-    // ★맵 선택 3D 프리뷰(StartScreen에만 존재 — 인게임 씬에선 null이라 자동 무시)
-    MapSelectPreview preview;
-    float previewFindAt;
-    int lobbyHover = -1;
-    int guestShownSel = -1;
-    bool startPending;
-    MapSelectPreview Preview
-    {
-        get
-        {
-            if (preview == null && Time.unscaledTime > previewFindAt)
-            {
-                preview = FindAnyObjectByType<MapSelectPreview>();
-                previewFindAt = Time.unscaledTime + 2f;
-            }
-            return preview;
-        }
-    }
-    static readonly string[] LegNames = { "앞왼발 (WASD)", "앞오른발 (TFGH)", "뒤왼발 (IJKL)", "뒤오른발 (방향키)" };
-    // 로비에서 호스트가 고르는 맵(LevelSelect.levels와 같은 목록 — 씬 이름 변경 시 둘 다 갱신)
-    // ★2026-09-06 전체 흐름 순서(복도→정글→동굴→빙산→우주→달) + 대전 2종. 레거시(테니스장/트랙/모험/등반)는 목록에서 제외
-    static readonly string[] MapNames = { "복도", "정글", "동굴", "빙산", "우주", "달", "경주 (대전)", "축구 (대전)" };
-    // ★2026-08-17 영어 지원 — LevelSelect.MapLabel의 영문명과 일치
-    static readonly string[] LegNamesEn = { "front left (WASD)", "front right (TFGH)", "back left (IJKL)", "back right (arrows)" };
-    static readonly string[] MapNamesEn = { "hallway", "jungle", "cave", "iceberg", "space", "moon", "race (vs)", "soccer (vs)" };
-    static string LegName(int i) => L.Korean ? LegNames[i] : LegNamesEn[i];
-    static string MapName(int i) => L.Korean ? MapNames[i] : MapNamesEn[i];
-    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceCavern", "IceCavern", "Space", "Moon", "Race", "Soccer" };
-    // ★2026-09-18 빙산 = 동굴 씬을 눈사람 동굴(레일 끝) 시작 지점으로(IceMountain 씬 폐기)
-    static readonly string[] MapSpawns = { null, null, null, "SnowmanCave", null, null, null, null };
-
-    void Start() { if (NM != null) NM.OnClientDisconnectCallback += OnDisconnected; }
-    void OnDestroy() { if (NM != null) NM.OnClientDisconnectCallback -= OnDisconnected; }
-
-    void OnDisconnected(ulong clientId)
-    {
-        if (NM == null) return;
-        if (!NM.IsServer && clientId == NM.LocalClientId)
-        {
-            status = L.T("호스트 연결 종료 — 세션 끝", "host left — session over");
-            Difficulty.NetOverride = -1;   // 세션 난이도 해제 → 로컬 선택으로 복귀
-            _ = NetSession.LeaveAsync();
-            NM.Shutdown();
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
-        }
-    }
-
-    bool InSession => NM != null && (NM.IsHost || NM.IsConnectedClient);
-    bool InLobby => InSession && Link != null && !Link.Started;
-    /// <summary>★2026-09-06 로비(클릭 UI)가 열려 있는가 — CameraFollow가 커서 재잠금을 미루는 데 사용.</summary>
-    public static bool LobbyOpen { get; private set; }
-
-    // ★2026-07-14 로비 = 왼쪽 열(홈 메뉴 계층에 포함, 가운데 창 폐지 — 사용자 요청)
-    const float MapRowY = 352f;                                                // 맵 목록 시작 y
-    static float DiffY => MapRowY + ((MapNames.Length + 2) / 3) * 44f + 6f;    // ★2026-09-05 난이도(라벨 줄 + 항목 한 줄 — 1080p에서 스팀 버튼까지 들어가게 압축)
-    static float ActionY => DiffY + 26f + 38f + 8f;                            // 시작/나가기 줄 y
-    static float PanelH => ActionY + 50f + 28f;                                // + status 줄
-    Rect DiffBtn(int i) => i == 0 ? R(0f, DiffY + 26f, 262f, 38f) : R(272f, DiffY + 26f, 150f, 38f);
-    static Difficulty.Mode DiffOf(int i) => i == 0 ? Difficulty.Mode.Coward : Difficulty.Mode.Normal;
-    Rect Panel() => InLobby
-        ? new Rect(Screen.width * 0.09f, Mathf.Max(24f, Screen.height * 0.34f), 480f, PanelH)  // 로비=왼쪽 열(타이틀 아래)
-        : new Rect(Screen.width - 260f, 8f, 252f, 96f);                                        // 인게임=우상단 미니
-    Rect R(float x, float y, float w, float h) { var p = Panel(); return new Rect(p.x + x, p.y + y, w, h); }
-    Rect MapBtn(int i) => R((i % 3) * 152f, MapRowY + (i / 3) * 44f, 144f, 40f);   // 3열 그리드(텍스트)
-
     void Update()
     {
-        if (NM == null || !InSession) return;   // ★ 세션 없으면 완전 비활성(싱글 화면 오염 금지)
-
-        var kb = Keyboard.current;
-        if (kb != null && kb.f9Key.wasPressedThisFrame) visible = !visible;
-        LobbyOpen = InLobby;
-        if (!visible && !InLobby) return;       // 로비는 항상 표시(다리 선택 필수), 미니 패널만 F9 숨김
-
-        var m = Mouse.current;
-        if (m == null || !m.leftButton.wasPressedThisFrame) return;
-        Vector2 p = m.position.ReadValue();
-        Vector2 gm = new Vector2(p.x, Screen.height - p.y);
-
-        if (InLobby)
+        JourneyMenuUI.PollInput();LobbyOpen=InLobby;
+        bool legs=InLobby&&!Link.ChoosingMap&&!OverlayBlocked;
+        if(legs)tablePreview.Initialize(Link.transform);
+        tablePreview.SetVisible(legs);
+        if(!InSession)return;
+        if(Link!=null&&Link.Started)startPending=false;
+        bool map=MapPage;
+        if(map)
         {
-            if (OverlayBlocked) return;   // 로딩/오버레이 중엔 로비 클릭 무시
-            var link = Link;
-            for (int i = 0; i < 4; i++)
-                if (LegBtn(i).Contains(gm)) { link.ClaimLegRpc((byte)i); return; }   // ★토글(여러 개 선택 가능)
-            if (NM.IsHost)
-                for (int i = 0; i < MapNames.Length; i++)
-                    if (MapBtn(i).Contains(gm))
-                    {
-                        link.SetMap(i);
-                        if (Preview != null) { Preview.Show(i, 1); Preview.Pulse(); }   // 선택 확정 펄스
-                        return;
-                    }
-            // ★난이도(호스트만 선택, 전원 동기화)
-            if (NM.IsHost)
-                for (int i = 0; i < 2; i++)
-                    if (DiffBtn(i).Contains(gm)) { link.SetDifficulty((int)DiffOf(i)); return; }
-            if (NM.IsHost && R(0f, ActionY, 300f, 48f).Contains(gm))
+            if(!wasMap)journey.Select(Mathf.Max(0,Link.MapIndex),true);
+            if(!OverlayBlocked)
             {
-                // 게임 시작 = 다리/세션 잠금 + 전원 선택 맵으로 이동(로비는 시작 화면에 있으므로 여기서 로드)
-                if (link.MapIndex < 0) { status = L.T("맵을 먼저 선택하세요", "pick a map first"); return; }
-                if (startPending) return;
-                var pv = Preview;
-                if (pv != null)
+                if(NM.IsHost)
                 {
-                    // ★확정 연출(펄스→꺼짐) 후 기존 시작 로직 — 연출 중 재클릭 차단
-                    startPending = true;
-                    var lk = link;
-                    pv.Show(lk.MapIndex, 1);
-                    pv.Confirm(() => { startPending = false; lk.StartGame(); NetScene.Load(MapScenes[lk.MapIndex], MapSpawns[lk.MapIndex]); });
+                    int move=0;var kb=Keyboard.current;if(kb!=null){if(kb.leftArrowKey.wasPressedThisFrame)move--;if(kb.rightArrowKey.wasPressedThisFrame)move++;}
+                    if(Mouse.current!=null&&new Rect(100,322,1400,346).Contains(JourneyMenuUI.MousePosition))move+=mapWheel.Read(Mouse.current.scroll.ReadValue(),Time.unscaledTime);
+                    if(move!=0)ChangePoint(move);
                 }
-                else { link.StartGame(); NetScene.Load(MapScenes[link.MapIndex], MapSpawns[link.MapIndex]); }
-            }
-            if (R(320f, ActionY, 150f, 48f).Contains(gm))
-            {
-                if (Preview != null) Preview.HideAll();
-                LeaveAll();
-            }
-            // ★스팀 로비: 친구 초대 오버레이 / 방코드 복사
-            if (NM.IsHost && SteamLobby.InLobby)
-            {
-                if (R(0f, ActionY + 52f, 300f, 44f).Contains(gm)) SteamLobby.OpenInviteOverlay();
-                if (R(320f, ActionY + 52f, 150f, 44f).Contains(gm))
-                { GUIUtility.systemCopyBuffer = NetSession.JoinCode; status = L.T("방코드 복사됨", "room code copied"); }
+                journey.Select(Mathf.Max(0,Link.MapIndex));journey.Update(false);
             }
         }
-        else
-        {
-            if (R(12f, 56f, 228f, 30f).Contains(gm)) LeaveAll();
-        }
+        else mapWheel.Reset();wasMap=map;
+        if(Keyboard.current!=null&&Keyboard.current.f9Key.wasPressedThisFrame)visible=!visible;
     }
-
-    Rect LegBtn(int i)
+    public bool HandleBack()
     {
-        // 2×2 배치(테이블처럼): 0=앞왼 1=앞오 2=뒤왼 3=뒤오
-        float x = (i % 2 == 0) ? 0f : 222f;
-        float y = (i < 2) ? 152f : 240f;
-        return R(x, y, 206f, 76f);
+        if(!InLobby)return false;
+        if(!OverlayBlocked&&!startPending){JourneyMenuUI.BlockClick();if(Link.ChoosingMap)Link.ReturnToLegsRpc();else LeaveAll();}
+        return true;
     }
-
     void LeaveAll()
     {
-        NetLegLink.ResetSessionCache();
-        _ = NetSession.LeaveAsync();
-        if (NM != null) NM.Shutdown();
-        status = L.T("세션 종료", "session ended");
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
+        if(startPending)return;LobbyOpen=false;JourneyMenuUI.BlockClick();NetLegLink.ResetSessionCache();Time.timeScale=1;NetScene.LeaveToLocal("StartScreen");
     }
-
-    Vector2 GuiMouse()
+    bool Unlocked(int id)=>CheckpointCatalog.Valid(id)&&(Link.CheckpointMask&(1u<<id))!=0;
+    void ChangePoint(int direction)
     {
-        var m = Mouse.current;
-        if (m == null) return new Vector2(-1f, -1f);
-        Vector2 p = m.position.ReadValue();
-        return new Vector2(p.x, Screen.height - p.y);
+        int next=Link.MapIndex;for(int n=0;n<16;n++){next=(next+(direction>0?1:-1)+16)%16;if(Unlocked(next)){Link.SetMap(next);return;}}
     }
-
     void OnGUI()
     {
-        UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
-        if (NM == null || !InSession) return;   // ★ 세션 없으면 아무것도 안 그림
-        if (!visible && !InLobby) return;
-        EnsureStyles();
-        var panel = Panel();
-        Vector2 gm = GuiMouse();
-
-        if (InLobby)
-        {
-            if (OverlayBlocked) return;   // 로딩/오버레이 중엔 로비를 아직 그리지 않음(겹침 방지)
-            // ★왼쪽 열 손글씨 레이아웃(홈 메뉴 계층에 포함) — 배경 창/딤 없음
-            var link = Link;
-            GUI.Label(R(0f, 0f, panel.width, 40f), L.T("함께하기 — 로비", "play together — lobby"), hTitle);
-            GUI.Label(R(0f, 46f, panel.width, 40f),
-                NM.IsHost ? L.T("방 코드:  ", "room code:  ") + (string.IsNullOrEmpty(NetSession.JoinCode) ? L.T("(로컬)", "(local)") : NetSession.JoinCode)
-                          : L.T("참가 완료 — 다리를 고르세요", "joined — pick your legs"), hBig);
-            GUI.Label(R(0f, 92f, panel.width, 26f), L.T("다리 클릭 = 선택/해제 — 여러 개 가능 (접속 ", "click a leg to take it — multiple ok (") + NM.ConnectedClientsList.Count + L.T("명)", " joined)"), hSmall);
-            GUI.Label(R(0f, 118f, panel.width, 26f), L.T("선택 안 된 다리는 호스트 키보드가 조종합니다", "unclaimed legs follow the host's keyboard"), hSmall);
-
-            for (int i = 0; i < 4; i++)
-            {
-                long owner = link != null ? link.OwnerOf(i) : -2;
-                bool mine = link != null && link.IsMine(i);
-                var r = LegBtn(i);
-                var col = LegPalette.BySlot[i];
-                UiKit.Panel(r);
-                // ★다리 고유색으로 채움(호버 색 변화 없음 — 상태에 따라서만 진하기 차이)
-                float a = mine ? 0.50f : owner != -2 ? 0.30f : 0.13f;
-                UiKit.Fill(r, new Color(col.r, col.g, col.b, a));
-                UiKit.Fill(new Rect(r.x, r.y, 10f, r.height), col);   // 왼쪽 진한 색 띠
-                string nick = LegPalette.NickOf(owner);
-                string who = mine ? "★ " + L.T("나", "me") + " (" + nick + ")" : owner == -2 ? L.T("빈 자리", "open") : nick;
-                GUI.Label(new Rect(r.x + 14f, r.y + 8f, r.width - 14f, 30f), LegName(i), tileName);
-                GUI.Label(new Rect(r.x + 14f, r.y + 42f, r.width - 14f, 26f), who, tileSub);
-            }
-
-            // 맵 선택(호스트=클릭, 게스트=표시만) — 손글씨 목록, 선택 = 밑줄
-            int sel = link != null ? link.MapIndex : -1;
-            GUI.Label(R(0f, MapRowY - 30f, panel.width, 26f),
-                NM.IsHost ? L.T("맵 선택", "choose a map") : L.T("맵 (호스트가 선택): ", "map (host picks): ") + (sel >= 0 ? MapName(sel) : L.T("선택 중…", "picking…")), hSmall);
-            for (int i = 0; i < MapNames.Length; i++)
-            {
-                var r = MapBtn(i);
-                bool hov = NM.IsHost && r.Contains(gm);
-                GUI.Label(r, MapName(i), mapItem);
-                // 선택된 맵 = 밑줄 고정, 호스트 호버 = 밑줄 미리보기(색 변화 없음)
-                if ((sel == i || hov) && HandUI.Underline != null)
-                {
-                    float tw = Mathf.Min(mapItem.CalcSize(new GUIContent(MapName(i))).x + 8f, r.width);
-                    GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw, 12f), HandUI.Underline, ScaleMode.StretchToFill);
-                }
-                // ★호스트: 호버 = 3D 프리뷰 전환(방향 = 인덱스 증감)
-                if (hov && Preview != null && !startPending && i != lobbyHover)
-                {
-                    int dir = (lobbyHover >= 0 && i < lobbyHover) ? -1 : 1;
-                    Preview.Show(i, dir);
-                    lobbyHover = i;
-                }
-            }
-            // ★게스트: 호스트가 고른 맵이 바뀌면 프리뷰 전환
-            if (!NM.IsHost && sel >= 0 && sel != guestShownSel && Preview != null)
-            {
-                Preview.Show(sel, sel < guestShownSel ? -1 : 1);
-                guestShownSel = sel;
-            }
-
-            // ★2026-09-05 난이도(호스트=클릭, 게스트=표시) — 멀티는 "겁쟁이들을 위한" 복수형 표기
-            int dsel = link != null ? link.DifficultyIndex : 0;
-            GUI.Label(R(0f, DiffY, panel.width, 24f),
-                NM.IsHost ? L.T("난이도", "difficulty") : L.T("난이도 (호스트가 선택)", "difficulty (host picks)"), hSmall);
-            for (int i = 0; i < 2; i++)
-            {
-                var r = DiffBtn(i);
-                bool hov = NM.IsHost && r.Contains(gm);
-                string dn = Difficulty.Name(DiffOf(i), true);
-                GUI.Label(r, dn, mapItem);
-                if (((int)DiffOf(i) == dsel || hov) && HandUI.Underline != null)
-                {
-                    float tw = Mathf.Min(mapItem.CalcSize(new GUIContent(dn)).x + 8f, r.width);
-                    GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw, 12f), HandUI.Underline, ScaleMode.StretchToFill);
-                }
-            }
-
-            if (NM.IsHost) HandBtn(R(0f, ActionY, 300f, 48f), sel >= 0 ? L.T("게임 시작", "start game") : L.T("게임 시작 (맵 선택!)", "start (pick a map!)"), gm);
-            else GUI.Label(R(0f, ActionY, 300f, 48f), L.T("호스트 대기 중…", "waiting for host…"), hBig);
-            HandBtn(R(320f, ActionY, 150f, 48f), L.T("나가기", "leave"), gm);
-            // ★스팀 로비(2026-08-09): 오버레이 친구 초대 + 긴 방코드 복사 버튼
-            if (NM.IsHost && SteamLobby.InLobby)
-            {
-                HandBtn(R(0f, ActionY + 52f, 300f, 44f), L.T("친구 초대 (스팀)", "invite friends (steam)"), gm);
-                HandBtn(R(320f, ActionY + 52f, 150f, 44f), L.T("코드 복사", "copy code"), gm);
-            }
-            if (!string.IsNullOrEmpty(status)) GUI.Label(R(0f, ActionY + 100f, panel.width, 24f), status, hSmall);
-            return;
-        }
-        UiKit.Panel(panel, 0.97f);   // 인게임 미니 패널만 흰 배경 유지
-
-        // 인게임 미니 패널 — 내가 잡은 다리 전부 나열
-        var lk = Link;
-        string mine2 = "";
-        if (lk != null)
-            for (int i = 0; i < 4; i++)
-                if (lk.IsMine(i)) mine2 += (mine2.Length > 0 ? ", " : "") + LegName(i);
-        if (mine2.Length == 0) mine2 = NM.IsHost ? L.T("(빈 다리 전부)", "(all unclaimed legs)") : L.T("(없음)", "(none)");
-        GUI.Label(R(12f, 6f, 228f, 48f), (NM.IsHost ? L.T("호스트", "host") : L.T("게스트", "guest")) + " · " + NM.ConnectedClientsList.Count + L.T("명 (F9 숨김)", " players (F9 hides)") + L.T("\n내 다리: ", "\nmy legs: ") + mine2 + " " + status, small);
-        Button(R(12f, 56f, 228f, 30f), L.T("나가기", "leave"), gm);
+        if(!InSession||OverlayBlocked||(!visible&&!InLobby))return;
+        JourneyMenuUI.Begin();try{if(InLobby)DrawLobby();else DrawMini();}finally{JourneyMenuUI.End();}
     }
-
-    void Button(Rect r, string text, Vector2 gm) => UiKit.Button(r, text, r.Contains(gm));
-
-    /// <summary>손글씨 버튼(로비): 맨글씨 + 호버 시 살짝 기울임+밑줄 — 색 변화 없음(홈 메뉴와 통일).</summary>
-    void HandBtn(Rect r, string text, Vector2 gm)
+    void DrawLobby()
     {
-        bool hover = r.Contains(gm);
-        var m = GUI.matrix;
-        if (hover) GUIUtility.RotateAroundPivot(-1.2f, new Vector2(r.x, r.center.y));
-        GUI.Label(r, text, hAction);
-        if (hover && HandUI.Underline != null)
-        {
-            float tw = Mathf.Min(hAction.CalcSize(new GUIContent(text)).x, r.width);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - 8f, tw, 14f), HandUI.Underline, ScaleMode.StretchToFill);
-        }
-        GUI.matrix = m;
+        JourneyMenuUI.Fill(new Rect(0,0,1600,900),new Color(.978f,.974f,.951f));
+        bool map=Link.ChoosingMap;
+        JourneyMenuUI.Text(new Rect(80,39,1050,62),map?L.T("맵 선택","Choose a checkpoint","チェックポイント選択","选择检查点"):L.T("다리 선택","Choose your legs","操作する脚を選ぼう","选择要操控的腿"),42);
+        JourneyMenuUI.Text(new Rect(1210,55,310,40),L.T("접속 인원  ","Players  ","参加者  ","玩家人数  ")+Link.LobbyPlayerCount+" / 4",24,JourneyMenuUI.Muted,TextAnchor.MiddleRight);
+        DrawSteps(map);DrawRoom();
+        if(map)DrawMap();else DrawLegs();
+        if(JourneyMenuUI.BackButton(LeaveRect,map?L.T("다리 선택","Choose legs","脚の選択","选择腿"):L.T("뒤로","Back","戻る","返回"),!startPending))HandleBack();
     }
-
-    GUIStyle hTitle, hBig, hSmall, mapItem, tileName, tileSub, hAction;
-    void EnsureStyles()
+    void DrawSteps(bool map)
     {
-        if (label != null) return;
-        white = Texture2D.whiteTexture;
-        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-        label = new GUIStyle(GUI.skin.label) { fontSize = 15, alignment = TextAnchor.MiddleLeft };
-        label.normal.textColor = ink;
-        btn = new GUIStyle(GUI.skin.label) { fontSize = 17, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btn.normal.textColor = ink;
-        big = new GUIStyle(GUI.skin.label) { fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        big.normal.textColor = ink;
-        small = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.MiddleCenter };
-        small.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
-
-        // ★손글씨 로비(2026-07-14): 홈/LevelSelect와 같은 톤
-        hTitle = HandUI.Style(28, HandUI.InkSoft, TextAnchor.MiddleLeft);
-        hBig = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
-        hSmall = HandUI.Style(18, HandUI.InkSoft, TextAnchor.MiddleLeft);
-        mapItem = HandUI.Style(22, HandUI.Ink, TextAnchor.MiddleLeft);
-        tileName = HandUI.Style(21, HandUI.Ink, TextAnchor.MiddleCenter);
-        tileSub = HandUI.Style(16, HandUI.InkSoft, TextAnchor.MiddleCenter);
-        hAction = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
+        JourneyMenuUI.Text(new Rect(570,101,190,32),L.T("1  다리 선택","1  Choose legs","1  脚の選択","1  选择腿"),21,map?JourneyMenuUI.Muted:JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Line(new Vector2(779,117),new Vector2(821,117),new Color(.64f,.66f,.60f),2);
+        JourneyMenuUI.Text(new Rect(840,101,190,32),L.T("2  맵 선택","2  Checkpoint","2  地点の選択","2  选择地图"),21,map?JourneyMenuUI.Accent:JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Line(new Vector2(map?865:590,136),new Vector2(map?1005:740,136),JourneyMenuUI.Accent,3);
+    }
+    void DrawRoom()
+    {
+        string code=string.IsNullOrEmpty(NetSession.JoinCode)?L.T("로컬 방","Local room","ローカルルーム","本地房间"):NetSession.JoinCode;
+        JourneyMenuUI.Text(new Rect(470,147,660,28),L.T("방 코드","Room code","ルームコード","房间代码"),20,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Literal(new Rect(330,176,940,40),code,31,JourneyMenuUI.Ink,TextAnchor.MiddleCenter);
+        if(JourneyMenuUI.Button(CopyRect,L.T("코드 복사","Copy code","コードをコピー","复制代码"),!string.IsNullOrEmpty(NetSession.JoinCode))){GUIUtility.systemCopyBuffer=NetSession.JoinCode;status=L.T("방 코드를 복사했어요","Room code copied","コードをコピーしました","已复制房间代码");statusUntil=Time.unscaledTime+2;}
+        if(JourneyMenuUI.Button(InviteRect,L.T("친구 초대","Invite friends","フレンド招待","邀请好友"),NM.IsHost&&SteamLobby.InLobby))SteamLobby.OpenInviteOverlay();
+        if(Time.unscaledTime<statusUntil)JourneyMenuUI.Text(new Rect(480,273,640,28),status,18,JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
+    }
+    void DrawLegs()
+    {
+        int hover=-1;var mouse=JourneyMenuUI.MousePosition;
+        for(int i=0;i<4;i++)if(LegButton(i).Contains(mouse)||(tablePreview.Ready&&tablePreview.LegBounds(i,TableRect).Contains(mouse)))hover=i;
+        tablePreview.Draw(TableRect,Link,hover);
+        for(int i=0;i<4;i++)
+        {
+            var r=LegButton(i);long owner=Link.OwnerOf(i);bool mine=Link.IsMine(i),open=owner==-2;Color c=LegPalette.BySlot[i];
+            if(tablePreview.Ready)
+            {
+                var target=tablePreview.LegPoint(i,TableRect);var from=new Vector2(i%2==0?r.xMax:r.x,r.center.y);
+                var bend=new Vector2(i%2==0?from.x+30:from.x-30,from.y);
+                Color line=new Color(c.r*.72f,c.g*.72f,c.b*.72f,mine?.95f:.55f);
+                JourneyMenuUI.Line(from,bend,line,2);JourneyMenuUI.Line(bend,target,line,2);JourneyMenuUI.Dot(target,4,c);
+            }
+            JourneyMenuUI.Fill(r,new Color(1,1,1,.87f));JourneyMenuUI.Fill(new Rect(r.x,r.y,5,r.height),c);
+            if(owner!=-2)JourneyMenuUI.Border(r,c,mine?2.5f:1.5f);
+            JourneyMenuUI.HoverText(new Rect(r.x+20,r.y+9,r.width-40,32),LegLayout.Name(i),r,23,mine||open);
+            JourneyMenuUI.Literal(new Rect(r.x+20,r.y+44,r.width-40,38),LegLayout.Keys(i),30,JourneyMenuUI.Ink);
+            string who=open?L.T("선택하기","Click to choose","クリックで選択","点击选择"):Link.DisplayNameOf(owner)+(mine?L.T(" · 나"," · you"," · 自分"," · 我"):"");
+            JourneyMenuUI.Literal(new Rect(r.x+20,r.y+91,r.width-40,38),who,22,owner==-2?JourneyMenuUI.Muted:JourneyMenuUI.Accent);
+            bool hit=JourneyMenuUI.Click(r,mine||open);
+            if(!hit&&tablePreview.Ready)hit=JourneyMenuUI.Click(tablePreview.LegBounds(i,TableRect),mine||open);
+            if(hit){JourneyMenuUI.BlockClick();Link.ClaimLegRpc((byte)i);}
+        }
+        string hint=NM.IsHost?(Link.CanChooseMap?L.T("빈 다리는 호스트가 조종해요","The host controls unclaimed legs","空席の脚はホストが操作します","空位由房主操控"):L.T("모두 다리를 하나 이상 선택해 주세요","Everyone needs to choose at least one leg","全員が脚を1本以上選んでください","每人请至少选择一条腿")):L.T("다리를 고르면 호스트가 다음으로 넘어가요","Choose your legs, then the host continues","脚を選んだらホストが次へ進みます","选好腿后由房主进入下一步");
+        JourneyMenuUI.Text(new Rect(395,823,745,48),hint,22,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        if(JourneyMenuUI.Button(NextRect,L.T("다음","Next","次へ","下一步"),NM.IsHost&&Link.CanChooseMap,true)){JourneyMenuUI.BlockClick();Link.ChooseMap();}
+    }
+    void DrawMap()
+    {
+        journey.Select(Mathf.Max(0,Link.MapIndex));journey.Draw(new Rect(100,320,1400,335),Link.CheckpointMask,NM.IsHost);
+        if(NM.IsHost&&journey.Selected!=Link.MapIndex){if(Unlocked(journey.Selected))Link.SetMap(journey.Selected);else journey.Select(Mathf.Max(0,Link.MapIndex));}
+        if(JourneyMenuUI.Button(new Rect(100,658,65,46),"‹",NM.IsHost))ChangePoint(-1);
+        if(JourneyMenuUI.Button(new Rect(1435,658,65,46),"›",NM.IsHost))ChangePoint(1);
+        JourneyMenuUI.Text(new Rect(645,658,310,40),(Link.MapIndex+1).ToString("00")+" / 16",22,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Text(new Rect(230,726,220,54),L.T("난이도","Difficulty","難易度","难度"),25,JourneyMenuUI.Muted);
+        for(int i=0;i<2;i++)
+        {
+            var mode=i==0?Difficulty.Mode.Coward:Difficulty.Mode.Normal;Rect r=new Rect(475+i*390,720,360,62);bool chosen=Link.DifficultyIndex==(int)mode;
+            JourneyMenuUI.Paper(r,chosen);JourneyMenuUI.HoverText(new Rect(r.x+14,r.y,r.width-28,r.height),Difficulty.Name(mode,true),r,26,NM.IsHost,TextAnchor.MiddleCenter);
+            if(JourneyMenuUI.Click(r,NM.IsHost))Link.SetDifficulty((int)mode);
+        }
+        if(!NM.IsHost)JourneyMenuUI.Text(new Rect(390,821,740,54),L.T("호스트가 맵과 난이도를 선택하고 시작해요","The host chooses the checkpoint and starts","ホストが地点と難易度を選んで開始します","由房主选择地图和难度并开始"),22,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        if(JourneyMenuUI.Button(NextRect,L.T("시작하기","Start","スタート","开始"),NM.IsHost&&Link.CanChooseMap&&Unlocked(Link.MapIndex)&&!startPending,true))
+        {
+            Link.StartGame();if(Link.Started){startPending=true;CheckpointRuntime.Launch(Link.MapIndex);}
+        }
+    }
+    void DrawMini()
+    {
+        Rect r=new Rect(1240,15,345,120);JourneyMenuUI.Paper(r);string mine="";
+        if(Link!=null)for(int i=0;i<4;i++)if(Link.IsMine(i))mine+=(mine.Length>0?", ":"")+LegLayout.Keys(i);
+        if(mine.Length==0)mine=NM.IsHost?L.T("빈 다리 전체","Unclaimed legs","空席の脚","所有空位的腿"):L.T("선택한 다리 없음","No legs selected","脚が未選択","未选择腿");
+        JourneyMenuUI.Text(new Rect(r.x+12,r.y+7,r.width-24,52),mine,22);
+        if(JourneyMenuUI.BackButton(new Rect(r.x+12,r.y+70,r.width-24,37),L.T("메뉴로 나가기","Leave to menu","メニューに戻る","返回菜单")))LeaveAll();
     }
 }

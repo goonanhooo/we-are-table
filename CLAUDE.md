@@ -636,3 +636,241 @@
 - **의자 로켓 말풍선(사용자: "로켓을 따라가게, 로켓 왼쪽에서 가로로 화살표")**: `Guide/Space/BubbleRoundSide.png`(BubbleRound를 90° 돌린 640×512 — 꼬리 끝 (606,249), 원 중심 (262,255) r226) → `ChairRocketLaunch.OnGUI`: 앵커 = 로켓 피벗+`bubbleAnchorUp` 6.5(몸통), 화면상 몸통 반지름(`rocketRadius` 1.7 투영) 바로 왼쪽에 꼬리 끝, 화면 클램프 없음(로켓이 화면 밖으로 나가면 같이 나감). ⚠️직렬화 함정: 씬 인스턴스의 옛 값(bubbleTex=BubbleRound, anchorUp 11)을 SerializedObject로 교체함.
 - 검증(IceCavern 플레이, tut9.txt/tut9b.txt + 스크린샷): 빙산 슬라이드/착지에서 granted=[] → '2' 없음 · 뒤집힘 말풍선+'1'만 표시 · 부여 시뮬 순서 giraffe('2',1키) → stretch(10키) → grab(4) → release(4) → ice("끄기/켜기", 2.5s 만료) → move0→1→2→3 → pref 1·표지판 사라짐 · 로켓 말풍선이 몸통 왼쪽에서 따라 올라감. ⚠️테스트 함정: 동굴 바닥 z>0에 테이블을 놓으면 의자 컷씬(~10s)이 돌아 그동안 표지판이 숨는다(레슨 전환 관찰은 z<0에서).
 - **v9b 제목/안내 = 자판 스타일 판(2026-09-18 사용자: "키보드 위 표시도 키보드랑 어울리게, 비슷하게 보이게")**: v9의 IMGUI 손그림 칩(굵은 잉크 테두리)이 깔끔한 선화 자판과 안 어울렸음 → `Resources/HandUI/keyboard_plate.png`(PIL 200×200 9-슬라이스: 자판 종이와 같은 색 (255,254,250)·테두리 (26,26,30) 5px·r26·오른쪽 아래 그림자, 여백 왼/위 8·오른/아래 15, spriteBorder (42,49,49,42))로 만든 판 2개를 **표지판 프리팹 캔버스에** 추가(`KeyTutorialBoardBuilder.Tab()`): `TitleTab`(표지판 위 왼쪽 정렬, 높이 172, Gaegu-Bold 124) / `NoteTab`(아래 왼쪽 정렬, 두 줄, Gaegu-Bold 84). 같은 캔버스라 표지판과 같이 기울고(원근)·둥실거리고·페이드되고, 종이와 같은 `paperAlpha`. `KeyTutorial.SetTab()`이 글자를 넣고 폭을 `preferredWidth + tabPadX×2 + 23`으로 맞춤(최대 = 표지판 폭 × `tabMaxWidthMul` 1.0 / 안내 1.3 → 넘으면 글씨 축소 — 그래서 제목 문구는 짧게: "늘리기 / 줄이기 · 2 = 끄기"). 작은 창에서는 `titleMinPx` 20 / `noteMinPx` 14가 되도록 판만 확대(피벗 = 표지판 모서리라 붙은 채 커짐), 위쪽 화면 클램프에 판 높이 반영. 프리팹에 판이 없으면 IMGUI 칩으로 폴백. 빌더는 판을 종이보다 먼저 그리게(SetAsFirstSibling) — 그림자가 종이 밑으로. 빌더 재실행 후에도 Table.prefab의 boardPrefab 참조 유지 확인. 검증 스크린샷 tab1_*: 걷기 제목 판 1046~1148px·안내 판 두 줄·긴 문구 축소 동작.
+
+
+## 2026-09-20 복도 상상 말풍선 튜토리얼
+- 사용자 요청: “의자에게 가고싶어..”로 상상하며 시작하고, 그 상상 말풍선 안에서 튜토리얼을 이어간다.
+- `KeyTutorial.cs`가 `HallwayStage` 존재 시 기존 `ThoughtBubbleUI` 구름·꼬리·손글씨를 재사용. 도입 독백 → 다리별 색 키캡(4개) → 입력 중 “아, 이 다리가 움직이는구나!” → 완료 독백. 별도 자판 표지판은 복도 걷기 레슨 동안 숨김. 네 번째 다리는 기존 보조 키 매핑 유지.
+- 복도에서만 입력을 누른 뒤 해제하고 최소 1.2초 표시해야 다음 다리로 진행. 색 표시는 첫 입력 전에 활성화. 설정 안내 문장은 복도에서 생략. 기존 튜토리얼 완료 PlayerPrefs 정책 유지.
+- `HallwayStage.Intro`는 튜토리얼이 있으면 기존 의자 그림 `ThoughtReveal`을 플레이 중 비활성화하고 lookSeconds 동안 독백을 보여준 뒤 기존 카메라 팬 진행. 씬 에셋은 수정하지 않음. IntroFinished/IsFalling 읽기 속성 추가.
+- 검증: Unity 컴파일 통과, 복도 실제 Game 화면의 도입 독백·키캡 배치 확인, TableInput의 입력/해제로 다리 4개 순차 진행 및 tut.move.done=1 확인. 테스트 후 원래 IceCavern 씬과 tut.move/legcolor/flip 기록 복원.
+
+- 2026-09-20 후속 요청: 복도 말풍선 610×344 → 490×276(가로·세로 약 20% 축소), 키캡은 Enter까지 49×49 정사각형. 꼬리는 본체 오른쪽 아래에서 32/23/14 크기의 3개 퍼프로 완만한 곡선을 이루며, 마지막 퍼프는 테이블 메시의 화면 투영 외곽 왼쪽 32px 밖에 위치. 화면에 테이블이 없을 때 꼬리 생략. 기존 다른 말풍선의 공용 DrawTail은 변경하지 않음. 컴파일 및 복도 플레이 화면 검증 완료.
+
+- 2026-09-20 꼬리 크기 후속 조정: 사용자 요청으로 복도 작은 퍼프 3개를 32/23/14 → 42/31/20으로 확대. 배치·책상 외곽 간격 유지.
+
+
+## 2026-09-20 카메라 가림 디더 + 능력 HUD / 단축키
+- 사용자 요청: 카메라 뒤의 벽을 완전히 끄지 않고 점무늬가 남게, 야자수 등 가림 소품에도 동일 적용. `WallSeeThrough`는 renderer.enabled를 변경하지 않고 `CameraOcclusionFade.FadeWall`로 요청. `CameraFollow`와 벽 시스템이 카메라에 페이드 매니저를 연결한다.
+- `CameraOcclusionFade.cs` + Resources/Shaders/SceneryDither.shader: 카메라-책상 사이 5개 시선과 메시 바운드로 가림 판정(콜라이더 없는 나뭇잎 포함), 0.25초 페이드 / coverage 0.2 / 3px 점. 지원 재질(URP Lit/Simple Lit/Unlit, VertexColorLit/Cave)만 임시 재질 복제, 가림 해제·비활성화 시 원본 복원. 텍스처·기본색·정점색·노멀·발광·기본광원 설정 이관, 동굴 양면 유지. 플레이어/바닥/45m 이상 대형 지형은 일반 후보에서 제외. 카메라 충돌은 페이드 가능한 소품만 건너뛰고 지형은 유지. 원본 재질 에셋과 물리 콜라이더는 변경하지 않음.
+- 사용자 확정 번호: **1 바로서기 유지 / 2 기린 / 3 테니스공 / 4 눈사람 / 5 우주오징어**. IcePower 입력 3→4, TennisMode에 3 토글, SquidMode에 5 토글 추가. 기린+테니스 동시 사용 및 기존 기린/얼음·오징어 배타 규칙 유지. 우주 씬에서 오징어 OFF는 추진·외형만 끄며 무중력은 유지. 일반 씬에선 기존 중력 복원. 미획득·컷씬·일시정지 입력 차단, netVisualOnly는 호스트 동기화 유지.
+- `AbilityHud.cs`: KeyTutorial.Start에서 연결. 왼쪽 위에 획득한 능력만 로고와 번호로 누적, 활성 능력은 색/밑줄. 단색 실루엣 로고는 코드로 생성, 기존 GiraffeMode 단독 좌상단 아이콘은 HUD가 있을 때 숨김. HUD는 메뉴에서 숨김/획득 표시 초기화, 씬별 사용 불가 능력 아이콘 흐림. KeyTutorial 숫자·능력 켜기 안내 및 PauseMenu 키 범례 갱신.
+- 검증: Unity C#/Metal 셰이더 컴파일 통과; 복도 뒷벽 enabled=True·coverage=0.2 및 안쪽 복귀 후 원래 URP Lit 복원 확인. 실제 야자수 메시(콜라이더 없음)에서도 coverage=0.2 확인. 실제 InputSystem 키 이벤트로 잠금 보호, 2 기린 ON, 3 테니스 ON(얼음 불변), 4 얼음 ON/기린 OFF, 5 오징어 ON/얼음 OFF, 5·3 재입력 OFF 통과. 복도에 없는 IcePower는 검증 때만 임시 추가했으며 씬에 저장하지 않음.
+
+
+### 2026-09-20 — 획득형 능력 HUD / 바로서기 통합
+- 왼쪽 위: 기존 3칸 바로서기 파이 → 테이블 문양 `1 바로서기` → 실제 획득한 2 기린 / 3 테니스 / 4 눈사람 / 5 우주오징어. 파이는 ArtSceneReset.DrawPoseCharges로 기존 남은 횟수/무제한 설정 그대로 사용. 기존 우상단 UI는 AbilityHud가 있는 경우 숨김. 복도 인트로 종료 후 기본 HUD 페이드인.
+- AbilityHud.Acquire(능력 컴포넌트, giraffe/tennis/ice/squid)를 실제 획득 지점에서 호출(GiraffeCutscene, FrameHallClimb, SnowmanCutscene/Dummy, SpaceIntroCutscene, AbilityTotem). 기본 unlocked/active 값만으로 사전 노출하지 않음. SpawnPointGrant 같은 시작 상태 설정은 획득 연출을 재생하지 않음.
+- 최초 획득마다 약 3.25초: 문양 후광/금빛 링 → 이름과 숫자키 → 곡선 이동하며 HUD에 정착. 중복 방지, 연속 획득 큐, 플레이 세션 내 씬 전환 시 획득 상태 유지. 메뉴/새 플레이에서 초기화. 일시정지/편지에서는 연출도 일시정지. 별도 시간 배율 변경이나 입력 차단 없음.
+- KeyTutorial은 획득 연출 중 레슨 표시/진행을 잠시 미룸. 바로서기 횟수 안내도 왼쪽 위로 수정.
+
+
+### 2026-09-20 — 싱글 씬별 튜토리얼 검증
+- 사용자 요청으로 Race/Soccer/멀티 제외. Hallway/Jungle/IceCavern/Space/Moon + StartScreen을 Play Mode 검증. 최종 63항목 통과, 각 씬 런타임 오류 0. 획득 이벤트 접근은 실제 컷신 호출·공/눈사람 머리 런타임 위치 조정이며 전체 퍼즐 수동 완주는 아님.
+- KeyTutorial: 키를 눌렀다는 사실만으로 능력 레슨을 끝내던 분기를 실제 achieved 성공 조건으로 제한. 테니스 붙기 실패 시 안내 유지, 실제 FixedJoint 접촉 성공 → 떼기 안내 → Z로 실제 분리 시 완료 검증.
+- KeyTutorial: timeScale=0/LetterOverlay에서 보드와 말풍선 즉시 숨김(시간이 멈춰 fade가 완료되지 않던 문제). 레슨 진행 보존, 재개 후 기린 신축 안내 복귀 검증.
+- FrameHallClimb: 기존 guideTex 전체 화면 조작 설명이 새 안내를 가리던 문제 수정. 활성 KeyTutorial이 있으면 옛 화면 생략, 없는 경우 기존 설명 유지.
+- 임시 Editor 검증 스크립트 제거, 원래 Hallway 씬과 tut.move/legcolor/flip 및 clear.* 저장값 복원. 씬 자산 변경 없음. 상세 로그/화면은 Codex 작업폴더 outputs/tutorial-verification.
+
+
+### 2026-09-20 — 복도 시작 연출 순서 재조정
+- 사용자 요청: 처음에는 예전 연출, 컷씬 다음에 새 독백 말풍선과 튜토리얼. HallwayStage.Intro에서 기존 ThoughtReveal(의자+하트 그림, 꼬리 순차 등장)을 끄지 않고 IsGone까지 기다리는 원래 흐름 복원.
+- 기존 그림 상상 → 의자로 카메라 이동/클로즈업/플레이 화면 복귀 → "의자에게 가고싶어.." → 다리별 키 안내 순서. 새 KeyTutorial 복도 말풍선은 IntroFinished 전에는 표시하지 않음.
+- 독백은 말풍선 알파가 절반 이상 보인 뒤 약 3초 읽기 시간 보장. 일시정지/편지/뒤집힘 등 안내 불가 상태에서는 읽기 시간이 흐르지 않음. 기존 완료 저장 및 네 다리 입력/해제 규칙 유지. 씬 자산 수정 없음.
+
+
+### 2026-09-20 — 공통 빈 상상 말풍선 / 텍스트 분리
+- 사용자 기준: 앞으로 튜토리얼 상상 말풍선은 최초 컷씬의 구름과 작은 꼬리 3개 형태를 공통 사용. `Resources/ThoughtBubbles/BodyEmpty.png`는 의자·하트·글자 없는 재사용용 빈 몸통이며, Near/Mid/Tip.png는 원본 컷씬 꼬리 이미지 그대로다. 원래 시작 컷씬의 의자·하트 연출은 유지.
+- `ThoughtBubbleUI`가 위 이미지들과 Layout.json UV 영역을 읽어 공통 렌더링. 본문 글자는 GUI.Label, 키캡은 별도 실시간 UI로 그린다. 향후 문구/언어/키 변경 시 PNG를 새로 만들지 않는다. 새 튜토리얼도 이 공통 렌더러를 사용한다.
+- KeyTutorial: 복도뿐 아니라 능력 안내도 같은 빈 말풍선 안에 제목·키·설명을 표시. 기존 키보드 Canvas는 표시하지 않고 레슨 메타데이터만 유지. 완료 후 두 번째 “좋아…” 안내 및 대기시간 제거; 네 다리 완료하면 바로 안내가 사라진다.
+- 실행 검증: 빈 이미지 4개 로드, 복도 독백→키 안내→4개 다리 완료 후 닫힘, 기린 다중 키 안내, 기존 Canvas 숨김, 일시정지 숨김 확인. 글자와 테두리 사이 여백도 실행 화면으로 조정.
+
+
+### 2026-09-20 — 바닥 디더 제외 / 카메라 하한 / 복도 안내 재생
+- 두꺼운 Floor_A/B까지 가림 후보가 되던 문제 수정. CameraGroundGuard.IsGround에서 바닥·지형·경사로·플랫폼·트랩 이름, 지형 컴포넌트, 넓은 수평 충돌판을 판별한다. CameraOcclusionFade의 일반 후보·FadeWall·충돌 생략 경로에서 모두 제외. 벽/야자수 가림은 계속 디더 사용.
+- CameraGroundGuard는 카메라 이동 뒤 실제 바닥 콜라이더와 플레이어 지지 바닥을 검사해 카메라를 표면+여유 높이로 보정하고 시선을 유지한다. 벽 밖처럼 카메라 바로 아래에 바닥이 없는 경우도 처리. 전역 Y=0 제한이 아니므로 아래층/동굴 허용. Hallway의 실제 트랩 낙하 전환은 기존대로 유지.
+- 복도에서 키 안내가 없던 원인은 tut.move.done=1 저장값. 복도 진입마다 독백 후 move0~3을 재생하고, 다른 씬은 이전 완료 기록 유지. 저장값을 지워야 하는 방식이 아님.
+- ThoughtBubbleUI 작은 꼬리 3개는 렌더링 시 약 1.1px 윤곽 보강으로 본체 선 굵기에 맞춤. 빈 PNG와 별도 텍스트/키 구조 유지.
+
+
+### 2026-09-20 — 달 부엌 별도 씬 / Steam 테스트
+- Moon_CozyKitchen.unity 추가. 원본 Moon 파일은 SHA-256 동일(1c3c4334c7e08aa3793931e25d0fad07df71de990978db31f43f4854d189c446). 집/기존 MoonHomeEnding만 새 포근한 부엌으로 교체, 지형·스폰·중력 유지. 기존 메뉴/스토리 연결은 Moon 그대로이며 새 씬은 비교용 Build Settings 항목.
+- MoonKitchenEnding: 실제 바닥 홈 네 곳에 네 다리 콜라이더 바닥점이 들어가고 .65초 안정되면 호스트 권한으로 발동. 테이블/의자 정렬, 6개 카메라 샷 총82초, 말풍선/자막 없음, 마지막21초는 창문 밖 네 친구. 기존 기린·테니스공애벌레·완성 눈사람·우주오징어 모델 재사용. KitchenFriendIdle로 미세한 움직임.
+- NetStageSync는 새 엔딩 시작 및 서버시각을 발행하여 게스트 재생. 기존 MoonHomeEnding 경로 유지. MoonCozyKitchenBuilder는 재생성용 Editor 도구이며 기존 변형 씬 덮어쓰기 거부.
+- App ID480 유지(사용자 실제ID 미발급, 테스트만 요청). Windows x64/macOS Universal 개발빌드 성공, 오류0. 실제Steam 로그인·친구전용 임시로비 생성/종료/재생성2회 통과. 초대 메시지 전송/게시 없음.
+- macOS 실행파일4개(UTP loopback, 호스트1+게스트3)에서 협동5씬+새씬 이동, 배정/난이도/입력, 새엔딩/클리어, 퇴장/제어권반환/재호스팅86검사 통과. 테스트가 실제 편지를 클릭으로 닫는 동작 포함. Steam SDR 다계정 및 Windows실행/교차플레이는 미검증, 경주/축구 제외.
+- 발견사항(미수정): LetterOverlay/PauseMenu는 온라인 게스트의 Time.timeScale도0으로 만들어 호스트 진행과 어긋남(실행 재현). SteamLobby 초대Hook이 최초Host/Join 전 미등록, StartClient 반환을 참가완료로 표기, SteamAPI타임아웃 부재(코드검토). 출시완료 판정 아님.
+- 임시NetReleaseProbe/NetReleaseBuild는 프로젝트에서 제거; 작업폴더에 진단소스와빌드 보관. 테스트 진행/튜토리얼 저장값 복원, 새씬 stopped/clean 상태. 상세결과: Codex 작업폴더 outputs/multiplayer/README.md 및 outputs/moon-cozy/README.md.
+
+
+### 2026-09-20 — 이전 능력 계승 / 달 타이머 끄기 / 참가 메뉴 검사
+- StageTimer: Moon 및 Moon_CozyKitchen은 IsUntimed. 타이머/시간클리어 UI와 새 최고시간 기록 없음. Cleared 신호는 그대로라 엔딩/NetStageSync 진행 유지.
+- SceneAbilityProgression: 동굴=기린, IceCavern/SnowmanCave 및 IceMountain=기린+테니스, Space=기린+테니스+눈사람, Moon 두 버전=네 능력 모두. 직접 씬 진입도 같은 기준. AbilityHud에는 계승 아이콘을 바로 보이고 실제 획득만 연출. KeyTutorial.Awake에서 이전 능력을 준비해 재획득 튜토리얼 오인 방지.
+- SpaceStage가 기린을 다시 잠그던 처리 제거. 오징어 활성 중 기린/얼음 동시사용 제한은 기존 모드 코드 유지. 우주/달에 없던 IcePower를 준비하고 Resources/InheritedIcePower.mat 사용. NetVisualSync도 스폰 시 해당 컴포넌트를 확보, 게스트는 netVisualOnly 유지.
+- 참가 메뉴 실제 활성 경로는 StartScreenMenu+LevelSelect. RoomCodeInput 공통화: Cmd/Ctrl+V가 V를 접두로 넣던 오류 수정, 붙여넣기 교체·최대20자·숫자패드. 예전 NewStartScreenUI도 같은 입력 사용.
+- NetDebugPanel은 제목 아래 가용 높이에 맞춰 축소하고 렌더/마우스 좌표에 동일 배율 적용. 720p 하단 버튼 이탈 및 제목 겹침 수정.
+- 실행검증63통과(에디터41, macOS 호스트/게스트 각각11). 7종 진입조건의 해금·HUD·달2/3/4/5키·시간기록제외, 붙여넣기/숫자패드, 실제 마우스 다리선택→맵공유→시작→달 공동진입→얼음외형→퇴장. UTP loopback 검사이며 실제2계정Steam참가/Windows실행을 뜻하지 않음.
+- 확인된 미해결Steam항목: 최초Host/Join전 실행중초대Hook 미등록, StartClient 반환을 참가완료로 표기, SteamAPI 명시타임아웃 없음. 다리 미선택 게스트도 시작 가능(관전), 준비완료 버튼 없음, 힘 전환/바로서기는 호스트 전용인 현구조. 이번에는 UI 입력/배치만 수정, Steam 로비 서비스 변경 안 함.
+- 임시SceneUnlockAudit/MenuAuditBuild/MenuPlayerAudit 제거, 진행/튜토리얼/클립보드 복원. 상세: Codex 작업폴더 outputs/scene-unlocks/README.md, checks.log, host/client.log, 720p 화면.
+
+### 2026-09-20 — 씬 자동 해금 취소 / 치트 해금과 능력 점등
+- 바로 위 항목의 **씬별 강제 해금 정책은 사용자 요청으로 취소**. SceneAbilityProgression 제거, SpaceStage 기존 기린 잠금 복원. 달 타이머 OFF 및 참가 메뉴 입력/배치 개선은 유지.
+- AbilityComponents는 누락된 IcePower/재질을 준비만 하고 해금하지 않음. KeyTutorial/CheatMode/NetVisualSync에서 사용. 치트 ON 시 네 능력 실제 해금, HUD 즉시 공개(획득 연출 제외), KeyTutorial 숨김과 치트 부여 능력의 후속 레슨 억제. 치트 OFF 후 능력 유지는 기존 정책. 일반 획득 연출/튜토리얼 유지. SquidMode.CheatUnlock은 thrustLocked도 해제.
+- AbilityHud: 2/3/4/5 활성 상태에 따라 능력색 표시등·아이콘 후광·밑줄 점등/소등. 1번 바로서기는 실제 PoseResetCount 증가 시 .65초 점등. 치트 비행 immovable 상태에서도 능력 키 전환 허용하되 컷씬/일시정지 입력 잠금 유지. 치트 안내 하단 이동.
+- Unity Play 검증45통과/0실패: 달2종·동굴 새 진입 잠금, 치트 해금/HUD/튜토리얼, 실제1~5키 점등/소등, 정글 일반 획득 연출/튜토리얼, 치트 중 씬 이동. 테스트 진행/튜토리얼/클립보드 복원, 임시 검사 제거, Moon 원본 해시 동일. 상세 Codex outputs/cheat-ability-lights/README.md.
+
+### 2026-09-20 — 복도 네 방향 모두 입력 / 단계별 다리 색 / 옵션 기억
+- KeyTutorial: 복도 각 move0~3은 해당 다리 네 방향을 모두 입력하고 손을 떼어야 다음으로 진행(.35초 완료색 읽기 시간). 방향별 비트 기록, 누른 키는 진한 색 유지, 0/4~4/4 표기. 현재 보이는 단계만 집계하고 일시정지/숨은 단계 입력 제외. 네 번째 다리 기존 보조 키 및 동등 방향 입력 지원.
+- LegColorXray.SetTutorialMask는 저장 옵션과 분리된 임시 강조. 복도 시작은 전부 숨기고 현재 다리의 12개 선/방향 표시만 켬. 네 단계 완료 후 전체 표시 ON 저장, 같은 빈 상상 말풍선에서 ESC 옵션으로 끌 수 있음을 안내. 기존 최초 컷씬→의자 독백 순서 유지.
+- options.legColorXray PlayerPrefs에 옵션 상태 저장/씬 진입 복원. 멀티 기본 자동 ON도 저장값이 있으면 존중. MoonKitchenEnding은 SetOn(false,false)로 임시 숨김만 하며 저장 옵션을 덮어쓰지 않음.
+- 실행검증62통과(복도46+옵션16): 실제16키, 불완전 입력/다른 다리/일시정지, 단계별 실제 선 12개 및 완료48개, 옵션 안내 화면. ESC+마우스 클릭 OFF/ON 후 Jungle/IceCavern/Moon/Moon_CozyKitchen 유지 확인. 임시 입력 설정 복제본만 사용, 프로젝트 입력 설정 변경 없음. 사용자 저장값·원래 씬 복원, 임시 Editor 검사 제거. Codex outputs/hallway-all-keys/README.md 참고.
+
+
+### 2026-09-20 — 노랑/파랑 우선 튜토리얼 / 새 넓은 말풍선
+- KeyTutorial 이동 순서를 노랑(IJKL)→파랑→초록→빨강으로 변경. 기존 각 다리 네 방향 누적·엑스레이·옵션 저장 유지.
+- BodyWide.png는 image_gen으로 새 가로형 빈 이미지를 생성하고 이중선의 흰 틈을 단일 검정 테두리로 수정. 원본 고유 UV 비율로 균등 축소하며 글자/키는 별도 렌더링. 검정 제목22px/설명18px, 40px 정사각 키와 내부 여백/자동 글자 크기 맞춤.
+- ThoughtBubbleUI.Prewarm에서 본체/꼬리 로드. PuffOutline.shader로 꼬리 윤곽을 미리 합성해 한 번만 그려 8중 알파 누적으로 꼬리가 먼저 진해지던 현상 제거.
+- 실제16키/다리 순서/정글 안내 등52검사 통과, 페이드4검사 추가 통과(25%·75% 화면의 본체/꼬리 RGB차1/255). 테스트 저장값·원래 IceCavern 복원. Codex outputs/wide-bubble 참고.
+
+### 2026-09-20 — VARCO 돌 적재 광차 / 새 모델 기준 충돌
+- VARCO 빈 워크플로에서 기존 광차를 참고해 돌 적재 모델 생성. Assets/Models/Varco/LoadedMineCart 프리팹/텍스처/재질/충돌 메시 추가. IceCavern Cart_A/Cart_B/ChairCart의 기존 시각·단순 콜라이더 교체, 루트 Transform·레일·컷씬 참조 유지. 기존 로컬 크기(2.4,1.7,3.2)와 바퀴 하단(-.9) 유지.
+- 새 메시 기준 160개 convex hull 콜라이더. 기존 TennisMode.ClosestPoint와 FixedJoint 지원을 유지. 792표면광선 누락0/95백분위차.1016m/최대차1.6231m인 근사 충돌로, 모든 미세 홈과 정확히 일치하지는 않음. 성능 프로파일링 별도 미실시.
+- 14검사 통과: 실제 테니스 잡기→광차 출발→중간 분리→복귀, 각 광차/의자 참조 및 콜라이더 상태. 테스트 진행·씬 복원, 임시 Editor 검사/빌더 제거. 생성 기록과 화면: Codex outputs/varco-minecart.
+
+
+### 2026-09-21 — 뒷다리 조작 / 복도 다리 소개 / 공유 능력 키·한영 안내
+- 사용자 최신 기준: WASD=왼쪽 뒤(노랑), TFGH=오른쪽 뒤(파랑), IJKL=왼쪽 앞(초록), 방향키=오른쪽 앞(빨강). LegLayout이 ArtLegController/LegController Awake·OnValidate에서 공통 적용. 물리 다리색은 유지하고 슬롯색/이름/로비의 앞뒤 행/기린 입력을 재정렬. 우측 앞 보조 키 [ ' ; Enter는 게스트 PollKeyset에도 포함. MoonKitchenEnding은 기존 FL/FR/BL/BR 홈을 새 키 슬롯에 대응시켜 네 다리 판정을 보존.
+- 복도 기존 컷씬 이후 HallwayLegIntroduction: “책상에게 가고 싶다..” → 네 다리 각각 다른 카메라 각도/해당 다리 강조/말풍선 소개 → “그럼 이제 움직여볼까?” → 기존 네 방향 누적 입력 튜토리얼. 입력 시작 전 컨트롤러 잠금, 일시정지 보존. 공유 빈 말풍선+원래 세 꼬리, 검정 실시간 글씨; 소개 54/44, 키 레슨 26/22px. 다리별 레슨은 폭540의 서로 다른 네 위치, 꼬리는 해당 다리 실제 화면 위치를 따라감.
+- 테니스 부착 E/Y/O/], 해제 Q/R/U/P로 변경(이전 C/N/./Shift, Z/V/M//는 폐기). 2/3/4/5 선택은 AbilitySelection으로 하나만 활성화; 다른 능력 선택/테니스 OFF 시 FixedJoint 즉시 해제. 앞선 “기린+테니스 동시 사용” 설명은 폐기. 1 바로서기는 게임 HUD/입력에 유지하고 안내 이미지에서만 제거.
+- image_gen 내장 도구로 정돈된 흰 배경 조작 안내 한글5+영어5 생성. 2 기린/3 테니스/4 눈사람/5 우주오징어 켜기·끄기 강조, 눈사람 무관한 다리 키 행 제거. Assets/Guide 기존 PNG를 GUID 보존해 Assets/Resources/ControlGuides/ko로 이동 후 교체, en 별도 추가. ControlGuideAssets가 L.Korean에 따라 선택, PauseMenu 및 FrameHallClimb 폴백 사용. PauseMenu에 해금 후 눈사람 안내 페이지도 추가.
+- 검증: 복도 컷씬/실제16키/단계별 강조/꼬리/일시정지/씬 매핑/옵션/부엌 홈 133항목 통과. 추가 능력·언어·로비 45항목 통과(합계 178통과/실패0), 결과는 Codex outputs/rear-leg-intro/power-checks.log 참고. 로비 테스트는 UTP 로컬 호스트 및 입력 pack/unpack 경로이며 다계정 Steam 실접속이나 전체 퍼즐 완주 검사는 아님.
+- 테스트용 PlayerPrefs/언어/클립보드/원래 Hallway 씬 복원, 임시 Editor 검사 제거. 원본 Moon SHA-256 유지. 상세 및 최종 이미지·프롬프트 경로: Codex outputs/rear-leg-intro/README.md.
+
+### 2026-09-21 — 최초 컷씬 기준 꼬리 비율 / 달 하늘에서 천천히 낙하
+- 사용자 요청: 본체가 커지고 선이 굵어지면 세 꼬리도 최초 컷씬과 같은 비율로 변해야 함. ThoughtBubbleUI에서 원본 가시 본체543px, 꼬리84/61/51px 기준 공통 비율 적용. 각 호출부의 .8/.85/.95 같은 독립 배율 및 퍼프 별도 외곽선 보강 제거. 원본 잉크를 1회 렌더링해 선 굵기·알파도 같은 배율로 따라옴. 좁은 공간은 본체를 옮겨 확보하며 대각선 출발에도 본체와 꼬리 사이 여백 보장. 빈 본체 이미지/텍스트 분리 유지, 새 이미지 생성 없음.
+- MoonStage: 기존 스폰 X/Z 그대로 높이+72m에서 시작. 최초 낙하 최대속도3m/s, 실제 측정3.008m/s. 지면 접근 시 기존 -1.62 중력 물리로 착지하고 카메라 거리 부드럽게 복귀. 초기 카메라는 약140m 앞 집을 보도록 정렬하고 하강 중 고도를 반영; 마우스 시점 입력 시 자동구도 종료. 치트/오징어 추진 시 낙하제한 종료. 호스트/싱글만 텔레포트·속도제한, 게스트는 수신 위치 사용.
+- Moon 및 Moon_CozyKitchen에 공통 적용. 씬·집·지형·일반 리스폰 좌표 변경 없음. 높은 스폰은 모든 Awake의 콜라이더 기하 측정 이후 Start에서 수행해 리스폰 높이 오측정을 방지.
+- 검증/화면: Codex 작업폴더 outputs/bubble-moon-drop/README.md. 두 달 씬 실제 고도/XZ/집 시야/일시정지/속도/착지/중력 복구 통과. 신규 네트워크 실접속 검사는 별도 미실시. 임시 검사 제거 후 원래 복도 씬/저장값/클립보드 복원.
+
+### 2026-09-21 — 4개 언어 / 스토리 체크포인트 / Steam 출시 점검
+- 지원 언어: 한국어·영어·일본어·중국어 간체. `L.Language`/`language.code`(ko,en,ja,zh-Hans), 기존 lang.korean 마이그레이션, 사용자 선택 우선/신규 Steam 언어 기본값. `Resources/Localization/Strings.json` 225항목, Noto CJK JP/SC 폰트와 OFL 포함, LocaleFonts/LocaleTextBindings가 IMGUI·Canvas·TMP·TextMesh 반영. 메뉴/설정/로비/키 튜토리얼/능력/상상말풍선/편지6종에 실시간 번역. 글자가 이미지에 박히지 않게 LocalizedControlGuide와 LocalizedStoryBubble/LetterContents 사용. 조작 안내 4언어×5 PNG도 Resources/ControlGuides에 반영. 언어별 사용자 실제16키 입력 확인.
+- `CheckpointCatalog`/`CheckpointProgress`/`CheckpointRuntime`/`CheckpointCartContact`: 총16개. 복도0, 정글1, 기린2, 용암3, 스위치4, 동굴5, 테니스6, 광차7, 눈사람동굴8, 눈사람9, 먼플랫폼10, 우주오징어11, 달접근12, 달시작13, 집14, 엔딩15. 새 저장은0만, 나머지???; 과거 clear.* 플래그로 자동개방하지 않음. LevelSelect/NetDebugPanel은 체크포인트 6개씩 3페이지. 경주/축구 제외. 원본 Moon 유지, CozyKitchen의13~15도 같은체계로 지원.
+- 진행 저장: Application.persistentDataPath/progress/checkpoints-v1.json(버전1, 원자 교체+.bak). 위치/당시 획득 능력/월드 완료 이벤트/광차 U 저장. 씬을 건너갔다고 능력을 강제로 열지 않음. 치트 사용한 진행은 저장 해금 제외. 이어하기/재시작은 마지막 지점. 끝낸 컷씬을 다시 재생하지 않고 엔딩15만 재생. ArticulationBody 복구는 첫 FixedUpdate 뒤 적용해야 실제 초기화 위치로 되돌아가지 않음. 이전 영역 감지기가 현재 지점을 뒤로 바꾸지 않게 순서 가드. 긴 기린 다리 발끝의 지지면도 지면 판정에 포함.
+- 멀티: 호스트의 사용 가능 지점/선택/복구 상태/새 도착 이벤트 동기화. 게스트는 참가만으로 호스트 과거 기록 전체를 복사하지 않고 함께 새로 도착한 지점 저장. 해금·HUD 상태 NetVisualSync.powers, 게스트1~5 숫자 요청은 소유권/해금/컷씬 상태 검사 후 호스트 처리. ProtocolVersion=2, Steam 로비 wat-story-checkpoints-v1(이전 빌드와 맞추지 말 것). 게스트 메뉴/편지는 로컬 입력만 막으며 공유 timeScale 유지.
+- 실제4인 테스트에서 발견한 기존 편지 재표시 버그 수정: NetStageSync.OnNetworkSpawn은 LetterPickup.Start보다 먼저라, 수집한 편지가 Start에서 비활성화되는 것을 새 수집으로 오인해 게스트 편지를 띄우고 입력을 막았음. letterWasActive에 !LetterSystem.IsCollected 포함. LetterPickup 충돌 수집은 호스트만. 호스트 단절은 NetSessionRecovery로 transport 종료 후 StartScreen 멀티 메뉴 복귀; 의도적인 Leave와 구분.
+- Steam 초대 콜백은 SteamManager 초기화 시부터 연결. 실행중/콜드런치 초대 공통 경로, 실제 NGO 연결 완료까지 대기, 로비15초/클라이언트20초 타임아웃, 늦게 들어온 로비 응답 정리. 테스트 AppID480 유지(사용자 아직 발급 없음). 실Steam480 API/온라인/비공개 방 생성/Facepunch 호스트/정리/잘못된 코드 6검사 통과. 별도 계정 간 초대와 Windows–Mac 인터넷 E2E는 아직 필요.
+- 검증: 체크포인트·번역151통과/실패0; 네 언어 복도 컷씬·실제16키 등57통과; 실제 언어 버튼8회+광차접촉9통과; macOS별도4프로세스 UTP72통과/실패0/전원 exit0. 최초 UI클릭 검사의 에디터 좌표 오류8건은 별도 런타임 좌표 검사에서 모두 재확인. Windows x64/맥 universal 빌드 성공(오류0; 기존 경고 존재). Windows 실기기 렌더링/외부망·다계정Steam/상점심사는 미검증. 테스트 저장은 분리하고 씬/언어/진행Prefs/클립보드 복원. 임시 검증CS는 Assets에서 제거, Codex work/release-locales-checkpoints/final에 보관.
+- 결과와 출시 준비 문서: Codex outputs/release-locales-checkpoints/README.md 및 Steam-release-preparation.ko.md. 번역 CSV·4언어 실제 화면·테스트 로그·검증용 Win/Mac빌드 포함. macOS앱은 별도제품명 Development audit, Windows도 AppID480 검증본이라 그대로 출시 업로드하지 말 것. Steam Cloud 활성화/실제AppID/OS별depot/Apple서명/외부테스터 계정·실기기는 사용자 준비 항목. Checkpoints JSON만 Cloud에 넣으면 PlayerPrefs의 언어·기존 편지/옵션까지 동기화되지 않음.
+
+### 2026-09-24 — 달 오징어 중력 / 낮은 스폰 / 지평선 / 언어 화살표
+- `SquidMode.ApplyFlightPhysics`: MoonStage가 있는 씬은 active여도 모든 ArticulationBody.useGravity=true. 달 -1.62 중력을 받고 분사는 그대로 작동. Space의 켬/끔 무중력 유지, 게스트 시각 전용 경로 유지. 치트의 노클립 비행은 별도 기능이며 변경하지 않음.
+- `MoonStage.arrivalHeight`: 72→16m, 기존 스폰 X/Z 및 3m/s 완만한 낙하 유지. 오징어를 켜기만 하면 도착 연출을 유지하고 실제 제트 입력 시 자유 비행 카메라로 전환.
+- `MoonHorizon`: MoonStage.Awake에서 원본 MoonTerrain 경계 정점/노멀/색을 이어 붙인 외곽 곡면 생성. 12km까지 확장하며 행성 곡률로 끝을 숨김. 7,200정점/13,440삼각형, 기존 재질·경계 평균색 사용, MeshCollider도 같은 메시. 원본 지형/집/플레이 구역 위치와 씬 에셋은 그대로. 원본 Moon과 Moon_CozyKitchen 모두 적용.
+- `LanguageSelector`: 시작 메뉴·시작 화면 설정·게임 일시정지 설정에 공통 좌우 화살표와 현재 언어명. 좌/우로 4개 언어 순환, L.Cycle(int direction=1) 저장/즉시 반영. 가운데 문구는 버튼 아님. 실제 마우스 입력으로 세 메뉴에서 양방향 4언어 검증.
+- 검증: 최종 62 PASS / 0 FAIL / 런타임 오류 0. 두 달 씬 16m/XZ/집 시야/모든 바디 중력/무입력 낙하/3m/s착지/제트 상승/모드 해제/외곽4방향 콜라이더, Space 무중력 유지, 4언어 양방향 선택·저장. 첫 검사 1건은 클릭 완료 전 판정한 테스트 타이밍 오류라 코루틴 완료를 기다리도록 보완 후 전부 재검증. 실제 진행 저장은 별도 ValidationSavePath로 격리. 기존 언어·진행Prefs·클립보드 및 Moon_CozyKitchen 씬 복원. 임시 MoonMenuAudit.cs 제거.
+- 결과: Codex outputs/moon-gravity-menu/README.md, checks.log, 메뉴4언어 및 두 달 씬 사방/스폰 캡처. 이번 작업은 에디터 플레이 검증이며 Windows/macOS 배포 빌드는 다시 만들지 않음.
+
+
+### 2026-09-24 — 바로서기 끼임 방지 / 달 집 천장 높이
+- ArtSceneReset의 1번 바로서기는 중립 자세의 실제 콜라이더 범위로 빈 공간을 먼저 검사하고 최대 3m 안에서 가장 가까운 지지면을 찾음. 벽·닫힌 문을 가로질러 옮기지 않으며, 낮은 천장/막힌 공간에서는 자세·횟수·테니스 부착을 유지하고 4개 언어 안내. 성공한 경우만 횟수 차감/사용 카운트 증가. 기린 길이 초기화 및 테니스 발끝 공 반지름 포함. 호스트 권한 확인, 지정 위치 리스폰 API 유지.
+- Moon 및 Moon_CozyKitchen 집 벽/천장/지붕을 1.2m 높임. 입구 +0.6m, 조명 +0.48m와 코드 길이 조정. 가구·바닥 홈·창문·친구·컷씬 기준점 유지. MoonHouseCeilingUpgrade는 중복 적용 방지 및 두 집 빌더 재생성에도 연결.
+- 최종 Unity Play 검증 32 PASS / 0 FAIL: 실제 1키와 횟수, 벽/모서리/가구/낮은 천장/얇은 벽/절벽 네 발 지지/트리거, 기린·테니스 활성, 두 실제 달 집, 바닥 홈과 엔딩 6샷, Space 무지면 높이 유지. 초반 검사 실패는 TeleportRoot 직후 Transform 반영 전 조회 및 발 원점 대신 상판 높이를 가정한 검사 문제였으며 테스트 픽스처 수정 후 재검증. 실제 진행은 분리된 ValidationSavePath로 보호하고 원래 언어/Prefs/클립보드/씬 복원.
+- 임시 UprightHouseAudit.cs 제거. 최종 소스/검사 보관: Codex work/upright-house/final, 결과 outputs/upright-house/README.md와 checks.log. 에디터 실행 검증이며 이번 변경 후 Windows/macOS 배포 빌드는 재생성하지 않음.
+
+
+### 2026-09-24 — 달 하늘 지구 이미지 교체
+- 사용자 요청으로 내장 image_gen에서 투명 RGBA 지구 새로 생성. Assets/Guide/EarthTex.png를 GUID 유지 교체(기존256px →1254px), 아시아·태평양·호주와 구름/대기 가장자리. 원본 생성 파일은 그대로 복사, 별도 이미지 편집 없음.
+- EarthMat만 Custom/EarthAlpha 전용 알파 합성 셰이더로 전환. 기존 AdditiveTex 가산 합성으로 배경 은하/별이 행성에 더해지던 문제 제거. 공용 은하/분사 셰이더는 그대로. Tint alpha1, Clamp, alphaIsTransparency, NPOT 원본크기, mipmap 및 비압축 가져오기.
+- Moon/Moon_CozyKitchen 공용 재질 참조 유지. 지구 위치(-700,900,1800), 스케일(320,320,1), SkyAnchor 유지. 두 씬 일반시야/확대 Unity Camera 렌더4장 직접 확인, 셰이더 지원·컴파일 정상. 이번 검사는 에디터 렌더 확인이며 신규 Play/배포빌드 검사는 미실시. 원래 Moon_CozyKitchen stopped/clean, ko와 진행mask8225 유지.
+- 생성 프롬프트/백업: Codex work/moon-earth. 결과/캡처: outputs/moon-earth/README.md.
+
+
+### 2026-09-24 — 바닥 보호 유지하며 천장 올려다보기
+- CameraFollow.minPitch 기본 -10→-65도. Jungle/IceCavern/Space/Moon/Moon_CozyKitchen의 저장된 값도 변경. 복도의 연출 카메라 및 경주/축구 씬 설정은 유지.
+- 올려다보기 10~55도에서 시선 중심을 부드럽게 최대 .9m 높이고, CameraGroundGuard의 실제 지지면·near clip 여유를 이용해 바닥 도달 전 궤도 거리를 당김. 플랫폼 가장자리처럼 카메라 위치에 바닥이 없어도 시선 각도 유지. 사용자 휠 distance 값은 변경하지 않으며 내려다보면 기존 collisionRecover 속도로 복귀. GroundGuard 최종 보정도 같은 FocusPosition 참조, 컷씬/바닥 보호 유지.
+- 최종 Play 검사32 PASS/0 FAIL/런타임 오류0. 두 달 집 10/30/50/65도×네 방향 각도와 바닥 여유, 접근/휠 설정 보존/거리 복귀, 플랫폼 가장자리, 낮은 컷씬 블렌드, 무지면 Space 검증. 초반 실패4건은 컷씬 블렌드 종료 전 측정과 새 테스트 바닥 Physics.SyncTransforms 누락으로, 검사 타이밍을 수정한 뒤 전부 통과. 천장/조명 실제 화면 확인.
+- 임시 CameraLookUpAudit 제거, 사용자 언어/Prefs/클립보드/진행 저장 복원. Codex outputs/camera-look-up/checks.log 및 README.md, 진단 소스 work/camera-look-up/final 참고. 에디터 Play 검증이며 Windows/macOS 빌드 재생성은 미실시.
+
+### 2026-09-24 — 복도 꼬리 간격 / 빨간 실제 키 / 달 풍경 / 선택 능력 유지
+- ThoughtTailLayout: 원본 이미지 알파 윤곽의 convex hull을 Resources/ThoughtBubbles/Outlines.json에 저장. 본체543px 기준 꼬리55/38/25px, 본체→첫 꼬리 포함 동일한 윤곽 간격12px를 공통 배율로 적용. 강조 다리의 화면상 바운딩 박스+18px를 피하도록 본체 배치를 조정. HallwayLegIntroduction/KeyTutorial이 실제 다리 화면 영역을 전달. 빈 본체/꼬리/글자는 계속 별도 렌더링.
+- GJK로 윤곽 거리 계산을 최적화하고 동일 배치 캐시. 독립적인 전수 선분 검사와500개 무작위 배치 비교에서 실패0, 최대 차이0.000245px 미만.100회 배치10.82ms(수정 전10회121.88ms); 게임 전체 FPS 벤치마크는 아님.
+- LegLayout/로비·디버그·소개 라벨과 LocalizedControlGuide의 빨간 오른쪽 앞다리를 `[ ; ' Enter`로 표시. 실제 키 배치 위[, 왼쪽;, 아래', 오른쪽Enter. 기존 화살표 대체 입력은 유지. 4언어 기본 조작 PNG를 코드 UI에서 재출력하며 Enter는 정사각 키 안에 한 줄로 크기 맞춤. 능력 안내 PNG는 변경하지 않음.
+- Moon/Moon_CozyKitchen에서 MoonRocks 각34개 제거. 내장 image_gen으로 지구의 과한 밝기/테두리를 낮추고 밤낮 위상 추가한 PNG를 원본 그대로 적용, GUID 유지. 두 씬 지구 스케일320→110, 위치/SkyAnchor/전용 불투명 내부 알파 셰이더 유지. Codex outputs/hallway-moon-polish/earth-prompt.txt 참조.
+- CheckpointProgress.Snapshot.activePower(0=OFF,1기린,2테니스,3얼음,4오징어)를 추가하고 CheckpointRuntime에서 씬 전환 직전 선택/보유 능력을 캡처·복원. 실제 해금 마스크에서만 한 가지 선택을 활성화. 새 게임은 강제 해금하지 않으며 치트 능력 이동도 진행 저장을 열지 않음. SpaceStage는 환경 무중력만 적용하고 기존 도입 컷씬의 획득 시점을 유지. Moon 오징어 중력 유지.
+- AbilityHud 카드의 작은 점/밑줄을 제거하고 선택 아이콘의 빛/색만 표시. 바로서기 잔여 횟수 원은 유지.
+- 최종 복도43 PASS/0 FAIL, 능력 이동·달55 PASS/0 FAIL. 실제16키 및 손 떼기 전환, 네 다리 꼬리 간격/비중첩, OFF+네 능력의 IceCavern→Space→Moon→Moon_CozyKitchen 이동, 저장/체크포인트 실행, 새 게임/치트 기록 보호 검증. 첫 UI 검사7실패는 전환 전 다음 다리 입력을 보낸 타이밍 문제였고 실제 레슨/페이드 완료를 기다려 재검증. four-language guide 렌더와 HUD/지구 화면 확인.
+- 테스트 진행은 ValidationSavePath로 격리, 원래 씬/언어/옵션/클립보드/진행 복원. 임시 HallwayMoonPolishAudit/ThoughtTailDistanceAudit는 제거하고 Codex work/hallway-moon-polish에 보관. 결과 outputs/hallway-moon-polish/README.md. 신규 Windows/macOS 빌드 및 Steam 다계정 검증은 이번 범위에 포함하지 않음.
+
+### 2026-09-24 — 물리 입력 주기 / 로비 카드 / 사진 여정 / 복도 카메라
+- TableInput은 Update에서 수집한 짧은 입력을 다음 FixedUpdate까지 보존하고 GetPhysics로 공유. 실행 순서 입력 -50 → GiraffeMode -20 → ArtLegController 0. 모터와 기린 신축/안정화는 FixedUpdate에서 처리. 기존 0.005초 물리 주기, 힘/속도/가속도/마찰/관성 설정은 유지.
+- LegColorXray는 StartScreen에서만 표시 마스크0. 저장된 켜짐/꺼짐 옵션은 바꾸지 않음. 첫 홈 화면 유지, 우상단 언어 선택 제거(설정의 4언어 선택은 유지).
+- JourneyMenuUI 공통 아이콘/종이 카드, LevelSelect 함께하기·방 만들기·참가/난이도/가로 체크포인트, NetDebugPanel 실제 로비 네 다리 배치와 출발 지점 사진/난이도/방 코드/초대/나가기. 난이도는 고정 밑줄 대신 선택 테두리와 배지. PauseMenu가 ESC 소유권을 하위 메뉴→로비→일시정지 순서로 처리. 클릭은 한 프레임에서 한 번만 소비하고 비활성/오버레이 클릭 잔류 방지.
+- Resources/CheckpointThumbs/00~15.png: 각 실제 Unity 씬에서 촬영한960×540사진16장. 가로 연결 카드, 좌우 버튼/키보드/휠 탐색. 미도달 지점 ??? 및 기존 진행 마스크 유지. 새 저장에서는 첫 지점만 열림.
+- NetLegLink.OnOwnersChanged에서 호스트가 자기 다리를 선택해도 Local 입력 유지(이전에는 External이 되어 호스트 Update가 입력을 보내지 않아 움직이지 않을 수 있었음). 게스트 소유 다리는 External 유지.
+- HallwayStage 의자→책상 복귀는 베지어 곡선, HallwayLegIntroduction 네 다리 간에는 복도 폭 안에서 타원 궤도로 이동. 샷 사이 회전은 수평 유지: Quaternion.Slerp가 만든 roll을 CameraGroundGuard가 제거하면서 생기던 끊김 해소. 기존 이야기/튜토리얼 순서 유지, 네 각도에서 의자와 강조 다리 비중첩 확인.
+- ThoughtBubbleUI는 원본 알파 실루엣을 재사용하고 UniformOutline.shader로 본체/세 꼬리 모두2.8가상px 윤곽을 그림. 빈 이미지와 글자는 별도, 기존 원본 도입 컷씬 유지. 새 래스터 이미지 생성/늘이기 없음.
+- 최종 메뉴22 PASS/0 FAIL, 복도·물리39 PASS/0 FAIL, 런타임 오류0. 실제16키 레슨 완료, 단계별 색/동일 꼬리 간격, 카메라 충돌0(반경.12m), 최대 각속도163.62도/s. 30/60/120Hz 입력 샘플 조건에서100물리틱 신축0.3999994(예상.4), 모터 힘1560/속도-190.9092 동일. FPS 성능 벤치마크는 아님. 4언어 UI와16사진 시각 확인.
+- 테스트용 진행 경로 격리, 한국어/Prefs/클립보드/입력 설정/실제 진행 마스크8227 복원. 임시 JourneyFlowAudit/JourneyCameraObserver 제거, Codex work/lobby-physics-flow/final에 보관. 중간 입력 설정 재로딩 문제는 깨끗한 에디터 재시작으로 복구, 이후 원본 설정 필드만 임시 변경/복원. 결과 outputs/lobby-physics-flow/README.md. 멀티는 UTP 로컬 호스트 검증이며 신규 배포 빌드·Steam 다계정/외부망 접속 검증은 미실시.
+
+### 2026-09-25 — 달 제외 일반 바닥 평탄화
+- Jungle의 IslandTerrain.hillHeight=0, facetShading=true, facetColorJitter=.04. 일반 육지의 높이 노이즈를 없애고 면별 색으로 폴리곤 느낌 유지. 스폰 언덕/접시, 해안, 화산, 용암 협곡, 창고 낙하 샤프트, 케이지 평탄화 설정은 유지. 야자수·돌·동전·의자 246개 앵커는 기존 지면 대비 높이 차만 반영(최대 .879m); XZ/회전/스케일 보존. 용암과 해안 바위 메시도 새 HeightAt에 맞춰 재계산.
+- IceCavern의 IceMountain.jitterAmp=0, terraceAmount=0. 큰 산 능선, 스폰 대지, 눈사람 홈, 문 구멍, 슬라이드 트렌치는 유지. LowerCave/Facet_Floor의 Room_Floor.asset은 로컬 Z(오브젝트 회전270도) 요철을0으로 해 월드Y=-140 평면; 정점색과 삼각형 구성 유지, 렌더·충돌 동일 메시.
+- CaveTube_z1~z6 바닥 클램프 정점을Y=-200으로 맞춤. 바닥 장식은Y=-180 아래 밑동만 연결 높이를 보정; 레일·상부 장식·벽은 유지. IceCavernBuilder도 재생성 시 같은 평평한 FLOOR 사용. 기존 배경 전체 재생성은 하지 않음.
+- 수정 전 상태는 Codex work/flat-ground/backup 및 Assets/_Recovery/FlatGroundBeforeEdit.unity에 보관. 부분 실행 후3206개 컴포넌트를 복구 사본과 대조: 의도한 빙산 파라미터2개 외 구조/위치 변경 없음, 네트워크 ID는 원본과 동일. 생성 카메라/물리 검사용 객체는 미리보기 씬과 함께 제거.
+- 지면 레이 검사56개 통과. 독립 에디터 미리보기 물리 씬에서 동굴·빙산·정글 각4개 구형 접촉체를 낙하:12개 모두 목표 높이에 정지(속도0). 실제 게임 전체 플레이/Steam 접속 검사는 이번 범위 아님. 최종 화면에서 폴리곤 결 확인, IceCavern 정지·clean 상태 유지. 달 두 씬/달 지형/슬라이드/얼음바다 구멍/복도/우주/시작 씬 총8파일 SHA256 불변. 결과 Codex outputs/flat-ground/README.md.
+
+### 2026-09-25 — 복도 첫 다리 소개에 실제 키캡 표시
+- HallwayLegIntroduction의 첫 네 다리 소개도 문자열 WASD 대신 위1개/아래3개 정사각형 키캡으로 표시. W/ASD, T/FGH, I/JKL, [/; ' Enter. 검정 글씨, 각 다리 색의 연한 배경과 하단 색 표시. 소개 문장·키·설명은 기존 말풍선 안전 영역 안에서 별도 행으로 배치하며 말풍선 이미지/꼬리/카메라/시간/입력 진행은 유지.
+- 상단 "내 {0}는"과 하단 "이 네 방향키로 움직이고."의 한국어/영어/일본어/중국어 번역 추가. 실제 DrawLegBubble 렌더러 미리보기에서 한글 네 키 배열과 테두리 비중첩 확인, 컴파일 및 번역 JSON 검증. 전체 컷씬 재주행은 하지 않음. 임시 창 닫고 한국어 복원, 사용자가 열어 둔 Jungle clean 상태 유지. Codex outputs/intro-keycaps/intro-0.png 및 final-state.txt 참고.
+
+### 2026-09-25 — 정글 자연스러운 평면·협곡 경계와 완주 판정
+- Jungle의 IslandTerrain.naturalFacets를 켬: 높이 노이즈 없이 수평 정점 배치/대각선을 불규칙하게 하고 협곡 림·바닥 윤곽에서 면을 분할. 렌더/물리 동일 지오메트리, 기존 강 경로·설계 폭·평지 높이·스폰 지형·화산·동굴 입구 유지. 다른 씬은 옵션 기본 false.
+- LavaRiver.Touches: 실제 용암 리본/분화구 메시 아래 삼각 기둥과 회전된 BoxCollider의 SAT 겹침. 테이블 부품은 모두 BoxCollider이며 기타 타입은 보수적인 AABB 폴백. 끝부분/잠김/다리 끝 접촉 포함. Jungle lavaTouch 0.35→0.025m.
+- JungleBankContact/Tracker: 몸통+네 다리 전체가 같은 쪽 림에서0.15m 이상 벗어나고 서로 다른 발2개 이상 접지(간격 허용0.12m)를0.35초 유지해야 안전한 쪽 갱신. 용암 검사를 먼저 처리. 리스폰 탐색 실패 시 반대쪽으로 조건을 풀지 않음. 저장 복원 시 안전한 쪽 복원, 서버 권한 판정.
+- CheckpointRuntime 용암 건넘/스위치 도착도 같은 완주 조건 사용. 기린 조작 수치는 변경하지 않았음. 제안: 공중 다리 회수 속도 소폭 증가, 긴 지지 다리 yaw 버팀/신축 중 hold 설정 갱신.
+- Unity 컴파일/저장 성공.328268삼각형의 내부 틈·접힘·퇴화·비정상 공유 변0, 렌더/물리 정점 완전 동일.25평지 레이,10용암 사례,착지/미완주/저장 복원 조건 통과. 정글 평지·협곡 둑 총8구체 낙하 후 정지 확인. 직접 키보드 완주/멀티 실접속 테스트는 미실시. Jungle 씬 변경은4필드뿐, Moon/IceCavern/Hallway/GiraffeMode/ArtLegController SHA256 불변. Codex outputs/jungle-canyon/README.md에 상세 결과 및 비교 이미지.
+
+### 2026-09-25 — 기린 공중 다리 이동·지지 다리 유지력 개선
+- GiraffeMode.airborneLegSpeed=1.35 / plantedYawHold=1.3. ArtLegController가 발끝5점 지면 검사(진입7cm/유지12cm, 트리거·자기 테이블·가파른 면 제외). 기본→3배 길이에 따라 점진 적용: 공중 swing/yaw 최대35% 빠르게, 긴 접지 다리 yaw 정지 유지력/강성/감쇠 최대30% 보강. 이륙 보정0.12초 전환, 착지 시 이동 보너스 즉시 제거. 최대길이4.9m/신축0.8m/s/접지 이동/능동 모터힘/키 매핑은 유지.
+- 멈춘 swing/yaw도 모드·힘 변화 시 드라이브 갱신. 이미 잡은 각도를 유지해 신축 중 밀림을 다시 기준으로 삼지 않는다. 테니스 붙음/뗌의 기존 재설정 동작은 유지. 같은 드라이브 값은 재기록하지 않는다. 모드 해제/ResetState/게스트 netVisualOnly에서는 보정 제거.
+- 실제 테이블의 독립 preview physics scene 테스트: 기본 조작·접지 전환·목표각 보존·게스트 게이트·최대 신축/복귀 통과. 고정 몸통 공중30도 이동은3배 길이0.32→0.25초,7배0.71→0.54초. 동일 yaw 외력의 평균 각도 밀림2.027→1.617도. 몸통 고정 해제 후3배/7배 다리로 옆방향 충격0.8N·s를 받아도 네 발 접지·수직 자세 유지, 최종 속도0.0021/0.0056m/s. 직접 협곡 완주/Steam 실접속 시험은 아님.
+- 컴파일 통과, 씬9개 및 JungleStage/LavaRiver/IslandTerrain/TableInput 총13파일 SHA256 불변. 원래 Jungle 정지·clean 상태와 물리 시간 간격 보존. 결과 Codex outputs/giraffe-control/README.md 및 validation.txt/support-validation.txt.
+
+### 2026-09-25 — 바로서기 주변 안전 위치 자동 복구
+- UprightRecoverySearch: 해당 테이블의 PhysicsScene에서 중립 상판·네 다리·활성 테니스공 전체 부피, 네 모서리 지면, 천장·벽 경로를 확인. 가까운 자리부터18m까지 탐색. 기린 울타리는 막대 사이의 빈 내부도 전체 제외하며 이미 내부에 끼면 외부 탈출 허용. 벽 너머 미방문 지점으로 바로 옮기지 않음.
+- ArtSceneReset은 실제 접지한 안전 자리24개를 기억하고 주변 실패 시 거리순으로 재검증, 정글 마지막 안전 강둑과 스폰 주변까지 탐색. 저장된 지면 높이로 저천장을 새 바닥으로 오인하지 않도록 함. 모든 후보가 동적 장애물로 막힌 경우0.35초 자동 재시도, 기존 '공간이 없어요/이동 후 재시도' 안내 제거. 성공한 경우에만 횟수1회 차감, 중복 예약 방지, 호스트 권한·무제한 정책·능력 유지. 재시작/리스폰/비활성화 시 예약 해제.
+- JungleStage 안전 위치 조회에서 물·용암·미완주 반대편 강둑 제외. 기존 협곡 전체 통과 판정과 기린 조작 수치는 유지.
+- 위치 탐색31 PASS/0 FAIL, 실제 테이블의 독립 preview 물리 통합35 PASS/0 FAIL. 벽·저천장7.2m 탈출·좁은 밀폐방의 이전 안전 위치·장애물 제거 후 예약 복구·단일 차감·기린/테니스 상태 유지. 복구 정착 후 침투 깊이0.000014m 미만. 초기 위치 검사는 TeleportRoot 뒤 물리 틱 전 Transform을 읽어 실패했으며 물리 진행 후 검사하여 통과. 자동 예약 판단은 콜백 직접 호출 검증이며 실제 Play 스케줄/Steam/배포 빌드 검증은 아님.
+- 컴파일 정상. 씬9개와 GiraffeMode/ArtLegController/TableInput/IslandTerrain/LavaRiver/TimeManager 총15파일 SHA256 불변. 검증 중 사용자가 씬을 전환했고 마지막 StartScreen 정지·clean 및 물리 시간 간격 보존. Codex outputs/upright-recovery/README.md와 spatial.txt/integration.txt/final-state.txt 참조.
+
+### 2026-09-25 — 용암강 도착 완화 / 겁쟁이 코인 숨김 / 편지 보류 / 접지 반동
+- 사용자 최신 요청으로 정글의 엄격한 전체 통과 조건을 완화. JungleBankContact.TryReachedSide: 몸통 중심이 림0.35m 안쪽까지 도달+도착한 쪽 발1개 지지(20cm) 상태0.12초. trailing 다리는 협곡 위에 있어도 허용. 실제 용암 접촉 판정은 유지. JungleStage는 획득한 쪽의 안전한 강둑 좌표를 기억하고 CheckpointRuntime id3도 그 좌표 저장(부분 걸침 자세를 저장하지 않음). 기존 full-contact helper/직렬화 필드는 호환용으로 남아 있고 진행에는 새 조건 사용.
+- CoinPickup: Difficulty.Current의 Coward면 하위 Renderer/Collider 비활성, Normal이면 원래 상태 복원. 멀티 난이도 변경도 Update에서 반영. 수집으로 오인하지 않도록 루트 activeSelf 유지, 게스트 수집 차단.
+- LetterSystem.Enabled=false로 편지 임시 제거. LetterPickup Awake에서 봉투 비활성, Collect/LetterOverlay.Show 차단, NetStageSync는 빈 편지 배열. 원본 배치/이미지/저장 기록은 보존.
+- 새 TableGroundedWeight를 ArtSceneReset.Awake에서 중복 없이 자동 추가. 접지 또는 접지 후0.1초, 상승속도0.35m/s 초과분에만3/s 감쇠(추가 하강가속 상한12m/s²). 수평 drag/기본 중력/질량/다리 모터 속도·힘 변경 없음. 호스트만 적용, immovable/무중력/오징어/테니스 부착/다리 실제 신장 중 제외. 전역 기린 신장 키와 네트워크 입력도 실제 길이 변화 감지로 제외.
+- 독립 preview 물리 동일 입력3종의8초 수평 경로 변화 -3.7%/+6.1%/0%. 상승충격2m/s 최고 높이0.1939→0.1463m(-24.5%). 일부 교대 보행의 누적 상하 움직임은 증가하므로 모든 보행 진폭 감소를 보장하는 측정은 아님. 계수5보다 약한3 채택.
+- 규칙/콘텐츠38 PASS, 물리13 PASS, 최종 실패0. 씬9개·코인7개·편지5개 및 정상 난이도 복원 확인. 초기 테니스 테스트는 시각용 마스크를 실제 부착으로 오인한 fixture 실패여서 제거; 실제 부착 동적 재검증은 미실시. Play 키보드 주행/Steam/배포빌드 검증은 아님. 씬9개+프리팹+GiraffeMode/IslandTerrain/LavaRiver/TimeManager 총14파일 SHA256 불변. Codex outputs/grounded-feel/README.md 및 검사 로그 참조.
+
+
+### 2026-09-25 — 능력 아이콘 비행 연출 / 실제 조작 연습 / 메뉴 정리
+- AbilityHud 획득 연출: 154px 팝 → 곡선 이동·42px 축소 → 왼쪽 위 실제 슬롯(총1.8초). 전체화면 배경/제목 제거, 컷씬 종료 대기. Acquire에서 KeyTutorial.NotifyGranted 연결. CanReadInput은 자식 ArticulationBody까지 확인.
+- KeyTutorial.PowerPractice / PowerPracticeProgress 추가. 신선한 입력+실제 효과+키 해제를 요구. 기린 네 다리 신축과 별도 +/− 전체 단계, 테니스 각 발 실제 부착/해제, 눈사람 이동, 오징어 각 발 분사/해제. 모드2/3/4/5 토글 연습 포함. pause/획득/컷씬 중 미완성 시도만 폐기, 완료 단계 유지. 선택적 enable 레슨은 한 번만 생략/완료하며 모드 해제 시 다시 나타나지 않음. 기존 복도 걷기 흐름 유지, 기존 말풍선/키캡으로4언어 표시. showStretch/infoSeconds는 직렬화 호환용으로 남김.
+- GiraffeMode 전체키에 숫자패드+/− 추가. NetLegLink 게스트 전체 신축 RPC는 시작/해금/소유/활성 검증,0.1초 heartbeat/0.35초 만료. TennisMode/SquidMode에 정규 다리 키셋→실제/게스트 상태 조회 추가. 기존 신축속도/힘/물리 수치는 유지.
+- JourneyMenuUI 선택카드·버튼 hover 밑줄은 포인터 위치에만 표시. LevelSelect/NetDebugPanel 장식 문구 제거, Difficulty 설명 축약. JourneyWheel이 세로휠/가로트랙패드·작은 델타 누적 처리, 로비는 사진 위에서 호스트만 맵 변경.
+- 실제 Unity Play 입력·물리89 PASS/0 FAIL, 런타임 오류0. 네 능력 전체연습,4언어 화면,실제 부착/미끄러짐/분사,원격 전체 신축 만료,메뉴 양방향 스크롤/밑줄 확인. Steam 다계정·배포빌드·각맵 전체 컷씬 재주행은 미실시. 테스트 진행 경로 격리/Prefs·입력 설정 복원, 임시 PowerPracticeAudit 제거. 씬9+프리팹+TimeManager 11파일 불변. Codex outputs/power-practice/README.md 참조.
+
+
+### 2026-09-25 — 능력 말풍선 배치 / 네 언어 손글씨 원본 시트
+- PowerBubbleLayout 공통 배치:1920×1080 기준 상단 HUD 영역과 테이블 전체 및 작은 꼬리3개 겹침 회피. 현재 연습 다리 실제 투영 경계로 꼬리 방향 결정, 같은 기존 ThoughtTailLayout 비율·간격 유지. 다리별 폭660, 전체신축740, 얼음720. 제목/키/설명 간격 정리.6px 이동/10Hz 배치 캐시, 겹침 생기면 즉시 재배치.
+- GiraffeCutscene/FrameHallClimb/SnowmanCutscene에서 실제 캐릭터 머리 화면 좌표를 LocalizedStoryBubble로 전달. 같은540폭 가상 UI 말풍선 및30px 자동축소 글씨 사용. 기존 능력 연습 입력/완료 조건 유지.
+- Codex outputs/handwriting-sheets에 ko/en/ja/zh-Hans 각1장8192×10176 PNG. 메뉴 포함543개 항목의 실제 글자 크기·자동축소·줄바꿈2172건을 Unity GUIStyle로 측정. 원래 폰트가 지원하지 않는 기호는 대체폰트로 렌더링. atlas.json 공통좌표/출처와 반환 투명레이어용 extract_handwriting.py 포함. 실시간 숫자/방코드는 글자 세트, 자유 닉네임은 준비한 글자 외 원래 폰트 필요. 비활성 편지/옛메뉴 제외. 경주 고정문구4개는4언어 예약 견본으로 준비했으며 경주 런타임은 보류대로 그대로. 아직 사용자 손글씨 미수령이므로 런타임 이미지 치환은 하지 않음.
+- Unity Play114 PASS/0 FAIL, 런타임 오류0.4능력 실제 입력/부착/슬라이드/분사,4언어,테이블·HUD와 말풍선/꼬리 겹침,메뉴와 원격 전체신축 회귀 확인. NPC 머리3위치 배치 규칙 확인; 각 씬 컷씬 전체 재주행/Steam 다계정 시험은 아님. 진행 저장 경로 격리 후Prefs/입력/언어 복원. 임시 Editor검사 파일 제거, StartScreen 정지·clean/ko/Time.fixedDeltaTime0.009999993. 씬9+Table프리팹+TimeManager11파일 SHA256 불변.
+
+
+### 2026-09-25 — 실제 테이블 로비 / 다리 선택 후 맵 선택 / Steam 닉네임
+- TitleLocalizer CanvasGroup은 StartScreenMenu.HomeVisible일 때만 표시. 하위 메뉴/설정/멀티에서 숨기고 홈 복귀 시 표시. JourneyMenuUI.BackButton은 실제 그린 화살표+라벨, 옵션 뒤로에도 적용. 글꼴의 누락된 ← 문자에 의존하지 않음.
+- NetDebugPanel은 다리 선택→다음→맵/난이도→시작하기 두 단계. NetLegLink.Lobby의 서버 NetworkVariable 페이지를 전원 공유. 각 연결 참가자에 명시적으로1개 이상 배정되면 호스트 다음 허용; 다중 선택/나머지 호스트 조작 유지. map중 배정 변경 차단, 게스트도 뒤로 RPC로 전원 다리 선택에 돌아갈 수 있음. 늦은 참가자의 씬 동기화/연결 완료 시 다리 단계로 복귀. 실제 시작에는 호스트/해금/배정/단계 검증.
+- LobbyTablePreview는 원래 TableTop 및4다리의 MeshFilter 메시/트랜스폼을 물리·게임 스크립트 없이 복사, Resources/LobbyTable shader+별도Camera/RenderTexture에 표시. 다리/연결 라벨 클릭 가능, 선택 직후 윤곽→짧은 색 강조. 일반 홈이나 인게임의 LegColorXray 설정은 변경하지 않음. 방코드/복사/초대 중앙 상단.
+- NetworkList<LobbyPlayer>로 실제 SteamManager.PlayerName을 자기 sender ID에만 등록·배포. UTF8크기/제어문자 제한, Literal richText=false+내장CJK 폰트. Steam 없으면P1/P2. 서버이름캐시로 씬 이동 후 복원, 퇴장 시 제거. LegNameTags도 동일이름 사용, 로비 배경에는 숨김. NGO protocol3/Steam wat-story-checkpoints-v2로 버전 불일치 보호.
+- 화면/자동입력27 PASS,별도macOSlocalhost 호스트28+게스트20+늦은게스트15 PASS. 최종오류0/종료코드0. 다국어이름/소유권/권한/늦은접속/뒤로/잠금/Hallway이동후유지/퇴장 검증. macOS개발빌드성공(기존PerTableMode.OnDestroy경고1), 실제Steam다계정SDR/Windows신규빌드는미시험. 검사프레임 보정: 에디터포인터→Dynamic Input, 연결수 증가→접속씬동기화 완료 후 페이지 검사.
+- Codex outputs/lobby-redesign/README.md와로그/캡처. 새 로비 손글씨38항목4언어 보충PNG4096×1792 및좌표. 이전T번호시트 불변; 신규L번호로 기존그림보존. 사용자손글씨는아직미적용. 임시검사스크립트삭제, 씬9+프리팹+TimeManager11파일SHA256불변. 기존StartScreen플레이상태로복원.

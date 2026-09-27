@@ -71,8 +71,11 @@ public class LegController : MonoBehaviour
 
     // ⚠️ Awake(물리 시작 전)에서 힌지를 셋업한다. Start로 하면 빌드에선 테이블이 이미 낙하 중일 때
     //    실행돼 autoConfigure 앵커가 '낙하 중 포즈' 기준으로 틀어진 채 고정되는 버그가 있었음.
+    void OnValidate() { LegLayout.Apply(transform,ref controlSet,ref altUp,ref altDown,ref altLeft,ref altRight); }
+
     void Awake()
     {
+        LegLayout.Apply(transform,ref controlSet,ref altUp,ref altDown,ref altLeft,ref altRight);
         rb = GetComponent<Rigidbody>();
         StabilizeBody(rb);
 

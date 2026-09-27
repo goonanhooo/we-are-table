@@ -28,6 +28,7 @@ public class CheatMode : MonoBehaviour
 
     void Start()
     {
+        AbilityComponents.Ensure(gameObject);
         var list = new List<Rigidbody>();
         var t = GameObject.Find("Table");
         if (t != null) { var rb = t.GetComponent<Rigidbody>(); if (rb != null) list.Add(rb); }
@@ -56,6 +57,8 @@ public class CheatMode : MonoBehaviour
     {
         if (Active)
         {
+            var tutorial=GetComponent<KeyTutorial>();if(tutorial!=null)tutorial.SuppressCheatPowerTutorials();
+            var hud=GetComponent<AbilityHud>();if(hud!=null)hud.RevealCheatPowers();
             // 모든 능력 해금(잠금 풀림 → 능력 키가 바로 먹힘. 예: 2 누르면 즉시 지라프).
             if (unlockables != null)
                 foreach (var u in unlockables) u?.CheatUnlock();
@@ -140,10 +143,10 @@ public class CheatMode : MonoBehaviour
             hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft };
             hintStyle.normal.textColor = new Color(0.08f, 0.08f, 0.08f, 1f);
         }
-        var r = new Rect(12, 12, 560, 70);
+        var r = new Rect(12, Screen.height-84, Mathf.Min(Screen.width-24,900), 72);
         UiKit.Panel(r, 0.92f);   // 흰 배경 + 얇은 검은 테두리 + 검은 글씨(통일 스타일)
         GUI.Label(new Rect(r.x + 8, r.y + 6, r.width - 16, r.height - 12),
-            L.T("🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2  얼음3)",
-                "🛠 CHEAT ON  —  arrows=fly (camera-relative), Space/'>'=up, LeftCtrl/'<'=down, Shift=boost\nT=teleport to view,  `=open door,  all powers unlocked (giraffe 2, ice 3)"), hintStyle);
+            L.T("🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2 · 테니스3 · 눈사람4 · 오징어5)",
+                "🛠 CHEAT ON  —  arrows=fly (camera-relative), Space/'>'=up, LeftCtrl/'<'=down, Shift=boost\nT=teleport to view,  `=open door,  all powers unlocked (giraffe 2, tennis 3, snowman 4, squid 5)"), hintStyle);
     }
 }

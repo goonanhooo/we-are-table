@@ -95,7 +95,6 @@ public static class IceCavernBuilder
         var lg = root.transform.Find("CavernLights"); if (lg != null) { var dl = new List<GameObject>(); foreach (Transform c in lg) if (c.name.StartsWith("Crystal_")) dl.Add(c.gameObject); foreach (var g in dl) Object.DestroyImmediate(g); }
 
         System.Func<float, float, float> terrainMin = (x, z) => { float h = im.HeightAt(x, Mathf.Min(z, -22.5f)); for (int k = 0; k < 8; k++) { float a = k * Mathf.PI / 4f; h = Mathf.Min(h, im.HeightAt(x + 4f * Mathf.Cos(a), Mathf.Min(z + 4f * Mathf.Sin(a), -22.5f))); } return h; };
-        System.Func<float, float, float> floorY = (x, z) => FLOOR + 5f * Mathf.Sin(0.04f * x + 1f) * Mathf.Sin(0.05f * z) + 3f * Mathf.Sin(0.11f * x) * Mathf.Cos(0.09f * z);
 
         // H 중심선 샘플 + z 조회표
         var cl = new List<Vector3>(); var cw = new List<float>(); var chh = new List<float>();
@@ -123,7 +122,8 @@ public static class IceCavernBuilder
                 Vector3 p = rc[k] + Vector3.right * (rw[k] * n * Mathf.Cos(phi)) + Vector3.up * (rhh[k] * n * Mathf.Sin(phi));
                 ringU[k, i] = p;
                 float tm = terrainMin(p.x, p.z) - 6f; if (p.y > tm) p.y = tm;
-                float fy = floorY(p.x, p.z); if (p.y < fy) p.y = fy;
+                // Keep the low-poly face colors, but make the cavern floor level.
+                if (p.y < FLOOR) p.y = FLOOR;
                 if (p.z < FARZ) p.z = FARZ + (i == NA ? 0f : R01() * 0.5f);
                 ring[k, i] = p;
             }

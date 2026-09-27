@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 좁은 복도용 벽 시스루(Hallway): 카메라가 벽 바깥(또는 벽 두께 속)에 있으면 그 벽의 렌더러만 끈다.
-/// 콜라이더/물리는 그대로 — 보이기만 뚫림. 카메라가 안으로 돌아오면 다시 보임.
+/// 좁은 복도용 벽 시스루(Hallway): 카메라가 벽 바깥(또는 벽 두께 속)에 있으면 그 벽에 디더 페이드를 적용한다.
+/// 콜라이더/물리는 그대로 — 점무늬로 윤곽을 남김. 카메라가 안으로 돌아오면 다시 보임.
 /// 축 정렬 박스 벽 전용: 각 벽의 '두께 축'(가장 얇은 축)과 안쪽 방향을 복도 전체 중심 기준으로 자동 계산.
 /// </summary>
 public class WallSeeThrough : MonoBehaviour
@@ -21,6 +21,7 @@ public class WallSeeThrough : MonoBehaviour
 
     void Start()
     {
+        CameraOcclusionFade.For(Camera.main);
         var found = new List<Renderer>();
         Bounds all = new Bounds(); bool any = false;
         foreach (var nm in wallNames)
@@ -68,7 +69,7 @@ public class WallSeeThrough : MonoBehaviour
                 { lateralOk = false; break; }
             }
             bool hide = beyond && lateralOk;
-            if (w.r.enabled != !hide) w.r.enabled = !hide;
+            if (hide) CameraOcclusionFade.For(cam)?.FadeWall(w.r);
         }
     }
 }

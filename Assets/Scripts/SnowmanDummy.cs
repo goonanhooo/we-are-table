@@ -45,7 +45,8 @@ public class SnowmanDummy : MonoBehaviour
             {
                 granted = true;
                 power.unlocked = true;
-                Debug.Log("⛄ 눈사람의 얼음 능력 획득! 3번 키로 사용.");
+                AbilityHud.Acquire(power, "ice");
+                Debug.Log("⛄ 눈사람의 얼음 능력 획득! 4번 키로 사용.");
                 break;
             }
         }

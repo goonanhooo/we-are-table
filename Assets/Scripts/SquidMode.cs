@@ -1,12 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// ★ 우주오징어 모드(2026-07-07) — 무중력에서 다리 신축 키(FR=Y/FL=E/BR=]/BL=O — 기린 'longer'와 같은 키)를
+/// ★ 우주오징어 모드(2026-07-07) — 무중력에서 다리 신축 키(FR=]/FL=O/BR=Y/BL=E — 기린 'longer'와 같은 키)를
 /// 누르면 그 다리 '발끝에서 분사'해 다리 축 방향(발→피벗)으로 추진된다.
 /// 다리를 스윙/스핀으로 조준하고 뿜어서 오징어처럼 날아다니는 조작감.
 /// 테이블 기능 패턴: Table.prefab 루트 부착, 평소 active=false(무동작).
 /// 해금 방식은 미정 — 지금은 우주 씬(SpaceStage)이 입장 시 active=true 부여, 치트는 unlocked만.
-/// active 동안 전 바디 useGravity=false + 표류 감쇠(driftDamping) 적용, 끄면 원복.
+/// active 동안 표류 감쇠 적용. 달에서는 중력을 유지하고, 그 외에는 무중력. 끄면 원복.
 /// ⚠️기린 모드와 같은 키를 쓰므로 우주 씬은 GiraffeMode.locked=true(SpaceStage가 설정).
 /// 멀티: 물리는 호스트 전용 — 게스트는 netVisualOnly(NetLegLink.ApplyGuestMode)로 분사 파티클만 호스트 마스크(NetVisualSync.VState.squid)대로 표시.
 /// ★2026-09-06 외형: 켜져 있고(thrustLocked 아님) 힘을 받은 뒤엔 우주오징어처럼 살짝 보라(tintRenderers에 _BaseColor 프로퍼티 블록) + 눈 두 개(eyes, 프리팹 자식 SquidEyes 활성).
@@ -30,6 +30,13 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     public void NetApplyVisual(bool on, int mask) { netActive = on; netJetMask = on ? mask : 0; }
     /// <summary>오징어 외형(보라+눈)을 보여야 하는가 — 호스트: 켜짐·힘 받음, 게스트: 호스트가 보낸 bit.</summary>
     public bool LookOn => netVisualOnly ? netActive : (active && !thrustLocked);
+    public bool PracticeJetting(LegControlSet set)
+    {
+        if(legs==null)return false;
+        int mask=netVisualOnly?netJetMask:JetMask;
+        for(int i=0;i<legs.Length;i++)if(legs[i]!=null&&legs[i].controlSet==set)return (mask&(1<<i))!=0;
+        return false;
+    }
     [Tooltip("다리 하나가 내는 추진력(N). 4다리 동시 분사 = ×4. 테이블 총질량 ~7.6kg.")]
     public float thrustForce = 12f;
     [Tooltip("무중력 표류 감쇠(linearDamping) — 0이면 순수 관성이라 멈추기 힘들다.")]
@@ -50,7 +57,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
     ArticulationBody[] allBodies;
     float[] origDamping;
     bool[] origGravity;
-    bool applied, lookApplied;
+    bool applied, lookApplied, spaceEnvironment, moonEnvironment;
     MaterialPropertyBlock lookMpb;
 
     /// <summary>보라 틴트 + 눈. 켜진 동안 매 프레임 다시 씌움(다른 연출이 블록을 지워도 복구), 끌 땐 1회 원복.</summary>
@@ -70,10 +77,12 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
         lookApplied = on;
     }
 
-    public void CheatUnlock() { unlocked = true; }
+    public void CheatUnlock() { unlocked = true; thrustLocked = false; }
 
     void Start()
     {
+        spaceEnvironment = Object.FindAnyObjectByType<SpaceStage>() != null;
+        moonEnvironment = Object.FindAnyObjectByType<MoonStage>() != null;
         ti = TableInput.Of(this);
         legs = transform.root.GetComponentsInChildren<ArtLegController>(true);
         meshes = new Transform[legs.Length];
@@ -122,6 +131,11 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
+        if (active && !thrustLocked && !netVisualOnly) unlocked = true;
+        var keyboard = UnityEngine.InputSystem.Keyboard.current;
+        if (!netVisualOnly && unlocked && !thrustLocked && keyboard != null && keyboard.digit5Key.wasPressedThisFrame && AbilityHud.CanReadInput(this))
+        { active = !active; if(active)AbilitySelection.Select(this); }
+
         bool look = LookOn;
         if (look || lookApplied) ApplyLook(look);
         if (netVisualOnly)
@@ -133,12 +147,12 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
         }
         if (!active)
         {
-            if (applied) Restore();
+            if (applied && !spaceEnvironment) Restore();   // 우주에서는 힘을 꺼도 환경의 무중력은 유지
             if (jets != null) foreach (var j in jets) if (j != null) SetRate(j, 0f);
             JetMask = 0;
             return;
         }
-        if (!applied) ApplyZeroG();
+        if (!applied) ApplyFlightPhysics();
         Unlocked = true;   // 켜진 순간부터 조작법 메뉴에 오징어 페이지 노출
         if (ti == null) ti = TableInput.Of(this);
 
@@ -181,7 +195,7 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
         }
     }
 
-    void ApplyZeroG()
+    void ApplyFlightPhysics()
     {
         origGravity = new bool[allBodies.Length];
         origDamping = new float[allBodies.Length];
@@ -190,7 +204,8 @@ public class SquidMode : MonoBehaviour, ICheatUnlockable
             if (allBodies[i] == null) continue;
             origGravity[i] = allBodies[i].useGravity;
             origDamping[i] = allBodies[i].linearDamping;
-            allBodies[i].useGravity = false;
+            // The Moon has gravity even while the squid jets are enabled.
+            allBodies[i].useGravity = moonEnvironment;
             allBodies[i].linearDamping = driftDamping;
         }
         applied = true;

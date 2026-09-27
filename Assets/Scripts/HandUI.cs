@@ -10,7 +10,7 @@ public static class HandUI
     static Font gaegu;
     public static Font Gaegu
     {
-        get { if (gaegu == null) gaegu = Resources.Load<Font>("Fonts/Gaegu-Bold"); return gaegu; }
+        get { return LocaleFonts.Hand; }
     }
 
     static Texture2D boxWide, boxPanel, boxTile, underline;
@@ -38,7 +38,7 @@ public static class HandUI
     public static GUIStyle Style(int size, Color color, TextAnchor anchor = TextAnchor.MiddleCenter, bool bold = false)
     {
         var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor };
-        if (Gaegu != null) st.font = Gaegu;
+        LocaleFonts.Track(st);
         if (bold) st.fontStyle = FontStyle.Bold;
         st.normal.textColor = color;
         st.hover.textColor = color;

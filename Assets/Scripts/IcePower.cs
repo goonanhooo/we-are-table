@@ -3,17 +3,17 @@ using UnityEngine.InputSystem;
 
 /// <summary>
 /// 눈사람에게서 얻는 '얼음 능력'. TablePlayer 루트에 부착.
-/// - unlocked(눈사람 접촉으로 true) 상태에서 ★3번 키로 토글.
+/// - unlocked(눈사람 접촉으로 true) 상태에서 ★4번 키로 토글.
 /// - 켜지면: 테이블 전체가 '얼음색(약간 투명)' 으로 바뀌고, 모든 콜라이더 마찰이 거의 0(slick, Minimum 결합)
 ///   → 힘/경사를 받으면 얼음처럼 미끄러진다. 끄면 원래 재질/마찰로 복구.
 /// - 마찰 결합이 Minimum 이라, 일반 마찰 바닥/미끄럼틀 위에서도 '능력을 켰을 때만' 미끄러진다(능력이 게이트).
 /// </summary>
 public class IcePower : MonoBehaviour, ICheatUnlockable
 {
-    [Tooltip("눈사람에게서 능력을 얻었는가(획득 전엔 3번 키 무효).")]
+    [Tooltip("눈사람에게서 능력을 얻었는가(획득 전엔 4번 키 무효).")]
     public bool unlocked = false;
 
-    // 치트모드: 해금 → 3번 키 바로 먹힘.
+    // 치트모드: 해금 → 4번 키 바로 먹힘.
     public void CheatUnlock() { unlocked = true; }
     public bool active = false;
     [Tooltip("능력 켤 때 테이블에 입힐 얼음(반투명) 재질.")]
@@ -76,6 +76,7 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
     public void SetActive(bool on)
     {
         active = on;
+        if(on&&!netVisualOnly)AbilitySelection.Select(this);
         Apply();
     }
 
@@ -88,13 +89,13 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
-        if (netVisualOnly) return;   // ★ 멀티 게스트: 3키 토글 금지(호스트 상태를 따라감)
+        if (netVisualOnly) return;   // ★ 멀티 게스트: 4키 토글 금지(호스트 상태를 따라감)
         Refs();
         bool squidOn = squidRef != null && squidRef.active;
         if (squidOn && active) SetActive(false);   // 우주(무중력·오징어)에선 얼음 의미 없음 + 보라 틴트와 겹침 방지
         var kb = Keyboard.current;
         if (kb == null) return;
-        if (unlocked && !squidOn && kb.digit3Key.wasPressedThisFrame) SetActive(!active);
+        if (unlocked && kb.digit4Key.wasPressedThisFrame && AbilityHud.CanReadInput(this)) SetActive(!active);
     }
 
     public void Apply()

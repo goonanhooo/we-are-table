@@ -35,22 +35,48 @@ public class JungleStage : MonoBehaviour
     [Header("용암 사망 판정(접촉 기반)")]
     public IslandTerrain island;
     public LavaRiver lava;     // 용암 폭/표면 높이 참조(비우면 자동 검색/폴백)
-    [Tooltip("테이블 콜라이더 바닥이 용암 표면에서 이 높이 안(아래)으로 닿으면 사망. = 용암에 '닿으면' 죽음.")]
-    public float lavaTouch = 0.35f;
+    [Tooltip("보이는 용암 표면 위 접촉 허용 오차. 테이블의 실제 회전된 콜라이더로 검사한다.")]
+    public float lavaTouch = 0.025f;
     public float fallbackLavaHalfWidth = 3.5f;
     public float fallbackLavaLift = 1f;
     [Tooltip("리스폰 안전거리 폴백(island.CanyonRimHalf 없을 때).")]
     public float killHalfWidth = 7f;
+    [Header("협곡 완주 확인")]
+    // Legacy serialized settings retained for scene compatibility; arrival now uses one planted foot.
+    [HideInInspector]
+    public float crossingClearance = 0.15f;
+    [HideInInspector]
+    public float crossingSettleTime = 0.35f;
+    [Tooltip("몸통이 반대편 가장자리에 도달하고 발 하나를 디딘 뒤 인정할 시간")]
+    public float crossingArrivalTime = 0.12f;
 
     Transform table, tableTop;
     Rigidbody[] tableBodies;
     Collider[] tableColliders;
     SceneReset sceneReset;
     float ignoreUntil;
-    float lastSafeSide;        // 마지막으로 안전했던(협곡 밖) 강 기준 쪽 → 같은 쪽에 리스폰(건너편 X)
+    readonly JungleBankTracker bank=new JungleBankTracker();
+    BoxCollider[] feet;
+    ArticulationBody artRoot;
+    float lastSafeSide => bank.SafeSide;
+    public bool CanSaveAcrossLava => bank.HasCrossed && bank.IsSettled && island!=null
+        && bank.SafeSide!=island.SignedSideOfRiver(spawnPoint.x,spawnPoint.z);
+    public Vector3 SafeUprightAnchor => lastSafeSide != 0f ? bank.SafePosition : spawnPoint;
+
+    /// <summary>Manual upright recovery must not skip the canyon or land in lava/water.</summary>
+    public bool IsSafeUprightRecovery(Vector3 position, float radius)
+    {
+        if (island == null) return true;
+        float side = lastSafeSide != 0f ? lastSafeSide : island.SignedSideOfRiver(spawnPoint.x, spawnPoint.z);
+        if (island.SignedSideOfRiver(position.x, position.z) != side
+            || island.DistanceToRiver(position.x, position.z) <= island.CanyonRimHalf + radius + .15f
+            || island.HeightAt(position.x, position.z) <= island.waterLevel + 1f) return false;
+        if (lava != null && Vector2.Distance(new Vector2(position.x, position.z), island.RiverPoint(0f))
+            <= lava.craterPoolRadius + radius + .15f) return false;
+        return true;
+    }
 
     float LavaHalfWidth => lava != null ? lava.width * 0.5f : fallbackLavaHalfWidth;
-    float LavaLift => lava != null ? lava.lift : fallbackLavaLift;
 
     void Start()
     {
@@ -60,6 +86,13 @@ public class JungleStage : MonoBehaviour
             table = tgo.transform;
             tableBodies = tgo.transform.root.GetComponentsInChildren<Rigidbody>(true);
             tableColliders = tgo.transform.root.GetComponentsInChildren<Collider>(true);
+            artRoot=tgo.GetComponent<ArticulationBody>();
+            feet=new BoxCollider[4];
+            for(int slot=0;slot<4;slot++)
+            {
+                var leg=LegLayout.Find(tgo.transform.root,slot);
+                if(leg!=null)feet[slot]=leg.GetComponent<BoxCollider>();
+            }
         }
         var ttgo = GameObject.Find("TableTop");
         if (ttgo != null) tableTop = ttgo.transform;
@@ -67,12 +100,13 @@ public class JungleStage : MonoBehaviour
         if (island == null) island = Object.FindAnyObjectByType<IslandTerrain>();
         if (lava == null) lava = Object.FindAnyObjectByType<LavaRiver>();
         sceneReset = Object.FindAnyObjectByType<SceneReset>();
-        if (island != null) lastSafeSide = island.SignedSideOfRiver(spawnPoint.x, spawnPoint.z);
         if (respawnPoint == null)
         {
             var rp = GameObject.Find("RespawnPoint");
             if (rp != null) respawnPoint = rp.transform;
         }
+        if(island!=null)bank.Reset(island.SignedSideOfRiver(spawnPoint.x,spawnPoint.z),
+            respawnPoint!=null?respawnPoint.position:new Vector3(spawnPoint.x,island.HeightAt(spawnPoint.x,spawnPoint.z)+respawnLift,spawnPoint.z));
 
         if (table != null && tableBodies != null)
         {
@@ -139,26 +173,28 @@ public class JungleStage : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (table == null || island == null) return;
-
-        // 안전할 때(협곡 밖 단단한 땅) 마지막 '쪽'을 기록 → 빠지면 그 쪽(원래 있던 쪽)에 리스폰.
-        if (tableTop != null)
-        {
-            float dr = island.DistanceToRiver(tableTop.position.x, tableTop.position.z);
-            if (dr > island.CanyonRimHalf + 1f)
-                lastSafeSide = island.SignedSideOfRiver(tableTop.position.x, tableTop.position.z);
-        }
-        if (Time.time < ignoreUntil) return;
+        if (table == null || island == null || !CheckpointRuntime.Authority) return;
+        if (Time.time < ignoreUntil) {bank.CancelPending();return;}
 
         // 용암에 '닿으면' 사망: 테이블 콜라이더 바닥이 용암 표면에 닿거나 잠기면.
         if (tableColliders != null)
             foreach (var col in tableColliders)
-                if (col != null && !col.isTrigger && TouchesLava(col)) { Respawn(); return; }
+                if (col != null && col.enabled && col.gameObject.activeInHierarchy && !col.isTrigger && TouchesLava(col)) { Respawn(); return; }
+        float side;
+        bool landed=JungleBankContact.TryReachedSide(island,table,feet,out side);
+        if(artRoot!=null&&artRoot.immovable)landed=false;
+        Vector3 safe = bank.SafePosition;
+        if (landed && side != lastSafeSide)
+        {
+            var destination = SearchSafe(new Vector2(table.position.x, table.position.z), side);
+            if (destination.HasValue) safe = destination.Value;
+            else landed = false;
+        }
+        else if (landed && IsSafeUprightRecovery(table.position, 1.5f)) safe = table.position;
+        bank.Observe(landed,side,safe,Time.fixedDeltaTime,crossingArrivalTime);
     }
 
-    /// <summary>실제 용암 리본 표면의 월드 높이. LavaRiver 메시 생성과 동일하게
-    /// **강 중심선 바닥(HeightAt) + lift + 리본 오브젝트의 transform.y** 로 계산 → 보이는 용암과 정확히 일치.
-    /// (리본은 좁은 협곡 바닥 중심선 위에 떠 있으므로, 림 위 지형이 아니라 중심선 기준으로 잰다.)</summary>
+    /// <summary>LavaRiver가 없는 이전 씬에서만 사용하는 중심선 높이 폴백.</summary>
     float LavaSurfaceY(float x, float z)
     {
         Vector2 cp = island.NearestRiverPoint(x, z);
@@ -166,24 +202,28 @@ public class JungleStage : MonoBehaviour
         return lava != null ? baseY + lava.lift + lava.transform.position.y : baseY + fallbackLavaLift;
     }
 
-    /// <summary>콜라이더가 용암에 닿았는지: 용암 리본 폭 안 + 콜라이더 바닥이 **실제 용암 표면** 이하.
-    /// → 용암에 실제로 닿거나 잠겨야 죽고, 협곡 림(높은 단단한 땅) 위에선 안 죽음.</summary>
+    /// <summary>보이는 표면의 삼각형과 실제 콜라이더의 겹침. 중심이 리본 밖이어도 다리 끝 접촉은 잡는다.</summary>
     bool TouchesLava(Collider col)
     {
+        if(lava!=null)return lava.Touches(col,lavaTouch);
         Bounds b = col.bounds;
         float cx = b.center.x, cz = b.center.z;
         if (island.DistanceToRiver(cx, cz) >= LavaHalfWidth) return false;    // 용암 리본 폭 밖
         return b.min.y <= LavaSurfaceY(cx, cz) + lavaTouch;                   // 바닥이 용암 표면에 닿음/잠김
     }
 
-    /// <summary>빠진 지점에서 **원래 있던 쪽(side)** 의 가장 가까운 협곡 밖 평평한 고지대를 찾는다. 못 찾으면 쪽 제약 풀고 재시도.</summary>
+    /// <summary>도착을 인정한 강둑에서 안전한 땅을 찾고, 없으면 마지막 안전 위치를 유지한다.</summary>
     Vector3 FindNearestSafe(Vector2 from, float side)
     {
         var a = SearchSafe(from, side);
         if (a.HasValue) return a.Value;
-        var b = SearchSafe(from, 0f);            // 같은 쪽에 마땅한 곳 없으면 제약 풀기
-        if (b.HasValue) return b.Value;
-        return respawnPoint != null ? respawnPoint.position : spawnPoint;
+        // Never silently relax the bank constraint after a failed crossing.
+        return bank.SafePosition;
+    }
+
+    public void RestoreCheckpointBank(Vector3 position)
+    {
+        if(island!=null)bank.Restore(island.SignedSideOfRiver(position.x,position.z),position);
     }
 
     Vector3? SearchSafe(Vector2 from, float side)
@@ -219,6 +259,7 @@ public class JungleStage : MonoBehaviour
     {
         if (island == null || reset == null) return false;
         ignoreUntil = Time.time + respawnCooldown;   // 리스폰 직후 용암 판정 유예(기존 리스폰과 동일)
+        bank.CancelPending();
         float spawnSide = island.SignedSideOfRiver(spawnPoint.x, spawnPoint.z);
         if (lastSafeSide != spawnSide)
         {
@@ -236,6 +277,7 @@ public class JungleStage : MonoBehaviour
     void Respawn()
     {
         ignoreUntil = Time.time + respawnCooldown;
+        bank.CancelPending();
         // 빠진 자리에서 '원래 있던 쪽'의 가장 가까운 안전한 땅을 찾아 똑바로 복원(건너편 X).
         Vector2 fell = tableTop != null ? new Vector2(tableTop.position.x, tableTop.position.z)
                                         : new Vector2(table.position.x, table.position.z);

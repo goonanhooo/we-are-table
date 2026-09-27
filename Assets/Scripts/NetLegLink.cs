@@ -7,13 +7,16 @@ using UnityEngine;
 /// - 물리는 호스트에서만 돈다(게스트 바디는 NetworkRigidbody가 kinematic으로 만들고 NetworkTransform이 포즈 수신).
 /// - 게스트는 자기에게 배정된 다리(키셋)의 로컬 키보드만 읽어 서버로 보낸다(SendInputRpc).
 /// - 호스트는 받은 입력을 TableInput.SetExternal로 주입 → LegController는 로컬/원격을 구분하지 않는다.
-/// - 배정: 게스트 접속 순서대로 TFGH(앞오른발) → IJKL(뒤왼발) → Arrows(뒤오른발). 호스트=WASD+남는 다리 전부.
+/// - 배정: 게스트 접속 순서대로 TFGH(뒤오른발) → IJKL(앞왼발) → Arrows(앞오른발). 호스트=WASD+남는 다리 전부.
 ///   (로비 다리 '선택' UI는 다음 단계 — 지금은 자동 배정. 중간 난입 차단도 로비 단계에서.)
 /// - 게스트 퇴장 → 그 다리는 다시 호스트 로컬로. 호스트 퇴장 → 게스트 쪽 NetDebugPanel이 세션 종료 처리.
 /// </summary>
-public class NetLegLink : NetworkBehaviour
+public partial class NetLegLink : NetworkBehaviour
 {
     const ulong NONE = ulong.MaxValue;
+    readonly NetworkVariable<uint> checkpointMask=new(1,NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Server);
+    public uint CheckpointMask=>IsServer?CheckpointProgress.Mask:checkpointMask.Value;
+
 
     /// <summary>다리(키셋 인덱스 0~3) → 소유 클라이언트 id. NONE=호스트 로컬.</summary>
     public struct LegOwners : INetworkSerializable, System.IEquatable<LegOwners>
@@ -52,7 +55,7 @@ public class NetLegLink : NetworkBehaviour
     static bool sStarted;
     static byte sMap = 255;
     static byte sDiff;
-    public static void ResetSessionCache() { sHasCache = false; sStarted = false; sMap = 255; sDiff = 0; Difficulty.NetOverride = -1; }
+    public static void ResetSessionCache() { savedNames.Clear(); sHasCache = false; sStarted = false; sMap = 255; sDiff = 0; Difficulty.NetOverride = -1; }
     /// <summary>캐시 켜기 — ⚠️처음 켤 때 sOwners를 현재 값(전부 NONE)으로 채움: 기본 struct(전부 0=클라 0 소유)가
     /// 씬 전환 후 복원되면 호스트 다리가 External 소스로 잠기는 함정(맵/난이도만 고르고 다리 안 고른 경우).</summary>
     void Cache()
@@ -105,7 +108,7 @@ public class NetLegLink : NetworkBehaviour
     [Rpc(SendTo.Server)]
     public void ClaimLegRpc(byte leg, RpcParams rpc = default)
     {
-        if (leg > 3 || started.Value) return;                       // 시작 후 변경 금지
+        if (!IsServer || leg > 3 || started.Value || ChoosingMap || !NetworkManager.ConnectedClients.ContainsKey(rpc.Receive.SenderClientId)) return;                       // 시작 후 변경 금지
         ulong who = rpc.Receive.SenderClientId;
         var o = owners.Value;
         ulong cur = o.Get(leg);
@@ -128,7 +131,7 @@ public class NetLegLink : NetworkBehaviour
     /// <summary>호스트: 로비에서 맵 선택(NetDebugPanel.Maps 인덱스) — 게스트 로비에도 표시.</summary>
     public void SetMap(int i)
     {
-        if (!IsServer || started.Value || i < 0 || i > 254) return;
+        if (!IsServer || started.Value || !CheckpointProgress.IsUnlocked(i)) return;
         mapIndex.Value = (byte)i;
         sMap = (byte)i; Cache();
     }
@@ -136,7 +139,7 @@ public class NetLegLink : NetworkBehaviour
     /// <summary>호스트: 게임 시작 — 다리 고정 + 세션 잠금(중간 난입 차단). 씬 로드는 호출 쪽(NetDebugPanel).</summary>
     public void StartGame()
     {
-        if (!IsServer || started.Value) return;
+        if (!IsServer || started.Value || !ChoosingMap || !CanChooseMap || !CheckpointProgress.IsUnlocked(MapIndex)) return;
         started.Value = true;
         sStarted = true; Cache();
         _ = NetSession.LockAsync();
@@ -150,11 +153,13 @@ public class NetLegLink : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        NetScene.IntentionalLeave=false;
         tableInput = TableInput.Of(this);
         owners.OnValueChanged += OnOwnersChanged;
 
         if (IsServer)
         {
+            checkpointMask.Value=CheckpointProgress.Mask;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
             // ★씬 전환으로 새로 스폰된 인스턴스: 이전 씬의 배정/시작/맵/난이도 상태 복원
             if (sHasCache)
@@ -176,10 +181,12 @@ public class NetLegLink : NetworkBehaviour
         Difficulty.NetOverride = difficulty.Value;
         if (IsClient && !IsServer) ApplyGuestMode();
         OnOwnersChanged(default, owners.Value);
+        SpawnLobby();
     }
 
     public override void OnNetworkDespawn()
     {
+        DespawnLobby();
         owners.OnValueChanged -= OnOwnersChanged;
         difficulty.OnValueChanged -= OnDifficultyChanged;
         // 세션이 끝나며 사라질 때만 난이도 덮어쓰기 해제(씬 전환 중 디스폰은 새 인스턴스가 다시 적용)
@@ -194,6 +201,7 @@ public class NetLegLink : NetworkBehaviour
     // ── 서버: 퇴장 시 그 사람 다리 전부 해제(호스트 로컬 복귀) ──
     void OnClientDisconnected(ulong clientId)
     {
+        RemoveLobbyPlayer(clientId);
         var o = owners.Value; bool ch = false;
         for (int i = 0; i < 4; i++)
             if (o.Get(i) == clientId) { o.Set(i, NONE); ch = true; }
@@ -206,7 +214,8 @@ public class NetLegLink : NetworkBehaviour
         if (IsServer && tableInput != null)
             for (int i = 0; i < 4; i++)
                 tableInput.SetSource((LegControlSet)i,
-                    o.Get(i) == NONE ? TableInput.LegSource.Local : TableInput.LegSource.External);
+                    o.Get(i) == NONE || o.Get(i) == NetworkManager.LocalClientId
+                        ? TableInput.LegSource.Local : TableInput.LegSource.External);
 
         // 내 다리 마스크(호스트 포함 — 표시용. 게스트는 입력 전송에도 사용)
         myMask = 0;
@@ -218,6 +227,15 @@ public class NetLegLink : NetworkBehaviour
     void Update()
     {
         if (!IsSpawned || IsServer || myMask == 0) return;
+        var keyboard=UnityEngine.InputSystem.Keyboard.current;
+        var giraffe=GetComponent<GiraffeMode>();
+        byte group=0;
+        if(started.Value && giraffe!=null && giraffe.active && !giraffe.locked && !PauseMenu.InputBlocked && !LetterOverlay.IsOpen)
+            group=(byte)((giraffe.AllLongerHeld?1:0)|(giraffe.AllShorterHeld?2:0));
+        if(group!=lastGroupStretch || (group!=0&&Time.unscaledTime-nextGroupStretch>.1f))
+        {lastGroupStretch=group;nextGroupStretch=Time.unscaledTime;GroupStretchRpc(group);}
+        if(started.Value&&keyboard!=null&&!PauseMenu.InputBlocked&&!LetterOverlay.IsOpen)
+            for(int key=1;key<=5;key++)if(keyboard[(UnityEngine.InputSystem.Key)((int)UnityEngine.InputSystem.Key.Digit1+key-1)].wasPressedThisFrame)RequestPowerRpc((byte)key);
         for (int i = 0; i < 4; i++)
         {
             if ((myMask & (1 << i)) == 0) continue;
@@ -228,6 +246,36 @@ public class NetLegLink : NetworkBehaviour
                 SendInputRpc((byte)i, packed);
             }
         }
+    }
+
+    byte lastGroupStretch;float nextGroupStretch;
+    [Rpc(SendTo.Server)]
+    void GroupStretchRpc(byte flags,RpcParams rpc=default)
+    {
+        if(!IsServer||!started.Value||flags>3)return;
+        bool owns=false;for(int i=0;i<4;i++)if(owners.Value.Get(i)==rpc.Receive.SenderClientId)owns=true;
+        if(!owns)return;
+        var g=GetComponent<GiraffeMode>();if(g==null||g.locked)return;
+        if(flags==0){g.SetGroupStretch(rpc.Receive.SenderClientId,false,false);return;}
+        if(!g.active||!AbilityHud.CanReadInput(g))return;
+        g.SetGroupStretch(rpc.Receive.SenderClientId,(flags&1)!=0,(flags&2)!=0);
+    }
+
+    [Rpc(SendTo.Server)]
+    public void RequestPowerRpc(byte key,RpcParams rpc=default)
+    {
+        if(!IsServer||!started.Value||key<1||key>5||Time.timeScale<=0)return;
+        bool owns=false;for(int i=0;i<4;i++)if(owners.Value.Get(i)==rpc.Receive.SenderClientId)owns=true;
+        if(!owns)return;
+        var reset=GetComponent<ArtSceneReset>();
+        var table=GetComponentsInChildren<ArticulationBody>();foreach(var b in table)if(b.isRoot&&b.immovable)return;
+        var cam=Camera.main;var follow=cam!=null?cam.GetComponent<CameraFollow>():null;if(follow!=null&&!follow.enabled)return;
+        var g=GetComponent<GiraffeMode>();var t=GetComponent<TennisMode>();var ice=GetComponent<IcePower>();var squid=GetComponent<SquidMode>();
+        if(key==1){if(reset!=null)reset.TryPoseReset();}
+        else if(key==2&&g!=null&&!g.locked){g.active=!g.active;if(g.active)AbilitySelection.Select(g);}
+        else if(key==3&&t!=null&&t.unlocked)t.SetActive(!t.active);
+        else if(key==4&&ice!=null&&ice.unlocked)ice.SetActive(!ice.active);
+        else if(key==5&&squid!=null&&squid.unlocked&&!squid.thrustLocked){squid.active=!squid.active;if(squid.active)AbilitySelection.Select(squid);}
     }
 
     [Rpc(SendTo.Server)]

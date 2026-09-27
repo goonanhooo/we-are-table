@@ -27,6 +27,8 @@ public class StageTimer : MonoBehaviour
     // ★2026-09-06 클리어 시 바로서기 횟수(이번 판) + 최소 기록(PlayerPrefs "bestresets_<씬>")
     int resetsAtClear; int bestResets = -1; bool newBestResets;
 
+    // Both Moon endings are untimed. Keep the clear signal for multiplayer/progression.
+    public bool IsUntimed => gameObject.scene.name == "Moon" || gameObject.scene.name == "Moon_CozyKitchen";
     public bool Cleared => cleared;
     public bool CheckpointPassed => checkpoint;
     public void PassCheckpoint() { checkpoint = true; }
@@ -54,6 +56,7 @@ public class StageTimer : MonoBehaviour
     {
         if (cleared) return;
         cleared = true;
+        if (IsUntimed) return;
         clearTime = Time.time - startTime;
         if (best < 0f || clearTime < best)
         {
@@ -77,6 +80,7 @@ public class StageTimer : MonoBehaviour
 
     void OnGUI()
     {
+        if (IsUntimed) return;
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (Suppress && !cleared) return;
         float t = cleared ? clearTime : Time.time - startTime;
@@ -89,11 +93,11 @@ public class StageTimer : MonoBehaviour
         UiKit.Panel(r, 0.97f);
         GUI.Label(new Rect(r.x, r.y + 16f, w, 42f), "CLEAR!", UiKit.Title);
         GUI.Label(new Rect(r.x, r.y + 70f, w, 30f), Label() + "  —  " + Fmt(clearTime), UiKit.Btn);
-        GUI.Label(new Rect(r.x, r.y + 104f, w, 26f), newBest ? "★ 신기록!" : "최고 기록  " + Fmt(best), UiKit.Center);
+        GUI.Label(new Rect(r.x, r.y + 104f, w, 26f), newBest ? L.T("★ 신기록!", "★ New record!") : L.T("최고 기록  ", "Best time  ") + Fmt(best), UiKit.Center);
         // ★2026-09-06 바로서기 횟수(이번 판) + 최소 기록
         string resets = L.T("바로서기 ", "pose resets ") + resetsAtClear + L.T("회", "");
         resets += newBestResets ? L.T("  ★ 최소 기록!", "  ★ fewest!") : L.T("  (최소 ", "  (best ") + bestResets + L.T("회)", ")");
         GUI.Label(new Rect(r.x, r.y + 134f, w, 26f), resets, UiKit.Center);
-        GUI.Label(new Rect(r.x, r.y + 176f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? "계속 돌아다녀도 돼요 · ESC = 메뉴" : FooterOverride, UiKit.Small);
+        GUI.Label(new Rect(r.x, r.y + 176f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? L.T("계속 돌아다녀도 돼요 · ESC = 메뉴", "Keep exploring · ESC = menu") : L.Text(FooterOverride), UiKit.Small);
     }
 }

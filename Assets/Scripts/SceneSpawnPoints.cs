@@ -30,6 +30,7 @@ public class SceneSpawnPoints : MonoBehaviour
         SpawnOverride.Pending = null;
         SpawnOverride.Current = null;
         if (string.IsNullOrEmpty(id)) return;
+        if(id.StartsWith("checkpoint:")){SpawnOverride.Current=id;return;}
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && nm.IsListening && !nm.IsServer) return;   // 게스트: 호스트 위치를 받음
         picked = transform.Find(id);

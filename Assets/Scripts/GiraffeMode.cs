@@ -7,13 +7,14 @@ using UnityEngine.InputSystem;
 ///
 /// 지라프(기린) 모드: 켜지면 각 다리를 키로 늘리고 줄일 수 있다(다리가 길어져 키 큰 기린처럼).
 ///   - 최소 길이 = 초기 다리 길이(scale.y), 최대 = 그 maxMultiplier(7)배.
-///   - Leg_FR: R=짧게 / Y=길게,  Leg_FL: Q=짧게 / E=길게,
-///     Leg_BR: P=짧게 / ]=길게,  Leg_BL: U=짧게 / O=길게.
+///   - Leg_FR: P=짧게 / ]=길게,  Leg_FL: U=짧게 / O=길게,
+///     Leg_BR: R=짧게 / Y=길게,  Leg_BL: Q=짧게 / E=길게.
 ///   - 꺼지면(active=false) 다리는 초기 길이로 서서히 복귀.
 /// 다리 메시(Leg_FR 등)는 다리 피벗 Rigidbody의 자식이라, 메시의 Y스케일/위치를 바꾸면
 /// 콜라이더 길이가 변해 발이 땅을 밀어 몸이 들린다(물리로 자연스럽게).
 /// TablePlayer 루트에 부착한다.
 /// </summary>
+[DefaultExecutionOrder(-20)]
 public class GiraffeMode : MonoBehaviour, ICheatUnlockable
 {
     [Tooltip("평소 꺼짐. 게임 상태가 이걸 켜면 다리 신축 활성. (테스트는 toggleKey 로)")]
@@ -27,11 +28,39 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("길이 변화 속도(스케일/초)")]
     public float speed = 0.8f;
 
+    [Header("긴 다리 걸음 보조")]
+    [Tooltip("공중에 든 다리의 이동 속도 배수. 기본 길이에서는 보정 없이, 3배 길이에서 최대로 적용한다.")]
+    [Range(1f, 1.5f)] public float airborneLegSpeed = 1.35f;
+    [Tooltip("지면을 짚은 긴 다리의 yaw 정지 유지력/감쇠 배수. 실제 발 마찰이나 능동 모터 힘은 바꾸지 않는다.")]
+    [Range(1f, 1.5f)] public float plantedYawHold = 1.3f;
+
     [Header("전체 다리 동시 신축 (개별키 4개 동시누름은 키보드 고스팅으로 안 먹힐 수 있어 단일키 제공)")]
     [Tooltip("이 키 하나로 네 다리 모두 늘린다(기본 = )")]
     public Key allLonger = Key.Equals;
     [Tooltip("이 키 하나로 네 다리 모두 줄인다(기본 - )")]
     public Key allShorter = Key.Minus;
+    public bool AllLongerHeld => Keyboard.current!=null && allLonger!=Key.None
+        && (Keyboard.current[allLonger].isPressed || (allLonger==Key.Equals && Keyboard.current.numpadPlusKey.isPressed));
+    public bool AllShorterHeld => Keyboard.current!=null && allShorter!=Key.None
+        && (Keyboard.current[allShorter].isPressed || (allShorter==Key.Minus && Keyboard.current.numpadMinusKey.isPressed));
+    struct GroupRequest { public bool up,down; public float until; }
+    readonly System.Collections.Generic.Dictionary<ulong,GroupRequest> groupRequests=new System.Collections.Generic.Dictionary<ulong,GroupRequest>();
+    readonly System.Collections.Generic.List<ulong> expiredGroups=new System.Collections.Generic.List<ulong>();
+    public void SetGroupStretch(ulong player,bool up,bool down)
+    {
+        if(!up&&!down){groupRequests.Remove(player);return;}
+        groupRequests[player]=new GroupRequest{up=up,down=down,until=Time.unscaledTime+.35f};
+    }
+    void ReadGroupStretch(ref bool up,ref bool down)
+    {
+        expiredGroups.Clear();
+        foreach(var pair in groupRequests)
+        {
+            if(!active || Time.unscaledTime>pair.Value.until)expiredGroups.Add(pair.Key);
+            else{up|=pair.Value.up;down|=pair.Value.down;}
+        }
+        foreach(var id in expiredGroups)groupRequests.Remove(id);
+    }
 
     /// <summary>기린의 힘을 한 번이라도 얻었는가(컷신 부여 또는 직접 사용). 조작법 메뉴가 기린 조작 표시 여부 판단에 사용.</summary>
     public static bool Unlocked;
@@ -40,8 +69,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     public void CheatUnlock() { locked = false; Unlocked = true; }
 
     static readonly string[] LegNames = { "Leg_FR", "Leg_FL", "Leg_BR", "Leg_BL" };
-    static readonly Key[] Shorter = { Key.R, Key.Q, Key.P, Key.U };
-    static readonly Key[] Longer  = { Key.Y, Key.E, Key.RightBracket, Key.O };
+    static readonly Key[] Shorter = { Key.P, Key.U, Key.R, Key.Q };
+    static readonly Key[] Longer  = { Key.RightBracket, Key.O, Key.Y, Key.E };
 
     Transform[] mesh;
     float[] baseLen, len;
@@ -147,7 +176,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         legSets = new LegControlSet[n];
         for (int i = 0; i < n; i++)
         {
-            legSets[i] = (LegControlSet)i;   // 폴백(구 매핑)
+            legSets[i] = (LegControlSet)new[]{3,2,1,0}[i];
             var lc = legRb[i] != null ? legRb[i].GetComponent<LegController>() : null;
             if (lc != null) legSets[i] = lc.controlSet;
             // ★ ArticulationBody 테이블: 피벗에 ArtLegController
@@ -156,6 +185,8 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
                 var alc = mesh[i].GetComponentInParent<ArtLegController>();
                 if (alc != null) legSets[i] = alc.controlSet;
             }
+            int canonical=mesh[i]!=null?LegLayout.SlotOf(mesh[i]):-1;
+            if(canonical>=0)legSets[i]=(LegControlSet)canonical;
         }
         // ★ art 보드/컨트롤러(테스트 씬) — Rigidbody 경로가 비면 이쪽을 사용
         foreach (var ab in transform.root.GetComponentsInChildren<ArticulationBody>(true))
@@ -451,6 +482,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
     void OnGUI()
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
+        if (GetComponent<AbilityHud>() != null) return;
         if (!active) return;
         if (giraffeIcon == null) giraffeIcon = MakeGiraffeIcon();
         float s = 3.0f; // 픽셀 확대
@@ -483,6 +515,9 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         return t;
     }
 
+    bool sampledAllUp, sampledAllDown, pendingAllUp, pendingAllDown;
+    readonly LegInput[] fallbackInput = new LegInput[4];
+
     void Update()
     {
         if (netVisualOnly) return;   // ★ 멀티 게스트: 입력/물리 없음 — NetVisualSync가 시각만 반영
@@ -493,10 +528,10 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         // ★2026-09-08 상호 배타: 우주오징어 모드(분사 키 = 신축 키) 중엔 기린 강제 OFF·토글 무시, 기린을 켜면 얼음은 꺼짐
         bool squidOn = squidRef != null && squidRef.active;
         if (squidOn && active) active = false;
-        if (!locked && !squidOn && kb[toggleKey].wasPressedThisFrame)
+        if (!locked && kb[toggleKey].wasPressedThisFrame && AbilityHud.CanReadInput(this))
         {
             active = !active;
-            if (active && iceRef != null && iceRef.active) iceRef.SetActive(false);
+            if(active)AbilitySelection.Select(this);
         }
         if (active) Unlocked = true;   // 한 번 켜지면 조작법 메뉴에 기린 조작 노출
 
@@ -504,10 +539,25 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
         if (active && !skinned) ApplyGiraffeSkin();
         else if (!active && skinned && AllLegsBase()) RemoveGiraffeSkin();
 
-        float dt = Time.deltaTime;
-        // 전체 동시 신축(단일키) — 개별키 4개 동시누름의 키보드 고스팅 회피
-        bool allUp   = active && allLonger  != Key.None && kb[allLonger].isPressed;
-        bool allDown = active && allShorter != Key.None && kb[allShorter].isPressed;
+        bool canRead = AbilityHud.CanReadInput(this);
+        sampledAllUp = active && canRead && AllLongerHeld;
+        sampledAllDown = active && canRead && AllShorterHeld;
+        pendingAllUp = canRead && (pendingAllUp || sampledAllUp);
+        pendingAllDown = canRead && (pendingAllDown || sampledAllDown);
+        for (int i = 0; i < fallbackInput.Length; i++)
+            fallbackInput[i] = canRead ? new LegInput { longer = kb[Longer[i]].isPressed, shorter = kb[Shorter[i]].isPressed } : default;
+        if (skinned) UpdateLegTiling();
+    }
+
+    void FixedUpdate()
+    {
+        if (netVisualOnly || mesh == null) return;
+        float dt = Time.fixedDeltaTime;
+        bool canRead = AbilityHud.CanReadInput(this);
+        bool allUp = active && canRead && (sampledAllUp || pendingAllUp);
+        bool allDown = active && canRead && (sampledAllDown || pendingAllDown);
+        if(canRead)ReadGroupStretch(ref allUp,ref allDown);
+        pendingAllUp = pendingAllDown = false;
         int changedMask = 0;
         for (int i = 0; i < mesh.Length; i++)
         {
@@ -516,8 +566,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             if (active)
             {
                 // 신축 입력 = 그 다리 주인의 LegInput(TableInput 경유 — 로컬 키보드/네트워크 동일 경로)
-                LegInput li = tableInput != null && legSets != null ? tableInput.Get(legSets[i])
-                              : new LegInput { longer = kb[Longer[i]].isPressed, shorter = kb[Shorter[i]].isPressed };
+                LegInput li = tableInput != null && legSets != null ? tableInput.GetPhysics(legSets[i]) : fallbackInput[i];
                 // ★2026-08-17 테니스 공존(액자 맵): 공이 붙어 있는 다리는 신축 금지 — 조인트가 발끝을 잡은 채
                 //   길어지면 바닥/벽을 뚫는 문제 방지
                 bool stuck = tennisRef != null && tennisRef.active && tennisRef.IsStuck(legSets[i]);
@@ -551,8 +600,6 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
                 if ((changedMask & (1 << i)) != 0 && legRb[i] != null) LockInertia(i); // 길이 기준 관성/무게중심 안정화
         }
 
-        if (skinned) UpdateLegTiling();   // 다리 길이에 맞춰 무늬 타일 갱신(월드 스케일 유지)
-
         UpdateGiraffeStability();
     }
 
@@ -575,7 +622,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             if (len.Length > 0) avgStretch /= len.Length;
         }
         float targetDrop = Mathf.Min(maxComDrop, avgStretch * comDropPerStretch);   // 안 늘었으면 0
-        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.deltaTime);
+        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.fixedDeltaTime);
         boardRb.centerOfMass = boardComBase + new Vector3(0f, -comDrop, 0f);        // 상판 로컬 아래(다리 끝 방향)
 
         // 늘어난 정도(0~1)에 비례해 회전 감쇠 추가 → 흔들림 억제(일반 모드 감각)
@@ -604,7 +651,7 @@ public class GiraffeMode : MonoBehaviour, ICheatUnlockable
             if (len.Length > 0) avgStretch /= len.Length;
         }
         float targetDrop = Mathf.Min(maxComDrop, avgStretch * comDropPerStretch);
-        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.deltaTime);
+        comDrop = Mathf.MoveTowards(comDrop, targetDrop, comDropSpeed * Time.fixedDeltaTime);
         artBoard.centerOfMass = boardComBase + new Vector3(0f, -comDrop, 0f);
         float stretchNorm = maxComDrop > 1e-4f ? Mathf.Clamp01(comDrop / maxComDrop) : 0f;
         artBoard.angularDamping = boardAngDampBase + stretchAngularDamping * stretchNorm;

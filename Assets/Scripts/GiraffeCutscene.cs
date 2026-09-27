@@ -140,7 +140,7 @@ public class GiraffeCutscene : MonoBehaviour
         yield return FlashTable(camSide, mid);   // 길게 빛나며 도중에 기린 스킨으로 변신(active=true)
 
         // 6) 권능 부여: 발광 중 이미 기린 모드 ON됨 → 잠금만 해제. (안내 텍스트는 제거 — 조작법 이미지로 설명)
-        if (giraffeMode != null) giraffeMode.locked = false;
+        if (giraffeMode != null) { giraffeMode.locked = false; AbilityHud.Acquire(giraffeMode, "giraffe"); }
         GiraffeMode.Unlocked = true;   // 조작법 메뉴에 기린 조작 노출
         yield return Hold(1.6f, camSide, mid);   // 변신한 모습 잠깐 보여줌
 
@@ -151,6 +151,7 @@ public class GiraffeCutscene : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;
         FreezeTable(false);
         finished = true;
+        CheckpointRuntime.Milestone(2);
     }
 
     IEnumerator Hold(float dur, Vector3 cp, Vector3 cl)
@@ -259,6 +260,12 @@ public class GiraffeCutscene : MonoBehaviour
         var r = new Rect(gx - bw - 55f, gy - bh * 0.5f, bw, bh);
         r.x = Mathf.Max(8f, r.x);
         r.y = Mathf.Clamp(r.y, 8f, Screen.height - bh - 8f);
-        GUI.DrawTexture(r, currentBubble, ScaleMode.ScaleToFit, true);
+        LocalizedStoryBubble.Draw(r,currentBubble==bubble2,false,new Vector2(gx,gy));
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines(); started=finished=true; currentBubble=null;
+        if(giraffe!=null){giraffe.rotation=standRot;var p=giraffe.position;p.y=groundY;giraffe.position=p;}
+    }
+
 }

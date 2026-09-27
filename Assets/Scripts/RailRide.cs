@@ -3,8 +3,11 @@ using UnityEngine;
 /// <summary>
 /// ★2026-09-04 광차 탑승 관리(IceCavern). 테니스공(FixedJoint)이 붙은 광차 = 플레이어 광차 → departDelay 뒤 speed로
 /// 자기 선로 끝까지 전진. 끊긴 선로 끝에서 멈추면 옆(나란히 대기 중인) 다음 광차로 옮겨 타고 다시 붙으면 그 광차가 출발.
-/// 붙은 다리가 하나도 없으면 정지(내려서 둘러볼 수 있음).
-/// 낙하 복구: 테이블이 기준(마지막 플레이어 광차, 없으면 정거장)보다 fallBelow 아래로 떨어지고 아무 데도 안 붙어 있으면 그 위로 되돌림.
+/// ★2026-09-18(사용자: "중간에 테이블이 떼지면 광차가 다시 돌아가게"): 선로 '중간'에서 붙은 다리가 하나도 없어지면 returnDelay 뒤
+///   그 광차가 자기 출발점(uStart — A=정거장, B=갈아타는 곳)으로 부드럽게 되돌아간다. 돌아가는 중에 다시 붙으면 그 자리에서 다시 전진.
+///   선로 끝까지 간 광차(갈아타는 곳의 A, 눈사람 동굴에 도착한 B)는 그대로 둔다.
+/// 낙하 복구: 테이블이 기준(마지막 플레이어 광차, 없으면 정거장)보다 fallBelow 아래로 떨어지고 아무 데도 안 붙어 있으면 그 위로 되돌림
+///   — 이때 그 광차가 선로 중간이면 출발점으로 즉시 옮긴 뒤 그 위에 올린다(돌아가는 광차 위에 떨어뜨리지 않게).
 /// </summary>
 public class RailRide : MonoBehaviour
 {
@@ -15,10 +18,15 @@ public class RailRide : MonoBehaviour
     [Tooltip("탑승 후: 마지막 광차보다 이만큼 아래로 떨어지면 광차 위로 복구")] public float fallBelow = 8f;
     [Tooltip("탑승 전: 정거장보다 이만큼 아래(동굴 바닥)로 떨어지면 정거장으로 복구 — 시작 방 바닥(-12m)은 걸리지 않게")] public float fallBelowStation = 20f;
     public float recoverCooldown = 3f;
+    [Header("놓으면 되돌아감(선로 중간에서만)")]
+    [Tooltip("붙은 다리가 없어진 뒤 이만큼 있다가 되돌아가기 시작(다리를 바꿔 잡는 잠깐의 공백은 무시)")] public float returnDelay = 1.2f;
+    [Tooltip("되돌아가는 최고 속도(m/s)")] public float returnSpeed = 14f;
+    [Tooltip("되돌아갈 때 가속/감속(m/s²) — 광차 안에 그냥 서 있는 테이블이 튕겨 나가지 않게 부드럽게 출발·정지")] public float returnAccel = 7f;
     [Tooltip("테이블 z가 이 값보다 앞(+z)이면 광차 구간 밖(눈사람 동굴) → 낙하 복구 안 함")] public float rideMaxZ = -19f;
     [Tooltip("★멀티 게스트: 호스트가 보낸 u만 따라감(붙음 판정/전진/낙하 복구 없음). NetStageSync가 켬")]
     [HideInInspector] public bool netRemote;
     float[] netTarget;
+    float[] idleT, backV;   // 광차별: 아무도 안 붙은 시간 / 되돌아가는 현재 속도
 
     [Header("탑승 중 카메라 — 가파른 샤프트에서 위/아래를 자유롭게 볼 수 있게 피치 제한 해제")]
     public float ridePitchMin = -80f, ridePitchMax = 85f;
@@ -72,6 +80,7 @@ public class RailRide : MonoBehaviour
             else if (!player.AtEnd) player.u = Mathf.Min(player.uEnd, player.u + player.track.DuForDistance(player.u, speed * Time.fixedDeltaTime));
         }
         else departTimer = 0f;
+        ReturnIdleCarts();
         foreach (var c in carts) if (c != null) c.Place();
         // 탑승 중(붙어 있음)엔 카메라 피치 제한 해제, 떼면 복원
         if (follow != null)
@@ -90,6 +99,12 @@ public class RailRide : MonoBehaviour
         if (board.position.y < refPos.y - limit)
         {
             lastRecover = Time.time;
+            // 선로 중간에 있던(=되돌아가는 중이거나 곧 되돌아갈) 광차는 출발점으로 바로 옮기고 그 위로 복구
+            if (lastPlayer != null && !lastPlayer.AtEnd && lastPlayer.u > lastPlayer.uStart)
+            {
+                lastPlayer.u = lastPlayer.uStart; lastPlayer.Place(true); ResetReturn(lastPlayer);
+                refPos = lastPlayer.transform.position + Vector3.up * 1.2f;
+            }
             ScreenFader.FadeOut(0.25f);
             recovering = true;
             root.TeleportRoot(refPos, Quaternion.identity); root.linearVelocity = Vector3.zero; root.angularVelocity = Vector3.zero;
@@ -98,6 +113,35 @@ public class RailRide : MonoBehaviour
             ScreenFader.FadeIn(0.6f);
         }
     }
+
+    /// <summary>선로 중간에 멈춰 있고 아무도 안 붙은 광차를 출발점으로 되돌린다(호스트/싱글만 — 게스트는 u를 받아 따라감).</summary>
+    void ReturnIdleCarts()
+    {
+        if (idleT == null || idleT.Length != carts.Length) { idleT = new float[carts.Length]; backV = new float[carts.Length]; }
+        float dt = Time.fixedDeltaTime;
+        for (int i = 0; i < carts.Length; i++)
+        {
+            var c = carts[i]; if (c == null || c.track == null) continue;
+            bool mid = c.u > c.uStart + 1e-5f && !c.AtEnd;
+            if (!mid) { idleT[i] = 0f; backV[i] = 0f; continue; }
+            if (c.Attached)   // 돌아가는 중에 다시 붙음 → 급정지 대신 빠르게 감속해 멈춘 뒤(그다음은 위의 전진 로직)
+            {
+                idleT[i] = 0f;
+                if (backV[i] > 0f) { backV[i] = Mathf.Max(0f, backV[i] - returnAccel * 3f * dt); c.u = Mathf.Max(c.uStart, c.u - c.track.DuForDistance(c.u, backV[i] * dt)); }
+                continue;
+            }
+            idleT[i] += dt;
+            if (idleT[i] < returnDelay) continue;
+            float remain = (c.u - c.uStart) * c.track.Length;                                   // u는 호 길이 매개변수
+            float vStop = Mathf.Sqrt(Mathf.Max(0.04f, 2f * returnAccel * remain));              // 출발점에서 멈출 수 있는 속도
+            backV[i] = Mathf.Min(Mathf.Min(returnSpeed, vStop), backV[i] + returnAccel * dt);
+            c.u = Mathf.Max(c.uStart, c.u - c.track.DuForDistance(c.u, backV[i] * dt));
+            if (c.u <= c.uStart + 1e-5f) { c.u = c.uStart; backV[i] = 0f; idleT[i] = 0f; }
+        }
+    }
+    void ResetReturn(MineCart c) { if (idleT == null) return; for (int i = 0; i < carts.Length; i++) if (carts[i] == c) { idleT[i] = 0f; backV[i] = 0f; } }
+    /// <summary>[검증용] 광차 i가 지금 되돌아가는 중인가 / 속도.</summary>
+    public float ReturnSpeedOf(int i) => backV != null && i >= 0 && i < backV.Length ? backV[i] : 0f;
 
     /// <summary>★2026-09-04 F1 재시작(ArtSceneReset.Restart)에서 호출: 광차를 정거장으로 되돌리고 낙하 복구 기준을 초기화
     /// (안 그러면 리스폰된 테이블이 '마지막 광차보다 낮다'며 다시 광차로 끌려감).</summary>

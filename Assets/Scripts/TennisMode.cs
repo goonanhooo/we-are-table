@@ -2,13 +2,13 @@ using UnityEngine;
 
 /// <summary>
 /// ★ 테니스공 모드(2026-07-08) — 켜지면 네 다리 끝에 테니스공이 생긴다.
-/// 붙이기 키(FL=C/FR=N/BL=./BR=오른쪽Shift)를 누르면 공이 닿아 있는 벽/오브젝트에 '끈끈이'처럼 딱 붙고,
-/// 떼기 키(FL=Z/FR=V/BL=M/BR=/)를 누르면 놓는다. (★2026-08-17 기린 신축 키와 분리 — 아랫줄 전용 키) 다리별 독립 — 번갈아 붙이며 벽을 오르는 조작.
+/// 붙이기 키(BL=E/BR=Y/FL=O/FR=])를 누르면 공이 닿아 있는 벽/오브젝트에 '끈끈이'처럼 딱 붙고,
+/// 떼기 키(BL=Q/BR=R/FL=U/FR=P)를 누르면 놓는다. 선택된 능력만 공유 키를 사용한다. 다리별 독립 — 번갈아 붙이며 벽을 오르는 조작.
 /// 붙기 구현: FixedJoint.connectedArticulationBody(2020.2+).
 ///  - 정적 벽: 발끝 위치에 키네마틱 Rigidbody 앵커 GO를 만들어 벽 transform에 붙이고(움직이는 발판도 추종) 조인트.
 ///  - 동적 오브젝트: 그 Rigidbody에 조인트를 직접 부착(물건을 다리로 붙잡아 끌 수 있음).
 /// 공은 시각 전용(콜라이더 없음 — 보행 물리 불변). 붙은 다리 공은 주황으로 바뀜.
-/// 테이블 기능 패턴: Table.prefab 루트, 평소 active=false. 전용 키라 기린 모드와 동시 사용 가능(붙은 다리는 GiraffeMode가 신축 차단).
+/// 테이블 기능 패턴: Table.prefab 루트, 평소 active=false. 다른 능력으로 전환하면 부착을 해제한다.
 /// </summary>
 public class TennisMode : MonoBehaviour, ICheatUnlockable
 {
@@ -26,13 +26,19 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
     [Tooltip("붙은 상태 재질(주황).")]
     public Material grabMat;
 
-    // ★2026-08-17 전용 키(사용자 요청): 기린 신축 키와 안 겹치게 키보드 아랫줄 사용.
-    //   붙이기: WASD(앞왼)=C, TFGH(앞오)=N, IJKL(뒤왼)=., Arrows(뒤오)=오른쪽Shift
-    //   떼기:   WASD=Z, TFGH=V, IJKL=M, Arrows=/  — 각 키셋의 왼→오 배치와 일치
-    static readonly UnityEngine.InputSystem.Key[] GrabKeys =
-    { UnityEngine.InputSystem.Key.C, UnityEngine.InputSystem.Key.N, UnityEngine.InputSystem.Key.Period, UnityEngine.InputSystem.Key.RightShift };
-    static readonly UnityEngine.InputSystem.Key[] ReleaseKeys =
-    { UnityEngine.InputSystem.Key.Z, UnityEngine.InputSystem.Key.V, UnityEngine.InputSystem.Key.M, UnityEngine.InputSystem.Key.Slash };
+    // The selected power uses each keyboard group's longer/shorter keys: E/Q, Y/R, O/U, ]/P.
+    public void SetActive(bool on)
+    {
+        active=on;
+        if(on){if(!netVisualOnly)AbilitySelection.Select(this);return;}
+        if(legs==null)return;
+        for(int i=0;i<legs.Length;i++)
+        {
+            Release(i);
+            if(balls[i]!=null)balls[i].gameObject.SetActive(false);
+            prevLonger[i]=prevShorter[i]=false;
+        }
+    }
 
     // ★2026-09-03 등반 보조(사용자 요청): 한 다리라도 붙어 있으면 테이블 무게를 거의 0으로 —
     //   모든 ArticulationBody에 중력의 weightCancelWhenStuck 배만큼 반대 힘을 매 FixedUpdate 가해 상쇄.
@@ -60,6 +66,14 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
 
     /// <summary>게스트 시각 적용: 공 표시 on/off + 붙은 다리 주황(멱등, 매 프레임 호출 무해).</summary>
     public void NetApplyVisual(bool on, int stuckMask) { active = on; netStuckMask = stuckMask; }
+
+    public bool PracticeStuck(LegControlSet set)
+    {
+        if (legs == null) return false;
+        int mask=netVisualOnly?netStuckMask:StuckMask;
+        for(int i=0;i<legs.Length;i++)if(legs[i]!=null&&legs[i].controlSet==set)return (mask&(1<<i))!=0;
+        return false;
+    }
 
     TableInput ti;
     ArtLegController[] legs;
@@ -147,6 +161,12 @@ public class TennisMode : MonoBehaviour, ICheatUnlockable
 
     void Update()
     {
+        if (active && !netVisualOnly) unlocked = true;
+        var keyboard = UnityEngine.InputSystem.Keyboard.current;
+        if (!netVisualOnly && unlocked && keyboard != null && keyboard.digit3Key.wasPressedThisFrame && AbilityHud.CanReadInput(this))
+            SetActive(!active);
+
+        if(active&&!netVisualOnly)AbilitySelection.Select(this);
         if (!active)
         {
             for (int i = 0; i < legs.Length; i++)

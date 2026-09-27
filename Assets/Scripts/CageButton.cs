@@ -133,4 +133,12 @@ public class CageButton : MonoBehaviour
         yield return new WaitForSeconds(0.3f);
         if (cutscene != null) cutscene.Play();
     }
+    public void RestoreCompleted()
+    {
+        StopAllCoroutines(); pressed=true;
+        if(cage!=null)cage.gameObject.SetActive(false);
+        if(buttonCap!=null)buttonCap.localPosition=capBasePos-Vector3.up*capDip;
+        if(mat!=null)mat.color=new Color(.2f,.85f,.3f);
+    }
+
 }
