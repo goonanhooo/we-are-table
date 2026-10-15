@@ -21,3 +21,15 @@ Adobe Premiere Pro Auto-Save/
 
 # Claude Code per-user settings
 .claude/settings.local.json
+
+# Local phone relay credentials
+PhoneController.json
+
+# Local web dependencies and relay state
+node_modules/
+.runtime/
+.sites-runtime/
+.openai/
+.env
+.env.*
+.vsconfig

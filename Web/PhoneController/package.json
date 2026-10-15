@@ -1,0 +1,1 @@
+{"name":"we-are-table-remote","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/*.test.mjs"},"dependencies":{"ws":"8.22.0","qrcode":"1.5.4"}}

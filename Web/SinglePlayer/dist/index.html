@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eef0e7">
+  <meta name="description" content="네 다리로 떠나는 싱글 여정. 복도, 정글, 동굴, 우주, 달과 부엌 엔딩까지 웹 물리로 플레이하세요.">
+  <title>WE ARE TABLE — 싱글 여정</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="WE ARE TABLE 처음으로">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 12h24v5H8zM10 17v13m20-13v13M16 17v10m8-10v10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>we are table<span class="brand-period">.</span></span>
+    </a>
+    <span class="lab-label"><span></span><span id="map-name">싱글 여정</span><small>SOLO</small></span>
+    <nav class="actions" aria-label="게임 설정">
+      <button id="map-select" class="plain-button" aria-label="맵 선택"><svg viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zm6-3v15m6-12v15"/></svg><span>맵 선택</span></button>
+      <button id="pause" class="icon-button" aria-label="일시정지" title="일시정지 · Esc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12m6-12v12"/></svg></button>
+      <button id="restart" class="plain-button" title="처음 위치로 돌아가기 · F1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg><span>다시 시작</span></button>
+      <button id="help" class="help-button" aria-label="조작 안내 열기">?</button>
+    </nav>
+  </header>
+  <main id="stage">
+    <canvas id="world" tabindex="0" aria-label="3D 테이블 평지. WASD, TFGH, IJKL, 방향키로 네 다리를 조작합니다. 드래그로 카메라를 회전합니다."></canvas>
+    <div id="loading" class="loading" role="status"><span class="loading-table">⌑</span><strong>테이블을 준비하고 있어요</strong><p>잠시만 기다려 주세요.</p></div>
+    <div id="labels" aria-hidden="true"></div>
+    <section class="intro" aria-label="게임 소개">
+      <span class="eyebrow" id="chapter">FOUR LEGS, ONE TABLE</span>
+      <h1 id="objective-title">함께, 한 걸음.</h1>
+      <p id="objective-hint">각 다리를 움직여 테이블을 걸어 보세요.</p>
+      <div class="mission-actions"><button id="interact"><kbd>C</kbd> 상호작용</button><button id="walk"><kbd>Space</kbd> 보행 보조</button></div>
+      <button class="demo-link" id="demo"><span>▷</span> 움직임 시연 보기</button>
+    </section>
+    <div id="power-dock" class="power-dock" aria-label="능력 선택"></div>
+    <div id="target-hint" class="target-hint" aria-live="off"></div>
+    <div id="checkpoint-note" class="checkpoint-note"></div>
+    <div class="world-info">
+      <span class="status" id="status"><i></i><span>준비 중</span></span>
+      <div class="travel"><span>걸어온 거리</span><strong id="distance">0.0<small>m</small></strong></div>
+    </div>
+    <div class="view-tools" aria-label="시점 설정">
+      <button class="icon-button" id="camera-home" aria-label="시점 초기화" title="시점 초기화"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 10 8-6 8 6v9H4zM9 19v-6h6v6"/></svg></button>
+      <button class="icon-button" id="fullscreen" aria-label="전체 화면" title="전체 화면"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/></svg></button>
+    </div>
+    <div class="recover-prompt" id="recover-prompt" hidden><span>뒤집혀도 괜찮아요.</span><button id="recover-flipped">바로 세우기 <kbd>1</kbd></button></div>
+    <div class="paused-overlay" id="paused-overlay" hidden><span>잠깐 쉬어가기</span><button id="resume">계속하기 <span>▷</span></button></div>
+    <section class="controls-wrap" aria-label="다리 조작">
+      <div class="controls-top"><span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6 9h1m3 0h1m3 0h1m3 0h0M6 12h1m3 0h1m3 0h1m3 0h0M8 15h8"/></svg> 키보드 또는 버튼으로 조작 <button id="collapse-controls">접기</button></span><label class="color-toggle"><input type="checkbox" id="colors" checked><span class="switch"></span> 다리 색 구분</label></div>
+      <div id="leg-controls" class="leg-controls"></div>
+      <div class="controls-bottom"><span class="camera-hint">화면 드래그 <b>시점 회전</b><span class="divider">·</span> 스크롤 <b>확대 / 축소</b></span><button id="recover" class="recovery-button"><kbd>1</kbd> 바로 세우기</button><span class="hold-hint">키를 놓으면 그 자세를 유지해요.</span></div>
+    </section>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <span class="engine-note">WEB PHYSICS PLAYGROUND <span>·</span> <span id="fps">60</span> FPS</span>
+    <section id="home" class="home-overlay" aria-label="게임 시작">
+      <div class="home-card"><span class="eyebrow">A LITTLE TABLE, A LONG JOURNEY</span><h2>함께, 집으로.</h2><p>네 개의 다리로 세상을 건너<br>의자가 기다리는 집을 찾아가는 여정.</p><button id="new-journey" class="primary-button">처음부터 시작 <span>→</span></button><button id="continue-journey" class="secondary-button">이어하기</button><button id="home-maps" class="secondary-button">맵 둘러보기 · 연습</button><span class="home-footer">싱글 플레이 · 진행은 이 브라우저에 저장됩니다.</span></div>
+    </section>
+  </main>
+  <dialog id="map-dialog" aria-labelledby="map-dialog-title"><button id="close-maps" class="dialog-close icon-button" aria-label="맵 선택 닫기">×</button><span class="eyebrow">THE JOURNEY</span><h2 id="map-dialog-title">다음 한 걸음은 어디로?</h2><p>어느 맵이든 시작할 수 있어요.<br>본편은 복도에서 시작하면 엔딩까지 이어집니다.</p><div id="map-list" class="map-list"></div><div id="checkpoint-list" class="checkpoint-list"></div></dialog>
+  <dialog id="guide" aria-labelledby="guide-title">
+    <button class="dialog-close icon-button" id="close-help" aria-label="조작 안내 닫기">×</button>
+    <span class="eyebrow">LET’S TAKE A LITTLE WALK</span>
+    <h2 id="guide-title">네 다리를 따로 움직여요.</h2>
+    <p>몸통을 직접 움직이는 키는 없어요.<br>발로 바닥을 밀고, 다른 다리로 몸을 지탱해 보세요.</p>
+    <div class="table-diagram" aria-label="위에서 본 테이블 다리 배치"><span class="front-label">앞쪽 ↑</span><span class="diagram-leg yellow">I J K L<small>왼쪽 앞</small></span><span class="diagram-leg purple">↑ ← ↓ →<small>오른쪽 앞</small></span><span class="diagram-top">TABLE</span><span class="diagram-leg red">W A S D<small>왼쪽 뒤</small></span><span class="diagram-leg green">T F G H<small>오른쪽 뒤</small></span></div>
+    <div class="guide-rules"><p><strong>위 / 아래 키</strong><span>다리를 앞뒤로 스윙 · 최대 ±90°</span></p><p><strong>왼쪽 / 오른쪽 키</strong><span>스윙 방향을 360° 회전</span></p><p><strong>키를 놓으면</strong><span>현재 다리 각도를 그대로 유지</span></p></div>
+    <p class="guide-tip">처음에는 <kbd>S</kbd>를 짧게 눌러 한 다리를 들어보세요. 그 상태에서 <kbd>A</kbd> / <kbd>D</kbd>를 누르면 다리가 돌아가요.</p>
+    <p class="alternate">방향키 다리는 <kbd>[</kbd> <kbd>'</kbd> <kbd>;</kbd> <kbd>Enter</kbd>로도 조작할 수 있어요. 한 키보드로 여럿이 함께 조작할 수 있습니다.</p>
+    <p class="guide-tip"><kbd>Space</kbd> 목표 방향으로 보행 보조 · <kbd>C</kbd> 가까운 대상과 상호작용<br><kbd>2</kbd> 기린 · <kbd>3</kbd> 테니스공 · <kbd>4</kbd> 얼음 · <kbd>5</kbd> 오징어<br>능력 동작은 각 다리의 <kbd>E/Q</kbd>, <kbd>Y/R</kbd>, <kbd>O/U</kbd>, <kbd>]/P</kbd>. 기린은 <kbd>=</kbd> / <kbd>−</kbd>로 네 다리를 함께 늘리고 줄입니다.</p>
+    <button id="guide-play" class="primary-button">한 걸음 시작하기 <span>→</span></button>
+    <a class="source-link" href="https://github.com/goonanhooo/we-are-table" target="_blank" rel="noopener">원본 프로젝트 ↗</a>
+  </dialog>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

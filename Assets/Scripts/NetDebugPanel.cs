@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// <summary>A shared lobby: choose real table legs, then choose the journey's starting point.</summary>
 public class NetDebugPanel : MonoBehaviour
 {
-    bool visible=true,startPending,wasMap;string status="";float statusUntil;
+    bool visible=true,startPending,wasMap,phoneInvites;string status="";float statusUntil;
     readonly CheckpointJourney journey=new();readonly JourneyWheel mapWheel=new();
     readonly LobbyTablePreview tablePreview=new();
     LevelSelect select;NetLegLink cachedLink;
@@ -25,7 +25,7 @@ public class NetDebugPanel : MonoBehaviour
     bool OverlayBlocked {get{if(select==null)select=FindAnyObjectByType<LevelSelect>();return PauseMenu.InputBlocked||LetterOverlay.IsOpen||(select!=null&&select.Showing);}}
     void Start(){if(NM!=null)NM.OnClientDisconnectCallback+=OnDisconnected;}
     void OnDestroy(){LobbyOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
-    void OnDisable(){LobbyOpen=false;tablePreview.SetVisible(false);}
+    void OnDisable(){LobbyOpen=false;phoneInvites=false;tablePreview.SetVisible(false);}
     void OnDisconnected(ulong id)
     {
         if(NM==null||NM.IsServer||id!=NM.LocalClientId)return;
@@ -79,10 +79,12 @@ public class NetDebugPanel : MonoBehaviour
     }
     void DrawLobby()
     {
+        if(phoneInvites){DrawPhoneInvites();return;}
         JourneyMenuUI.Fill(new Rect(0,0,1600,900),new Color(.978f,.974f,.951f));
         bool map=Link.ChoosingMap;
         JourneyMenuUI.Text(new Rect(80,39,1050,62),map?L.T("맵 선택","Choose a checkpoint","チェックポイント選択","选择检查点"):L.T("다리 선택","Choose your legs","操作する脚を選ぼう","选择要操控的腿"),42);
-        JourneyMenuUI.Text(new Rect(1210,55,310,40),L.T("접속 인원  ","Players  ","参加者  ","玩家人数  ")+Link.LobbyPlayerCount+" / 4",24,JourneyMenuUI.Muted,TextAnchor.MiddleRight);
+        int phones=0;for(int i=0;i<4;i++)if((Link.PhoneMask&(1<<i))!=0)phones++;
+        JourneyMenuUI.Text(new Rect(1150,55,370,40),L.T("PC ","PC ","PC ","电脑 ")+Link.LobbyPlayerCount+" / 4   "+L.T("폰 ","phone ","スマホ ","手机 ")+phones+" / 4",23,JourneyMenuUI.Muted,TextAnchor.MiddleRight);
         DrawSteps(map);DrawRoom();
         if(map)DrawMap();else DrawLegs();
         if(JourneyMenuUI.BackButton(LeaveRect,map?L.T("다리 선택","Choose legs","脚の選択","选择腿"):L.T("뒤로","Back","戻る","返回"),!startPending))HandleBack();
@@ -101,7 +103,27 @@ public class NetDebugPanel : MonoBehaviour
         JourneyMenuUI.Literal(new Rect(330,176,940,40),code,31,JourneyMenuUI.Ink,TextAnchor.MiddleCenter);
         if(JourneyMenuUI.Button(CopyRect,L.T("코드 복사","Copy code","コードをコピー","复制代码"),!string.IsNullOrEmpty(NetSession.JoinCode))){GUIUtility.systemCopyBuffer=NetSession.JoinCode;status=L.T("방 코드를 복사했어요","Room code copied","コードをコピーしました","已复制房间代码");statusUntil=Time.unscaledTime+2;}
         if(JourneyMenuUI.Button(InviteRect,L.T("친구 초대","Invite friends","フレンド招待","邀请好友"),NM.IsHost&&SteamLobby.InLobby))SteamLobby.OpenInviteOverlay();
+        if(JourneyMenuUI.Button(new Rect(1100,223,230,44),L.T("폰 QR","Phone QR","スマホQR","手机二维码"),NM.IsHost&&PhoneControllerBridge.Instance!=null&&PhoneControllerBridge.Instance.Connected))phoneInvites=true;
         if(Time.unscaledTime<statusUntil)JourneyMenuUI.Text(new Rect(480,273,640,28),status,18,JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
+    }
+    void DrawPhoneInvites()
+    {
+        JourneyMenuUI.Fill(new Rect(0,0,1600,900),new Color(.978f,.974f,.951f));
+        JourneyMenuUI.Text(new Rect(100,210,1400,58),L.T("폰으로 다리 조작","Control legs with phones","スマホで脚を操作","用手机控制桌腿"),40);
+        var bridge=PhoneControllerBridge.Instance;
+        string[] names={L.T("노랑","Yellow","黄","黄"),L.T("파랑","Blue","青","蓝"),L.T("초록","Green","緑","绿"),L.T("빨강","Red","赤","红")};
+        for(int i=0;i<4;i++)
+        {
+            Rect r=new Rect(100+i*350,340,320,325);JourneyMenuUI.Paper(r,false,false);
+            JourneyMenuUI.Text(new Rect(r.x+18,r.y+15,284,42),(i+1).ToString("00")+" · "+names[i]+(bridge!=null&&bridge.HasPlayer(i)?" ●":Link.OwnerOf(i)>=-1?" · PC":""),26);
+            var qr=bridge!=null?bridge.Qr(i):null;
+            if(qr!=null)GUI.DrawTexture(new Rect(r.x+79,r.y+69,162,162),qr,ScaleMode.ScaleToFit);
+            string code=bridge!=null?bridge.Code(i):"";if(code.Length==8)code=code.Substring(0,4)+" "+code.Substring(4);
+            JourneyMenuUI.Text(new Rect(r.x+18,r.y+259,284,40),code,27,JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
+        }
+        if(bridge!=null&&bridge.WatchCode.Length==8)
+            JourneyMenuUI.Text(new Rect(100,711,1400,40),L.T("웹 화면 보기","Watch on web","ウェブで見る","网页观看")+"  "+bridge.PublicOrigin+"/watch   "+bridge.WatchCode,19,JourneyMenuUI.Muted);
+        if(JourneyMenuUI.BackButton(LeaveRect,L.T("다리 선택","Choose legs","脚の選択","选择腿")))phoneInvites=false;
     }
     void DrawLegs()
     {
@@ -128,7 +150,7 @@ public class NetDebugPanel : MonoBehaviour
             if(!hit&&tablePreview.Ready)hit=JourneyMenuUI.Click(tablePreview.LegBounds(i,TableRect),mine||open);
             if(hit){JourneyMenuUI.BlockClick();Link.ClaimLegRpc((byte)i);}
         }
-        string hint=NM.IsHost?(Link.CanChooseMap?L.T("빈 다리는 호스트가 조종해요","The host controls unclaimed legs","空席の脚はホストが操作します","空位由房主操控"):L.T("모두 다리를 하나 이상 선택해 주세요","Everyone needs to choose at least one leg","全員が脚を1本以上選んでください","每人请至少选择一条腿")):L.T("다리를 고르면 호스트가 다음으로 넘어가요","Choose your legs, then the host continues","脚を選んだらホストが次へ進みます","选好腿后由房主进入下一步");
+        string hint=NM.IsHost?L.T("빈 다리는 호스트가 조종해요","The host controls unclaimed legs","空席の脚はホストが操作します","空位由房主操控"):L.T("PC 다리를 선택하거나 폰으로 접속하세요","Choose a PC leg or connect by phone","PCの脚を選ぶかスマホで参加","选择电脑桌腿或用手机连接");
         JourneyMenuUI.Text(new Rect(395,823,745,48),hint,22,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
         if(JourneyMenuUI.Button(NextRect,L.T("다음","Next","次へ","下一步"),NM.IsHost&&Link.CanChooseMap,true)){JourneyMenuUI.BlockClick();Link.ChooseMap();}
     }

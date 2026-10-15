@@ -79,7 +79,9 @@ public partial class NetLegLink
     }
     public string DisplayNameOf(long owner)
     {
-        if(owner==-2)return "";ulong id=owner==-1?Unity.Netcode.NetworkManager.ServerClientId:(ulong)owner;
+        if(owner==-2)return "";
+        if(owner==-3)return L.T("폰","phone","スマホ","手机");
+        ulong id=owner==-1?Unity.Netcode.NetworkManager.ServerClientId:(ulong)owner;
         if(lobbyPlayers!=null)for(int i=0;i<lobbyPlayers.Count;i++)if(lobbyPlayers[i].clientId==id)return lobbyPlayers[i].name.ToString();
         return savedNames.TryGetValue(id,out var name)?name:FallbackName(id);
     }
@@ -92,7 +94,8 @@ public partial class NetLegLink
         get
         {
             if(!IsServer||Started||NetworkManager.ConnectedClientsIds.Count==0)return false;
-            foreach(ulong id in NetworkManager.ConnectedClientsIds)if(!ClientHasLeg(id))return false;
+            // A Unity client may only watch the shared game while controlling a leg by phone.
+            // Unclaimed legs remain playable on the host keyboard.
             return true;
         }
     }

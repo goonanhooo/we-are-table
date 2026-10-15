@@ -10,6 +10,12 @@ public struct LegInput
     public bool Any => up || down || left || right || longer || shorter || grab || release;
 }
 
+/// <summary>Calibrated phone's upright axis, in the table's horizontal plane.</summary>
+public struct LegPose
+{
+    public float x, z, yaw;
+}
+
 /// <summary>
 /// ★ 멀티플레이 대비 입력 허브(테이블 루트에 부착). 다리(LegController)와 기린(GiraffeMode)은
 /// 키보드를 직접 읽지 않고 여기서 LegInput을 받는다.
@@ -33,6 +39,8 @@ public class TableInput : MonoBehaviour
     readonly LegInput[] external = new LegInput[4];
     readonly LegInput[] pendingPhysics = new LegInput[4];
     readonly LegInput[] physics = new LegInput[4];
+    readonly LegPose[] externalPose = new LegPose[4];
+    readonly bool[] hasExternalPose = new bool[4];
     readonly Key[][] altKeys = new Key[4][];   // [set] = {up,down,left,right} 보조키(없으면 null)
 
     // 키셋별 기본 매핑: {up, down, left, right, longer, shorter}
@@ -87,6 +95,7 @@ public class TableInput : MonoBehaviour
     {
         source[(int)set] = s;
         current[(int)set] = pendingPhysics[(int)set] = physics[(int)set] = default;
+        hasExternalPose[(int)set] = false;
         if (s == LegSource.External) external[(int)set] = default;   // 이전 잔여 입력 제거
     }
 
@@ -96,6 +105,24 @@ public class TableInput : MonoBehaviour
         int i = (int)set;
         external[i] = input;
         if (source[i] == LegSource.External) pendingPhysics[i] = Merge(pendingPhysics[i], input);
+    }
+
+    public void SetExternalPose(LegControlSet set, float x, float z, float yaw)
+    {
+        int i = (int)set;
+        if (source[i] != LegSource.External || !float.IsFinite(x) || !float.IsFinite(z) || !float.IsFinite(yaw)) return;
+        Vector2 tilt = Vector2.ClampMagnitude(new Vector2(x, z), 1f);
+        externalPose[i] = new LegPose { x = tilt.x, z = tilt.y, yaw = Mathf.Clamp(yaw, -3600f, 3600f) };
+        hasExternalPose[i] = true;
+    }
+
+    public void ClearExternalPose(LegControlSet set) => hasExternalPose[(int)set] = false;
+
+    public bool TryGetExternalPose(LegControlSet set, out LegPose pose)
+    {
+        int i = (int)set;
+        pose = externalPose[i];
+        return source[i] == LegSource.External && hasExternalPose[i];
     }
 
     /// <summary>보조 키 등록(LegController가 Awake에서 호출 — Arrows 다리의 추가 키 등).</summary>

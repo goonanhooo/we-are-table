@@ -1,0 +1,15 @@
+{
+  "name": "we-are-table-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "node serve.mjs",
+    "test": "node tests/physics.mjs && node tests/journey.mjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "three": "0.180.0"
+  }
+}

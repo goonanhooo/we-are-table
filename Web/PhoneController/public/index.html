@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f2ed">
+  <title>we are table. · controller</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="controller">
+    <header class="topbar"><b>we are table.</b><span class="game-status"><span id="game-state">게임 대기</span><span id="connection" class="connection" aria-label="연결 상태"></span></span></header>
+    <section id="entry" class="entry">
+      <form id="join-form" autocomplete="off">
+        <label for="room-code">방 코드</label>
+        <input id="room-code" inputmode="text" maxlength="9" autocapitalize="characters" spellcheck="false" placeholder="ABCD EFGH" required>
+        <button class="main-button" type="submit">입장</button>
+      </form>
+    </section>
+    <section id="play" hidden>
+      <div class="play-head"><strong id="slot-name">01 · 노랑</strong><button id="color-toggle" class="icon-button" type="button" aria-label="다리 색 표시 전환" aria-pressed="true">◉</button></div>
+      <div id="table-stage" class="table-stage"><img id="table-image" src="/assets/table-normal-colors.png" alt="원본 게임의 테이블" draggable="false"><div id="leg-key" class="leg-key" aria-label="다리 전환"><button type="button" data-leg="0" aria-label="노란 다리로 전환"></button><button type="button" data-leg="1" aria-label="파란 다리로 전환"></button><button type="button" data-leg="2" aria-label="초록 다리로 전환"></button><button type="button" data-leg="3" aria-label="빨간 다리로 전환"></button></div></div>
+      <section id="gyro-panel" class="gyro-panel" data-state="off" aria-label="자이로 조작 상태">
+        <div class="gyro-heading"><span class="gyro-lamp" aria-hidden="true"></span><div><strong id="gyro-title">자이로 꺼짐</strong><small id="sensor-state">폰 센서로 다리를 움직이려면 켜세요</small></div></div>
+        <div class="motion-controls"><button id="sensor" class="motion-button" type="button">자이로 켜기</button><button id="recenter" class="motion-button calibrate-button" type="button" disabled hidden>지금이 수직이다 · 보정</button><button id="touch-switch" class="motion-button" type="button" hidden>터치로 전환</button></div>
+        <div id="sensor-readout" class="sensor-readout" role="status" hidden><span id="sensor-angle"></span></div>
+        <div id="gyro-feedback" class="gyro-feedback" hidden>
+          <div class="tilt-pad" aria-label="다리 기울기 방향"><span class="pad-front">앞</span><span class="pad-back">뒤</span><span class="pad-left">좌</span><span class="pad-right">우</span><span class="pad-cross"></span><span id="tilt-dot" class="tilt-dot"></span></div>
+          <div class="gyro-values"><div><small>전체 기울기</small><strong id="tilt-total">0°</strong></div><div><small>앞·뒤</small><strong id="tilt-front">수직 0°</strong></div><div><small>좌·우</small><strong id="tilt-side">중앙 0°</strong></div><div><small>다리 회전</small><strong id="tilt-yaw">0°</strong></div></div>
+        </div>
+      </section>
+      <div id="dpad" class="dpad"><button data-bit="1" class="up" aria-label="앞으로">↑</button><button data-bit="4" class="left" aria-label="왼쪽">←</button><button data-bit="8" class="right" aria-label="오른쪽">→</button><button data-bit="2" class="down" aria-label="뒤로">↓</button></div>
+      <div class="stretch"><button data-bit="80" aria-label="늘리기 또는 붙이기">＋</button><button data-bit="160" aria-label="줄이기 또는 떼기">−</button></div>
+      <nav class="powers" aria-label="능력"><button data-power="2" type="button">기린</button><button data-power="3" type="button">테니스</button><button data-power="4" type="button">얼음</button><button data-power="5" type="button">오징어</button></nav>
+      <button id="leave" class="leave" type="button" aria-label="방 나가기">×</button>
+    </section>
+    <output id="message" role="status"></output>
+  </main>
+  <script type="module" src="/controller.mjs"></script>
+</body>
+</html>

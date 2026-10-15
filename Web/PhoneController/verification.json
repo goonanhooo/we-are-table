@@ -1,0 +1,14 @@
+{
+  "build": "Unity 6000.3.17f1 standalone Windows player built successfully; source scripts copied to the project and relay package",
+  "relayTests": "4/4 passed: fixed phone legs, authenticated input/pose/ability, occupancy, reconnect, native PC and phone leg mutual exclusion",
+  "publicTunnel": "HTTPS/WSS reached through temporary Cloudflare tunnel",
+  "fourPhonesFourViewers": "4 public phone clients and 4 public PC viewers connected together; viewers received identical native Unity frames at about 8 fps",
+  "nativeLobby": "Visually verified: native Steam room created with PC room code; host-only Phone QR page displayed four distinct codes and QR images",
+  "hybridLobby": "Visually verified: one PC-owned yellow leg and one phone-owned blue leg in the same native room; phone connection and switching into the PC leg were rejected",
+  "hybridGameplay": "Visually verified in the native Unity level: PC and phone labels appeared on separate legs while the host was playing",
+  "sensorUi": "Public HTTPS browser QA verified upright calibration, green gyro-on status, live tilt/readout and active controls; controller tests verified both iPhone permission calls begin within the same click, motion fallback, rotation rate, stale-signal release and resumption",
+  "mobileLayout": "Public HTTPS browser QA verified zero page scroll and visible ability buttons in touch, calibration-ready and gyro-active states at 390x844, 375x667 and 320x568 CSS pixels",
+  "nativeGuest": "Existing Steam/Unity Relay PC join and NetworkTransform synchronization compiled into player; a second physical PC and Steam account were unavailable for an end-to-end join test",
+  "physicalPhone": "User confirmed iPhone Safari gyro works on the updated public HTTPS controller; separate distant-network four-phone physical play remains untested",
+  "hosting": "Temporary Cloudflare Quick Tunnel; public URL and phone codes can change on restart"
+}

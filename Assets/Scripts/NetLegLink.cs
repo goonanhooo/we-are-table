@@ -32,6 +32,13 @@ public partial class NetLegLink : NetworkBehaviour
     readonly NetworkVariable<LegOwners> owners = new(
         new LegOwners { s0 = NONE, s1 = NONE, s2 = NONE, s3 = NONE },
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    readonly NetworkVariable<byte> phoneMask = new(0,
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public int NativeMask
+    {
+        get { int mask=0;for(int i=0;i<4;i++)if(owners.Value.Get(i)!=NONE)mask|=1<<i;return mask; }
+    }
+    public int PhoneMask => phoneMask.Value;
 
     // 게임 시작 여부(호스트가 로비에서 시작 누름) — 시작 후엔 다리 변경 금지, 세션도 잠김(난입 차단)
     readonly NetworkVariable<bool> started = new(false,
@@ -90,7 +97,7 @@ public partial class NetLegLink : NetworkBehaviour
     public long OwnerOf(int leg)
     {
         ulong v = owners.Value.Get(leg);
-        if (v == NONE) return -2;
+        if (v == NONE) return (phoneMask.Value & (1 << leg)) != 0 ? -3 : -2;
         if (NetworkManager != null && v == NetworkManager.LocalClientId && IsServer) return -1;
         return (long)v;
     }
@@ -109,6 +116,7 @@ public partial class NetLegLink : NetworkBehaviour
     public void ClaimLegRpc(byte leg, RpcParams rpc = default)
     {
         if (!IsServer || leg > 3 || started.Value || ChoosingMap || !NetworkManager.ConnectedClients.ContainsKey(rpc.Receive.SenderClientId)) return;                       // 시작 후 변경 금지
+        if ((phoneMask.Value & (1 << leg)) != 0 || (PhoneControllerBridge.Instance != null && PhoneControllerBridge.Instance.HasPlayer(leg))) return;
         ulong who = rpc.Receive.SenderClientId;
         var o = owners.Value;
         ulong cur = o.Get(leg);
@@ -159,6 +167,7 @@ public partial class NetLegLink : NetworkBehaviour
 
         if (IsServer)
         {
+            if (PhoneControllerBridge.Instance != null) PhoneControllerBridge.WebPlayActive = true;
             checkpointMask.Value=CheckpointProgress.Mask;
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
             // ★씬 전환으로 새로 스폰된 인스턴스: 이전 씬의 배정/시작/맵/난이도 상태 복원
@@ -214,7 +223,7 @@ public partial class NetLegLink : NetworkBehaviour
         if (IsServer && tableInput != null)
             for (int i = 0; i < 4; i++)
                 tableInput.SetSource((LegControlSet)i,
-                    o.Get(i) == NONE || o.Get(i) == NetworkManager.LocalClientId
+                    (o.Get(i) == NONE && (phoneMask.Value & (1 << i)) == 0) || o.Get(i) == NetworkManager.LocalClientId
                         ? TableInput.LegSource.Local : TableInput.LegSource.External);
 
         // 내 다리 마스크(호스트 포함 — 표시용. 게스트는 입력 전송에도 사용)
@@ -226,7 +235,16 @@ public partial class NetLegLink : NetworkBehaviour
     // ── 게스트: 내가 소유한 '모든' 다리의 입력을 서버로 (다리별 변화 시 즉시 + 0.2s 하트비트) ──
     void Update()
     {
-        if (!IsSpawned || IsServer || myMask == 0) return;
+        if (!IsSpawned) return;
+        if (IsServer)
+        {
+            byte mask=0;var bridge=PhoneControllerBridge.Instance;
+            if(bridge!=null&&PhoneControllerBridge.WebPlayActive)
+                for(int i=0;i<4;i++)if(bridge.HasPlayer(i) && (NativeMask & (1<<i))==0)mask|=(byte)(1<<i);
+            if(phoneMask.Value!=mask)phoneMask.Value=mask;
+            return;
+        }
+        if (myMask == 0) return;
         var keyboard=UnityEngine.InputSystem.Keyboard.current;
         var giraffe=GetComponent<GiraffeMode>();
         byte group=0;

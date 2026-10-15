@@ -203,6 +203,12 @@ public class ArtLegController : MonoBehaviour
         //   일반 모드(mult 1, lenScale 1)=120 그대로 → 기존 감각 불변. 옛 힌지 모터(스톨 풀토크)와 파리티.
         float driveDamping = Mathf.Clamp(120f * forceMultiplier / lenScale, 120f, 3000f);
 
+        if (tableInput != null && tableInput.TryGetExternalPose(controlSet, out LegPose pose) && yawAb != null)
+        {
+            DrivePhonePose(pose);
+            return;
+        }
+
         // ── 스윙 축: 원본 속도 드라이브(감각 보존). ⚠️★체인 관절 힘 임계(2026-07-07 실측):
         //   이 2단 체인에선 forceLimit ~300 이하 드라이브가 사실상 무력(150=완전 정지, 600=정상).
         //   그래서 motorForce/idleHoldForce/yawForce 전부 구값의 4배로 상향(600/1300/600) — 감각은 동일.
@@ -352,6 +358,37 @@ public class ArtLegController : MonoBehaviour
         xd.target = angleDeg;   // 도 단위
         xd.targetVelocity = 0f;
         ab.xDrive = xd;
+    }
+
+    // A yaw + signed swing gimbal covers every direction below the tabletop.  Use
+    // the equivalent representation nearest the current yaw to avoid 180° flips.
+    void DrivePhonePose(LegPose pose)
+    {
+        float radius = Mathf.Min(Mathf.Sqrt(pose.x * pose.x + pose.z * pose.z), Mathf.Sin(80f * Mathf.Deg2Rad));
+        float tilt = Mathf.Asin(radius) * Mathf.Rad2Deg;
+        float currentYaw = YawAngle;
+        // Twisting an upright phone spins the existing ground-normal yaw joint.
+        // At larger lean angles the leg's two-axis gimbal must use yaw to aim
+        // the swing plane, so the lean direction takes precedence there.
+        float targetYaw = currentYaw + Mathf.DeltaAngle(currentYaw, pose.yaw);
+        float swing = 0f;
+        if (radius > .035f)
+        {
+            float positiveYaw = Mathf.Atan2(-pose.x, -pose.z) * Mathf.Rad2Deg;
+            float negativeYaw = Mathf.Atan2(pose.x, pose.z) * Mathf.Rad2Deg;
+            float positiveDelta = Mathf.DeltaAngle(currentYaw, positiveYaw);
+            float negativeDelta = Mathf.DeltaAngle(currentYaw, negativeYaw);
+            bool positive = Mathf.Abs(positiveDelta) < Mathf.Abs(negativeDelta);
+            targetYaw = currentYaw + (positive ? positiveDelta : negativeDelta);
+            swing = positive ? tilt : -tilt;
+        }
+        float yawStep = spinSpeed * Time.fixedDeltaTime;
+        float swingStep = swingVelocity * Time.fixedDeltaTime;
+        float yawTarget = Mathf.MoveTowards(yawAb.xDrive.target, targetYaw, yawStep);
+        float swingTarget = Mathf.MoveTowards(ab.xDrive.target, swing, swingStep);
+        DriveHold(swingTarget);
+        YawHold(yawTarget);
+        frozen = false; yawFrozen = false; rampedV = 0f;
     }
 
     void YawHold(float angleDeg)
