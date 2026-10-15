@@ -2,6 +2,8 @@
 
 Unity 게임과 이번에 만든 두 웹 버전을 함께 보관합니다.
 
+**[현재 구현·검증·실행 상태 (2026-10-16)](STATUS.md)** — 지금 가능한 것과 아직 실기기 검사가 필요한 범위를 먼저 확인하세요.
+
 - `Assets/`, `Packages/`, `ProjectSettings/`: 원본 Unity 프로젝트. Unity 6000.3.17f1에서 엽니다.
 - `Web/SinglePlayer/`: Three.js와 Rapier로 다시 만든 로컬 싱글 플레이 버전. 폴더에서 `node serve.mjs`를 실행한 뒤 `http://127.0.0.1:4173/`을 엽니다.
 - `Web/PhoneController/`: Unity 실행본의 다리를 폰으로 조작하는 중계 서버와 웹 화면. 폴더에서 `npm install` 후 `start.ps1`을 실행합니다. PC의 `http://127.0.0.1:4180/host`에 다리별 QR과 방 코드가 나옵니다.
