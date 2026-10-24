@@ -100,6 +100,14 @@ public static class JourneyMenuUI
     static GUIStyle textStyle, literalStyle;
     public static Font Font { get { if (font == null) font = Resources.Load<Font>("Fonts/CJK/NotoSansCJKjp-Regular"); return font; } }
     public static int Snap(int size) => size <= 25 ? TXS : size <= 30 ? TS : size <= 34 ? TM : TL;
+    /// <summary>Noto CJK 글자는 줄 상자 안에서 아래로 처져 보인다(실측: 24에서 약 1.5) — 가운데 정렬 글자를 이만큼 올려
+    /// 옆의 점·화살표·아이콘·키캡 테두리와 눈으로 가운데가 맞게 한다.</summary>
+    public static Rect Optical(Rect r, int size, TextAnchor align)
+    {
+        bool middle = align == TextAnchor.MiddleLeft || align == TextAnchor.MiddleCenter || align == TextAnchor.MiddleRight;
+        if (middle) r.y -= size * .06f;
+        return r;
+    }
     static GUIStyle Style()
     {
         if (textStyle == null)
@@ -115,7 +123,7 @@ public static class JourneyMenuUI
         var st=Style();st.alignment=align;var c=Out(color??Ink);c.a*=alpha;
         st.normal.textColor=st.hover.textColor=st.active.textColor=st.focused.textColor=c;
         var old=GUI.color;GUI.color=Color.white;
-        int s=Snap(size);ThoughtBubbleUI.FittedLabel(r,text,st,s,Mathf.Min(s,18));
+        int s=Snap(size);ThoughtBubbleUI.FittedLabel(Optical(r,s,align),text,st,s,Mathf.Min(s,18));
         GUI.color=old;
     }
     public static float TextWidth(string text,int size){var st=Style();st.fontSize=Snap(size);return st.CalcSize(new GUIContent(L.Text(text))).x;}
@@ -125,7 +133,7 @@ public static class JourneyMenuUI
         int s=Snap(size);literalStyle.fontSize=s;literalStyle.alignment=align;var c=Out(color);c.a*=alpha;literalStyle.normal.textColor=literalStyle.hover.textColor=literalStyle.active.textColor=literalStyle.focused.textColor=c;
         while(literalStyle.fontSize>16&&literalStyle.CalcSize(new GUIContent(text)).x>r.width)literalStyle.fontSize--;
         while(text.Length>1&&literalStyle.CalcSize(new GUIContent(text)).x>r.width){var parts=System.Globalization.StringInfo.ParseCombiningCharacters(text);if(parts.Length<2)break;text=text.Substring(0,parts[parts.Length-2])+"…";}
-        var old=GUI.color;GUI.color=Color.white;GUI.Label(r,text,literalStyle);GUI.color=old;
+        var old=GUI.color;GUI.color=Color.white;GUI.Label(Optical(r,literalStyle.fontSize,align),text,literalStyle);GUI.color=old;
     }
 
     // ── 칠하기 ──

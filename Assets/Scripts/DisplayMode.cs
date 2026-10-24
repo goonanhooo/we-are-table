@@ -32,5 +32,5 @@ public static class DisplayMode
 
     /// <summary>설정 메뉴 표기: "화면: 전체화면 / display: fullscreen"</summary>
     public static string Label()
-        => L.T("화면: ", "display: ") + (Windowed ? L.T("창 모드", "windowed") : L.T("전체화면", "fullscreen"));
+        => L.T("화면: ", "Display: ") + (Windowed ? L.T("창 모드", "windowed") : L.T("전체화면", "fullscreen"));
 }

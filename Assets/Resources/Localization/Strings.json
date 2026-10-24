@@ -3,21 +3,21 @@
     {
       "file": "Difficulty.cs",
       "ko": "겁쟁이들을 위한 난이도",
-      "en": "for the cowards",
+      "en": "For the cowards",
       "ja": "こわがりさん向け",
       "zh": "胆小鬼难度"
     },
     {
       "file": "Difficulty.cs",
       "ko": "겁쟁이를 위한 난이도",
-      "en": "for cowards",
+      "en": "For cowards",
       "ja": "こわがりさん向け",
       "zh": "胆小鬼难度"
     },
     {
       "file": "Difficulty.cs",
       "ko": "보통 난이도",
-      "en": "normal",
+      "en": "Normal",
       "ja": "ふつう",
       "zh": "普通"
     },
@@ -465,7 +465,7 @@
     {
       "file": "DisplayMode.cs",
       "ko": "화면: ",
-      "en": "display: ",
+      "en": "Display: ",
       "ja": "画面：",
       "zh": "显示："
     },
@@ -486,28 +486,28 @@
     {
       "file": "PauseMenu.cs",
       "ko": "기본 조작",
-      "en": "basic moves",
+      "en": "Basic moves",
       "ja": "基本操作",
       "zh": "基本操作"
     },
     {
       "file": "PauseMenu.cs",
       "ko": "기린의 힘",
-      "en": "giraffe power",
+      "en": "Giraffe power",
       "ja": "キリンの力",
       "zh": "长颈鹿之力"
     },
     {
       "file": "PauseMenu.cs",
       "ko": "테니스공의 힘",
-      "en": "tennis power",
+      "en": "Tennis power",
       "ja": "テニスボールの力",
       "zh": "网球之力"
     },
     {
       "file": "PauseMenu.cs",
       "ko": "눈사람의 힘",
-      "en": "snowman power",
+      "en": "Snowman power",
       "ja": "雪だるまの力",
       "zh": "雪人之力"
     },

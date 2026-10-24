@@ -64,13 +64,13 @@ public class PauseMenu : MonoBehaviour
     {
         var texs = new System.Collections.Generic.List<Texture2D>();
         var nms = new System.Collections.Generic.List<string>();
-        if (controlsMove != null) { texs.Add(controlsMove); nms.Add(L.T("기본 조작", "basic moves")); }
-        if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add(L.T("기린의 힘", "giraffe power")); }
-        if (TennisMode.Unlocked && controlsTennis != null) { texs.Add(controlsTennis); nms.Add(L.T("테니스공의 힘", "tennis power")); }
+        if (controlsMove != null) { texs.Add(controlsMove); nms.Add(L.T("기본 조작", "Basic moves")); }
+        if (GiraffeMode.Unlocked && controlsGiraffe != null) { texs.Add(controlsGiraffe); nms.Add(L.T("기린의 힘", "Giraffe power")); }
+        if (TennisMode.Unlocked && controlsTennis != null) { texs.Add(controlsTennis); nms.Add(L.T("테니스공의 힘", "Tennis power")); }
         if(controlsSnowman==null)controlsSnowman=ControlGuideAssets.Load("ControlsSnowman");
         var ice=GetComponent<IcePower>();
-        if(ice!=null && ice.unlocked && controlsSnowman!=null){texs.Add(controlsSnowman);nms.Add(L.T("눈사람의 힘","snowman power"));}
-        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "space squid")); }
+        if(ice!=null && ice.unlocked && controlsSnowman!=null){texs.Add(controlsSnowman);nms.Add(L.T("눈사람의 힘","Snowman power"));}
+        if (SquidMode.Unlocked && controlsSquid != null) { texs.Add(controlsSquid); nms.Add(L.T("우주오징어", "Space squid")); }
         names = nms.ToArray(); return texs.ToArray();
     }
 
@@ -275,7 +275,7 @@ public class PauseMenu : MonoBehaviour
 
         // 숨은 치트: 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
-            JourneyMenuUI.Text(cheatBtn, L.T("치트: ", "Cheat: ") + (CheatMode.Active ? "ON" : "OFF"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
+            JourneyMenuUI.Text(cheatBtn, L.T("치트: ", "Cheat: ", "チート: ", "作弊: ") + (CheatMode.Active ? "ON" : "OFF"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
     }
 
     static void SliderRow(Rect label, Rect slider, string name, float value)

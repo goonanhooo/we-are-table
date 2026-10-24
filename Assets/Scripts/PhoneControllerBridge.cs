@@ -390,6 +390,23 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         longer=(b&16)!=0, shorter=(b&32)!=0, grab=(b&64)!=0, release=(b&128)!=0
     };
 
+    /// <summary>연결 상태 글(내부 값은 한국어) → 지금 언어.</summary>
+    public string StatusText
+    {
+        get
+        {
+            string s = connectionStatus;
+            switch (s)
+            {
+                case "연결 중": return L.T("연결 중", "Connecting", "接続中", "连接中");
+                case "폰 연결 준비 중": return L.T("폰 연결 준비 중", "Preparing phone link", "スマホ接続を準備中", "正在准备手机连接");
+                case "폰 서버 연결 대기": return L.T("폰 서버 연결 대기", "Waiting for phone server", "スマホサーバー待ち", "等待手机服务器");
+                case "연결 대기": return L.T("연결 대기", "Waiting to connect", "接続待ち", "等待连接");
+                case "연결됨": return L.T("연결됨", "Connected", "接続済み", "已连接");
+                default: return L.Text(s);
+            }
+        }
+    }
     public void DrawInvite(Rect area)
     {
         // 지우개 대소동 규칙: 종이 창 안에 [QR 카드 → 입장 코드] + [제목 → 설명 → 다리 4줄(색 점만 다리 색)]
@@ -414,7 +431,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             bool phone = HasPlayer(i), pc = !phone && lobbyNative[i];
             JourneyMenuUI.Box(row, phone || pc ? JourneyMenuUI.Kind.Card : JourneyMenuUI.Kind.Soft, phone);
             JourneyMenuUI.Dot(new Vector2(row.x + S3 + 8f, row.center.y), 8f, LegPalette.BySlot[i]);
-            JourneyMenuUI.Text(new Rect(row.x + S3 + 16f + S2, row.y, row.width * .5f, row.height), LegLayout.Name(i), JourneyMenuUI.TXS);
+            JourneyMenuUI.Text(new Rect(row.x + S3 + 16f + S2, row.y, row.width * .5f, row.height), L.Title(LegLayout.Name(i)), JourneyMenuUI.TXS);
             string state = phone ? L.T("폰 연결됨", "Phone", "スマホ接続中", "手机已连接") : pc ? "PC" : L.T("빈 다리", "Available", "空き", "空闲");
             JourneyMenuUI.Text(new Rect(row.x + row.width * .5f, row.y, row.width * .5f - S3, row.height), state, JourneyMenuUI.TXS, phone || pc ? JourneyMenuUI.Ink : JourneyMenuUI.Muted, TextAnchor.MiddleRight);
         }
@@ -425,7 +442,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         if (!WebPlayActive) return;
         int count = 0; foreach (bool p in occupied) if (p && connected) count++;
         JourneyMenuUI.Begin();
-        try { JourneyMenuUI.Note(new Rect(JourneyMenuUI.S2, 900f - JourneyMenuUI.S2 - 32f, 640f, 32f), L.T("폰 ", "Phones ", "スマホ ", "手机 ") + count + "/4   " + connectionStatus); }
+        try { JourneyMenuUI.Note(new Rect(JourneyMenuUI.S2, 900f - JourneyMenuUI.S2 - 32f, 640f, 32f), L.T("폰 ", "Phones ", "スマホ ", "手机 ") + count + "/4   " + StatusText); }
         finally { JourneyMenuUI.End(); }
     }
 

@@ -159,7 +159,7 @@ public class NetDebugPanel : MonoBehaviour
         JourneyMenuUI.Box(badge,mine?JourneyMenuUI.Kind.Primary:open?JourneyMenuUI.Kind.Soft:JourneyMenuUI.Kind.Card);
         JourneyMenuUI.Literal(badge,who,JourneyMenuUI.TXS,mine?JourneyMenuUI.White:open?JourneyMenuUI.Muted:JourneyMenuUI.Ink,TextAnchor.MiddleCenter);
         JourneyMenuUI.Dot(new Vector2(head.x+8,head.center.y),8,LegPalette.BySlot[i]);   // 다리 색 = 어느 다리인지
-        JourneyMenuUI.Text(new Rect(head.x+16+S2,head.y,badge.x-head.x-16-S2-S1,head.height),LegLayout.Name(i),JourneyMenuUI.TXS,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
+        JourneyMenuUI.Text(new Rect(head.x+16+S2,head.y,badge.x-head.x-16-S2-S1,head.height),L.Title(LegLayout.Name(i)),JourneyMenuUI.TXS,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
         // 자판 판: 연한 상자 안에 키캡
         var plate=new Rect(r.x+S2,head.yMax+S2,r.width-2*S2,r.yMax-S2-(head.yMax+S2));
         JourneyMenuUI.Box(plate,JourneyMenuUI.Kind.Soft);

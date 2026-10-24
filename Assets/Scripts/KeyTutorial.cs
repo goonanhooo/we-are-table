@@ -553,7 +553,7 @@ public partial class KeyTutorial : MonoBehaviour
             DrawThoughtKey(new Rect(cx-size*1.5f-gap,keyTop+size+gap,size,size),keys[2],leg,2);
             DrawThoughtKey(new Rect(cx-size*.5f,keyTop+size+gap,size,size),keys[1],leg,1);
             DrawThoughtKey(new Rect(cx+size*.5f+gap,keyTop+size+gap,size,size),keys[3],leg,3);
-            string footer=LegLayout.Name(leg)+"   "+pressedCount+"/4   "+(pressedCount==4?L.T("손을 떼면 다음 다리","release to continue"):L.T("네 방향","press every key"));
+            string footer=L.Title(LegLayout.Name(leg))+"   "+pressedCount+"/4   "+(pressedCount==4?L.T("손을 떼면 다음 다리","release to continue"):L.T("네 방향","press every key"));
             ThoughtBubbleUI.FittedLabel(new Rect(content.x,content.yMax-20f,content.width,20f),footer,hallwayFooter,22);
             GUI.color = old;
         }

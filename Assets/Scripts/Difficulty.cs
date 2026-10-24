@@ -47,8 +47,8 @@ public static class Difficulty
     public static string Name(Mode m, bool plural)
     {
         if (m == Mode.Coward)
-            return plural ? L.T("겁쟁이들을 위한 난이도", "for the cowards") : L.T("겁쟁이를 위한 난이도", "for cowards");
-        return L.T("보통 난이도", "normal");
+            return plural ? L.T("겁쟁이들을 위한 난이도", "For the cowards") : L.T("겁쟁이를 위한 난이도", "For cowards");
+        return L.T("보통 난이도", "Normal");
     }
 
     public static string Desc(Mode m)

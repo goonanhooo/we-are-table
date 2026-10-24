@@ -77,6 +77,8 @@ public static class L
     }
     public static string T(string ko, string en, string ja, string zh) => Current == Language.Korean ? ko : Current == Language.Japanese ? ja : Current == Language.SimplifiedChinese ? zh : en;
     public static string F(string ko, string en, params object[] args) => string.Format(T(ko, en), args);
+    /// <summary>제목처럼 쓰는 영어 낱말(다리 이름 등)은 첫 글자를 대문자로 — 다른 언어는 그대로.</summary>
+    public static string Title(string s) => Current == Language.English && !string.IsNullOrEmpty(s) ? char.ToUpperInvariant(s[0]) + s.Substring(1) : s;
     public static string Text(string text)
     {
         if (string.IsNullOrEmpty(text)) return text;

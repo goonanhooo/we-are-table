@@ -7,8 +7,8 @@ public static class LocalizedControlGuide
     static readonly string[] high = { "E", "Y", "O", "]" }, low = { "Q", "R", "U", "P" };
     static readonly string[][] moves = { new[]{"W","A","S","D"},new[]{"T","F","G","H"},new[]{"I","J","K","L"},new[]{"[",";","'","Enter"} };
     public static int Kind(string name) => name.Contains("Giraffe") ? 1 : name.Contains("Tennis") ? 2 : name.Contains("Snowman") || name.Contains("Ice") ? 3 : name.Contains("Squid") ? 4 : 0;
-    public static string Name(int kind) => kind == 1 ? L.T("기린의 힘","giraffe power") : kind == 2 ? L.T("테니스공의 힘","tennis power") : kind == 3 ? L.T("눈사람의 힘","snowman power") : kind == 4 ? L.T("우주오징어의 힘","Space squid") : L.T("기본 조작","basic moves");
-    static void Label(Rect r,string s,GUIStyle style,int size) { style.hover.textColor=style.active.textColor=style.focused.textColor=style.normal.textColor; style.font=LocaleFonts.Body; style.wordWrap=true; ThoughtBubbleUI.FittedLabel(r,s,style,size,14); }
+    public static string Name(int kind) => kind == 1 ? L.T("기린의 힘","Giraffe power") : kind == 2 ? L.T("테니스공의 힘","Tennis power") : kind == 3 ? L.T("눈사람의 힘","Snowman power") : kind == 4 ? L.T("우주오징어의 힘","Space squid") : L.T("기본 조작","Basic moves");
+    static void Label(Rect r,string s,GUIStyle style,int size) { style.hover.textColor=style.active.textColor=style.focused.textColor=style.normal.textColor; style.font=LocaleFonts.Body; style.wordWrap=true; ThoughtBubbleUI.FittedLabel(new Rect(r.x,r.y-size*.06f,r.width,r.height),s,style,size,14); }   // 글자 처짐 보정(JourneyMenuUI.Optical과 같은 값)
     static void Key(Rect r,string s,Color color,int size=38)
     {
         GUI.DrawTexture(r,Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,Lin(color),0,10);
@@ -16,7 +16,7 @@ public static class LocalizedControlGuide
         key.normal.textColor=key.hover.textColor=key.active.textColor=key.focused.textColor=Lin(color);key.font=LocaleFonts.Body;key.wordWrap=false;key.fontSize=size;
         var content=new GUIContent(s);var inset=new Rect(r.x+4,r.y+4,r.width-8,r.height-8);
         while(key.fontSize>10&&(key.CalcSize(content).x>inset.width||key.CalcSize(content).y>inset.height))key.fontSize--;
-        GUI.Label(inset,content,key);
+        GUI.Label(new Rect(inset.x,inset.y-key.fontSize*.06f,inset.width,inset.height),content,key);
     }
     public static void Draw(Rect target,Texture2D source) => Draw(target,Kind(source!=null?source.name:"ControlsMove"));
     public static void Draw(Rect target,int kind)
@@ -47,7 +47,7 @@ public static class LocalizedControlGuide
         else for(int i=0;i<4;i++)
         {
             float x=35+i*295;Color color=LegPalette.BySlot[i];
-            Label(new Rect(x,248,275,46),LegLayout.Name(i),small,23);
+            Label(new Rect(x,248,275,46),L.Title(LegLayout.Name(i)),small,23);
             if(kind==0)
             {
                 var labels=moves[i];float cx=x+137.5f;const float size=58,gap=6;
@@ -65,7 +65,7 @@ public static class LocalizedControlGuide
                 }
             }
         }
-        Label(new Rect(45,602,1110,44),kind==0?L.T("마우스로 카메라 회전 · 휠로 확대/축소","Mouse: camera · Wheel: zoom"):L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"),small,24);
+        Label(new Rect(45,602,1110,44),kind==0?L.T("마우스로 카메라 회전, 휠로 확대/축소","Mouse: camera, Wheel: zoom"):L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"),small,24);
         GUI.matrix=matrix;GUI.color=old;GUI.contentColor=oldContent;
     }
     // ── 기본 조작 = 실제 자판 그림 위에 다리 색 키 + 키 묶음마다 다리 이름 + 아래에 키 설명 ──
@@ -85,7 +85,7 @@ public static class LocalizedControlGuide
         Round(r, border, 9); Round(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), fill, 7);
         key.normal.textColor = key.hover.textColor = key.active.textColor = key.focused.textColor = Lin(glyph); key.font = LocaleFonts.Body; key.wordWrap = false; key.fontStyle = FontStyle.Normal; key.fontSize = size;
         var content = new GUIContent(label); while (key.fontSize > 10 && key.CalcSize(content).x > r.width - 8) key.fontSize--;
-        GUI.Label(r, content, key);
+        GUI.Label(new Rect(r.x, r.y - key.fontSize * .06f, r.width, r.height), content, key);
     }
     static bool DrawKeyboard(Color ink, Color muted)
     {
@@ -106,7 +106,7 @@ public static class LocalizedControlGuide
             var up = KbRect(legKeyNames[slot][0], img);
             var name = new Rect(up.center.x - 110, img.y + 22, 220, 40);
             Round(new Rect(name.center.x - 70, name.yMax - 2, 140, 6), c, 3);
-            Label(name, LegLayout.Name(slot), small, 26);
+            Label(name, L.Title(LegLayout.Name(slot)), small, 26);
         }
         var one = KbRect("Digit1", img); PaintKey(one, "1", ink, ink, Color.white, 30);
         Label(new Rect(img.x + 40, img.y + 438, img.width - 80, 40), L.T("마우스로 카메라 돌리기, 휠로 확대 축소", "Mouse turns the camera, wheel zooms", "マウスでカメラを回す、ホイールでズーム", "鼠标转动视角，滚轮缩放"), small, 24);
