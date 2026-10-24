@@ -12,6 +12,7 @@ const secret=()=>randomBytes(24).toString('base64url');
 const codeAlphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const createCode=()=>Array.from({length:8},()=>codeAlphabet[randomInt(codeAlphabet.length)]).join('');
 const normalizeCode=value=>String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const actionMasks={normal:0,giraffe:48,tennis:192,ice:48,squid:16};
 const equal=(a,b)=>typeof a==='string' && a.length===b.length && timingSafeEqual(Buffer.from(a),Buffer.from(b));
 const send=(ws,m)=>{if(ws?.readyState===WebSocket.OPEN && ws.bufferedAmount<65536)ws.send(JSON.stringify(m));};
 const isLocal=req=>{
@@ -24,10 +25,11 @@ const isLocal=req=>{
 export async function createRelay({port=4180,writeConfig=false}={}) {
   const codes=[];while(codes.length<4){const code=createCode();if(!codes.includes(code))codes.push(code);}
   let watchCode=createCode();while(codes.includes(watchCode))watchCode=createCode();
-  const room={id:randomBytes(5).toString('hex').toUpperCase(),hostKey:secret(),codes,watchCode,nativeRoomCode:'',players:Array(4).fill(null),nativeSlots:[false,false,false,false],unity:null,observers:new Set(),viewers:new Set(),visual:{mode:'normal'},lastFrame:null};
-  let publicOrigin='',qrPng=[],closed=false;
+  let joinCode=createCode();while(codes.includes(joinCode)||joinCode===watchCode)joinCode=createCode();
+  const room={id:randomBytes(5).toString('hex').toUpperCase(),hostKey:secret(),codes,joinCode,watchCode,nativeRoomCode:'',players:Array(4).fill(null),nativeSlots:[false,false,false,false],unity:null,observers:new Set(),viewers:new Set(),visual:{mode:'normal'},lastFrame:null};
+  let publicOrigin='',joinQrPng='',closed=false;
   const status=()=>({type:'status',unity:!!room.unity,occupiedSlots:room.players.map((p,i)=>!!p||room.nativeSlots[i]),nativeSlots:room.nativeSlots,players:room.players.map(p=>p?{name:p.name,active:!!p.bits}:null),visual:room.visual});
-  const lobby=()=>({type:'lobby',room:room.id,codes:room.codes,watchCode:room.watchCode,nativeRoomCode:room.nativeRoomCode,origin:publicOrigin,qrPng,occupiedSlots:room.players.map(Boolean),nativeSlots:room.nativeSlots,unity:!!room.unity,viewers:room.viewers.size});
+  const lobby=()=>({type:'lobby',room:room.id,codes:room.codes,joinCode:room.joinCode,joinQrPng,watchCode:room.watchCode,nativeRoomCode:room.nativeRoomCode,origin:publicOrigin,occupiedSlots:room.players.map(Boolean),nativeSlots:room.nativeSlots,unity:!!room.unity,viewers:room.viewers.size});
   const publish=()=>{const s=status();for(const p of room.players)if(p)send(p.ws,s);send(room.unity,lobby());for(const w of room.observers)send(w,lobby());for(const w of room.viewers)send(w,{type:'watch-status',unity:!!room.unity,viewers:room.viewers.size});};
   const input=(slot,bits)=>{const p=room.players[slot];if(p)p.bits=bits;send(room.unity,{type:'input',slot,bits,occupied:!!p});};
   const pose=(slot,active)=>{const p=room.players[slot];send(room.unity,{type:'pose',slot,active:!!p&&active,x:active?p?.x||0:0,z:active?p?.z||0:0,yaw:active?p?.yaw||0:0});};
@@ -44,7 +46,7 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
           let body='';for await(const b of req){body+=b;if(body.length>2048)throw Error('body too large');}
           const origin=new URL(JSON.parse(body).origin);if(origin.protocol!=='https:'||origin.username||origin.password)throw Error('HTTPS origin required');
           publicOrigin=origin.origin;
-          qrPng=await Promise.all(room.codes.map(async code=>(await QRCode.toBuffer(publicOrigin+'/#code='+code,{type:'png',margin:2,width:256})).toString('base64')));
+          joinQrPng=(await QRCode.toBuffer(publicOrigin+'/#code='+room.joinCode,{type:'png',margin:2,width:320})).toString('base64');
           publish();res.writeHead(200,headers);res.end('{"ok":true}');return;
         }
         if(u.pathname==='/api/qr'){
@@ -56,9 +58,9 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
         res.writeHead(404,headers);res.end('{}');return;
       }
           const files={'/':'index.html','/host':'host.html','/watch':'watch.html','/controller.mjs':'controller.mjs','/orientation.mjs':'orientation.mjs','/host.mjs':'host.mjs','/watch.mjs':'watch.mjs','/style.css':'style.css'};
-      const asset=/^\/assets\/(table-(?:normal|giraffe|tennis|ice|squid)(?:-colors)?\.png)$/.exec(u.pathname);
+      const asset=/^\/assets\/(?:table-(?:normal|giraffe|tennis|ice|squid)(?:-colors)?\.png|table-start(?:-colors)?\.svg)$/.exec(u.pathname);
       const file=files[u.pathname]||(asset&&u.pathname.slice(1));if(!file){res.writeHead(404);res.end('Not found');return;}
-      const mime=file.endsWith('.mjs')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.png')?'image/png':'text/html';
+      const mime=file.endsWith('.mjs')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.png')?'image/png':file.endsWith('.svg')?'image/svg+xml':'text/html';
       res.writeHead(200,{...headers,'Content-Type':mime+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'"});
       res.end(await readFile(resolve(root,'public',file)));
     }catch{if(!res.headersSent)res.writeHead(400,headers);res.end('{"error":"invalid request"}');}
@@ -91,11 +93,16 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
             send(ws,{type:'watch-ready'});if(room.lastFrame)ws.send(JSON.stringify(room.lastFrame));publish();return;
           }
           if(m.role==='player'&&typeof m.code==='string'){
-            slot=room.codes.findIndex(code=>equal(normalizeCode(m.code),code));
+            const code=normalizeCode(m.code);
+            if(equal(code,room.joinCode)){
+              const available=i=>!room.players[i]&&!room.nativeSlots[i];
+              slot=Number.isInteger(m.preferredSlot)&&m.preferredSlot>=0&&m.preferredSlot<4&&available(m.preferredSlot)?m.preferredSlot:[0,1,2,3].find(available)??-1;
+              if(slot<0){send(ws,{type:'error',message:'빈 다리가 없습니다'});ws.close(1008,'room full');return;}
+            }else slot=room.codes.findIndex(candidate=>equal(code,candidate));
             if(slot<0){send(ws,{type:'error',message:'방 코드 오류'});ws.close(1008,'code');return;}
             if(room.nativeSlots[slot]){send(ws,{type:'error',message:'PC가 선택한 다리'});ws.close(1008,'native occupied');return;}
             if(room.players[slot]){send(ws,{type:'error',message:'이미 연결된 다리'});ws.close(1008,'occupied');return;}
-            role='player';room.players[slot]={ws,name:String(m.name||'플레이어').replace(/[\x00-\x1f]/g,'').slice(0,16),bits:0,last:now,lastPower:0,poseActive:false,poseLast:0,x:0,z:0,yaw:0};
+            role='player';room.players[slot]={ws,name:String(m.name||'플레이어').replace(/[\x00-\x1f]/g,'').slice(0,16),bits:0,last:now,poseActive:false,poseLast:0,x:0,z:0,yaw:0};
             clearTimeout(authTimer);send(ws,{type:'joined',slot});input(slot,0);publish();return;
           }
           ws.close(1008,'key');return;
@@ -125,10 +132,18 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
           return;
         }
         if(role==='unity'&&m.type==='visual'&&['normal','giraffe','tennis','ice','squid'].includes(m.mode)){
-          if(room.visual.mode!==m.mode){room.visual={mode:m.mode};publish();}return;
+          const changed=room.visual.mode!==m.mode,iceFrozen=m.mode==='ice'&&m.iceFrozen!==false;
+          if(changed||room.visual.iceFrozen!==iceFrozen){
+            room.visual={mode:m.mode,iceFrozen};
+            if(changed)for(let i=0;i<4;i++)if(room.players[i])input(i,room.players[i].bits&15);
+            publish();
+          }return;
         }
         if(role==='player'&&m.type==='input'&&Number.isInteger(m.bits)&&m.bits>=0&&m.bits<=255){
-          const p=room.players[slot];if(p?.ws!==ws)return;p.last=now;input(slot,m.bits);return;
+          const p=room.players[slot];if(p?.ws!==ws)return;p.last=now;
+          // In-flight input from the previous power cannot activate the new one.
+          const mask=m.mode===room.visual.mode?(actionMasks[room.visual.mode]||0):0;
+          input(slot,typeof m.mode==='string'?m.bits&(15|mask):m.bits);return;
         }
         if(role==='player'&&m.type==='switch'&&Number.isInteger(m.slot)&&m.slot>=0&&m.slot<4){
           if(m.slot===slot)return;
@@ -145,10 +160,6 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
             p.x=m.x;p.z=m.z;p.yaw=m.yaw;p.poseActive=true;p.poseLast=now;
           }else{p.poseActive=false;p.x=0;p.z=0;p.yaw=0;}
           pose(slot,p.poseActive);return;
-        }
-        if(role==='player'&&m.type==='power'&&Number.isInteger(m.power)&&m.power>=2&&m.power<=5){
-          const p=room.players[slot];if(!p||now-p.lastPower<300)return;p.lastPower=now;
-          send(room.unity,{type:'power',slot,power:m.power});
         }
       }catch{ws.close(1008,'invalid message');}
     });

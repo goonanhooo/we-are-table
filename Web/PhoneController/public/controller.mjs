@@ -1,23 +1,34 @@
 import {orientationQuaternion,gravityRelativeQuaternion,calibratedLegTilt,calibratedLegYaw} from './orientation.mjs';
 
 const $=selector=>document.querySelector(selector);
-const labels=['01 · 노랑','02 · 파랑','03 · 초록','04 · 빨강'];
+const labels=['노란 다리','파란 다리','초록 다리','빨간 다리'];
+const legRGB=['242 187 43','66 139 238','60 175 92','233 85 78'];
+const actions={
+  normal:[],
+  giraffe:[{label:'다리 늘이기',symbol:'＋',bit:16},{label:'다리 줄이기',symbol:'−',bit:32}],
+  tennis:[{label:'테니스공 접착',symbol:'●',bit:64},{label:'접착 해제',symbol:'○',bit:128}],
+  ice:[{label:'얼음',symbol:'❄',bit:16},{label:'풀기',symbol:'↺',bit:32}],
+  squid:[{label:'분출',symbol:'↑',bit:16}],
+};
 const clean=value=>String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
 const format=value=>{const code=clean(value);return code.length>4?`${code.slice(0,4)} ${code.slice(4)}`:code;};
 let ws,slot=-1,joined=false,unity=false,wanted=false,retry,attempt=0,wake;
 let focused=true,gyroActive=false,gyroWanted=false,reference=null,latest=null,lastSensor=0,poseSent=false;
-let sensorSource='',sensorError='',sensorRequesting=false,sensorSamples=0;
+let sensorSource='',sensorError='',sensorRequesting=false;
 let motionGravity=null,motionGravityRef=null,motionLastAt=0,motionYaw=0,motionHasGyro=false,sensorRequestId=0;
 let tilt={x:0,z:0},yaw=0,lastWrappedYaw=0;
 let occupiedSlots=[false,false,false,false];
 const pointers=new Map();
-let colorsOn=true,currentMode='normal';try{colorsOn=localStorage.getItem('tableColors')!=='off';}catch{}
+let colorsOn=true,currentMode='normal',iceFrozen=true;try{colorsOn=localStorage.getItem('tableColors')!=='off';}catch{}
 const message=value=>$('#message').textContent=value;
 const transmit=value=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify(value));};
+const sendInput=value=>transmit({type:'input',bits:value,mode:currentMode});
 const bits=()=>joined&&unity&&focused&&document.visibilityState==='visible'?[...pointers.values()].reduce((a,b)=>a|(gyroActive?b&240:b),0):0;
 function colorUI(){
-  $('#table-image').src=`/assets/table-${currentMode}${colorsOn?'-colors':''}.png`;
-  $('#leg-key').hidden=!colorsOn;
+  const plain=currentMode==='normal'||(currentMode==='ice'&&!iceFrozen);
+  const model=plain?'start':currentMode;
+  const extension=plain?'svg':'png';
+  $('#table-image').src=`/assets/table-${model}${colorsOn?'-colors':''}.${extension}`;
   $('#color-toggle').setAttribute('aria-pressed',String(colorsOn));
   $('#color-toggle').style.opacity=colorsOn?'1':'.35';
 }
@@ -31,10 +42,11 @@ function gyroUI(){
   const state=sensorRequesting?'requesting':sensorError?'error':!gyroWanted?'off':!fresh?(gyroActive?'stale':'waiting'):gyroActive?'active':'ready';
   let title={requesting:'자이로 권한 요청 중',error:'자이로 연결 실패',off:'자이로 꺼짐',waiting:'센서 신호 기다리는 중',stale:'센서 신호 끊김',ready:'자이로 켜짐 · 수직보정 대기',active:'자이로 켜짐 · 다리 조작 중'}[state];
   if(sensorSource==='motion'&&!motionHasGyro&&['ready','active'].includes(state))title=state==='active'?'기울기 센서 켜짐 · 다리 조작 중':'기울기 센서 켜짐 · 수직보정 대기';
-  const detail={requesting:'휴대폰의 동작/방향 권한을 허용하세요',off:'폰을 움직여 다리를 조작하려면 켜세요',waiting:'휴대폰을 움직여 센서 신호를 확인하세요',stale:'신호가 다시 들어오면 조작이 이어집니다',ready:'폰을 똑바로 세우고 수직보정 버튼을 누르세요',active:sensorSource==='motion'?(motionHasGyro?'동작 센서로 조작 중 · 회전이 밀리면 수직보정':'회전 센서 신호 없음 · 기울기만 조작됩니다'):'폰을 움직이면 아래 각도와 방향이 바뀝니다'}[state]||sensorError;
+  const detail={requesting:'동작 및 방향 접근을 허용해 주세요',waiting:'폰을 움직여 센서를 연결해 주세요',stale:'센서가 다시 연결되면 이어집니다'}[state]||sensorError;
   $('#gyro-panel').dataset.state=state;
   $('#gyro-title').textContent=title;
   $('#sensor-state').textContent=detail;
+  $('#sensor-state').hidden=!detail;
   $('#play').classList.toggle('gyro-active',gyroActive);
   $('#sensor').classList.toggle('active',gyroActive);
   $('#sensor').hidden=sensorRequesting||(gyroWanted&&!sensorError&&state!=='stale');
@@ -42,21 +54,11 @@ function gyroUI(){
   $('#recenter').hidden=!gyroWanted;
   $('#touch-switch').hidden=!gyroWanted;
   $('#recenter').disabled=!gyroWanted||!fresh;
-  $('#sensor-readout').hidden=!gyroWanted&&!sensorError;
-  $('#sensor-angle').textContent=gyroWanted?`${sensorSource==='motion'?'동작':'방향'} 센서 입력 ${sensorSamples}회${fresh?' · 실시간 수신 중':''}`:'';
-  $('#gyro-feedback').hidden=!gyroActive;
-  if(gyroActive){
-    const degrees=value=>Math.round(Math.asin(Math.min(1,Math.abs(value)))*180/Math.PI);
-    const lean=Math.round(Math.asin(Math.min(1,Math.hypot(tilt.x,tilt.z)))*180/Math.PI);
-    $('#tilt-total').textContent=`${lean}°`;
-    $('#tilt-front').textContent=tilt.z>.015?`앞 ${degrees(tilt.z)}°`:tilt.z<-.015?`뒤 ${degrees(tilt.z)}°`:'수직 0°';
-    $('#tilt-side').textContent=tilt.x>.015?`오른쪽 ${degrees(tilt.x)}°`:tilt.x<-.015?`왼쪽 ${degrees(tilt.x)}°`:'중앙 0°';
-    $('#tilt-yaw').textContent=sensorSource==='motion'&&!motionHasGyro?'측정 불가':`${Math.round(yaw)}°`;
-    $('#tilt-dot').style.transform=`translate(${Math.round(tilt.x*38)}px,${Math.round(-tilt.z*38)}px)`;
-  }
+  if(gyroActive)showDirection(tilt.x,tilt.z);
 }
+function showDirection(x,z){$('#tilt-dot').style.transform=`translate(${Math.round(x*35)}cqw,${Math.round(-z*35)}cqw)`;}
 function stopPose(){if(poseSent&&joined)transmit({type:'pose',active:false});poseSent=false;}
-function release(){pointers.clear();document.querySelectorAll('.pressed').forEach(button=>button.classList.remove('pressed'));if(joined)transmit({type:'input',bits:0});stopPose();}
+function release(){pointers.clear();document.querySelectorAll('.pressed').forEach(button=>button.classList.remove('pressed'));showDirection(0,0);if(joined)sendInput(0);stopPose();}
 function calibrate(){
   if(!gyroWanted||!sensorFresh()){sensorError='센서 신호가 없습니다';gyroUI();return;}
   if(sensorSource==='motion'){motionGravityRef=motionGravity;latest={w:1,x:0,y:0,z:0};motionYaw=0;motionLastAt=performance.now();}
@@ -70,7 +72,6 @@ function receiveOrientation(event,source){
   sensorSource=source;
   latest=orientationQuaternion(Number.isFinite(event.alpha)?event.alpha:0,event.beta,event.gamma);
   lastSensor=performance.now();
-  sensorSamples++;
   sensorError='';
   if(gyroActive&&reference){
     tilt=calibratedLegTilt(reference,latest);
@@ -95,7 +96,7 @@ window.addEventListener('devicemotion',event=>{
   motionGravity={x:g.x,y:g.y,z:g.z};
   motionHasGyro=motionHasGyro||[event.rotationRate?.alpha,event.rotationRate?.beta,event.rotationRate?.gamma].some(Number.isFinite);
   latest=gravityRelativeQuaternion(motionGravityRef,motionGravity);
-  lastSensor=now;sensorSamples++;sensorError='';
+  lastSensor=now;sensorError='';
   if(gyroActive&&reference){
     tilt=calibratedLegTilt(reference,latest);
     const dt=Math.max(0,Math.min(.1,(now-motionLastAt)/1000));
@@ -130,17 +131,43 @@ $('#sensor').onclick=async()=>{
   finally{sensorRequesting=false;gyroUI();}
 };
 $('#recenter').onclick=()=>{stopPose();calibrate();};
-$('#touch-switch').onclick=()=>{stopPose();gyroActive=false;gyroWanted=false;reference=null;sensorError='';sensorSamples=0;sensorRequestId++;wake?.release();wake=null;gyroUI();};
+$('#touch-switch').onclick=()=>{release();gyroActive=false;gyroWanted=false;reference=null;sensorError='';sensorRequestId++;wake?.release();wake=null;gyroUI();};
 gyroUI();
 function showVisual(visual){
-  currentMode=['normal','giraffe','tennis','ice','squid'].includes(visual?.mode)?visual.mode:'normal';
+  const nextMode=Object.hasOwn(actions,visual?.mode)?visual.mode:'normal';
+  if(nextMode!==currentMode)release();
+  currentMode=nextMode;
+  iceFrozen=visual?.iceFrozen!==false;
   colorUI();
-  const power={giraffe:2,tennis:3,ice:4,squid:5}[currentMode];
-  document.querySelectorAll('[data-power]').forEach(button=>button.classList.toggle('active',Number(button.dataset.power)===power));
+  actionUI();
 }
+function actionUI(){
+  const choices=actions[currentMode];
+  $('#ability-actions').hidden=choices.length===0;
+  $('#ability-actions').classList.toggle('single-action',choices.length===1);
+  $('#play').classList.toggle('no-actions',choices.length===0);
+  for(const [index,id] of ['primary','secondary'].entries()){
+    const choice=choices[index],button=$(`#action-${id}`);
+    button.hidden=!choice;button.dataset.bit=String(choice?.bit||0);
+    button.setAttribute('aria-label',choice?.label||'능력 조작');
+    $(`#action-${id}-symbol`).textContent=choice?.symbol||'';
+    $(`#action-${id}-label`).textContent=choice?.label||'';
+    const on=currentMode==='ice'&&(index===0?iceFrozen:!iceFrozen);
+    button.classList.toggle('is-on',on);
+    if(currentMode==='ice')button.setAttribute('aria-pressed',String(on));
+    else button.removeAttribute('aria-pressed');
+  }
+}
+actionUI();
 function showSlot(newSlot){
   slot=newSlot;$('#slot-name').textContent=labels[slot];
-  document.querySelectorAll('[data-leg]').forEach(button=>button.classList.toggle('mine',Number(button.dataset.leg)===slot));
+  $('#play').style.setProperty('--leg-rgb',legRGB[slot]);
+  document.querySelectorAll('[data-leg]').forEach(button=>{
+    const mine=Number(button.dataset.leg)===slot;
+    button.classList.toggle('mine',mine);button.setAttribute('aria-pressed',String(mine));
+  });
+  showOccupancy();
+  try{localStorage.setItem('preferredLeg',String(slot));}catch{}
 }
 function showOccupancy(){
   document.querySelectorAll('[data-leg]').forEach(button=>{
@@ -156,8 +183,12 @@ for(const button of document.querySelectorAll('[data-leg]'))button.onclick=()=>{
 function connect(){
   clearTimeout(retry);if(!wanted)return;
   const code=clean($('#room-code').value);if(code.length!==8){message('방 코드 8자리');wanted=false;return;}
-  ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
-  ws.onopen=()=>transmit({type:'hello',role:'player',code});
+  ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws?code=${encodeURIComponent(code)}`);
+  ws.onopen=()=>{
+    let preferredSlot=slot;
+    if(preferredSlot<0)try{preferredSlot=Number(localStorage.getItem('preferredLeg')??-1);}catch{}
+    transmit({type:'hello',role:'player',code,preferredSlot});
+  };
   ws.onmessage=event=>{
     const data=JSON.parse(event.data);
     if(data.type==='joined'){
@@ -189,24 +220,24 @@ $('#join-form').onsubmit=event=>{event.preventDefault();if(ws&&[WebSocket.OPEN,W
 for(const button of document.querySelectorAll('[data-bit]')){
   button.addEventListener('contextmenu',event=>event.preventDefault());
   button.addEventListener('pointerdown',event=>{
-    const bit=Number(button.dataset.bit);if(!joined||!unity||(gyroActive&&bit<16))return;
+    const bit=Number(button.dataset.bit);if(!joined||!unity||button.hidden||button.disabled||bit===0||(gyroActive&&bit<16))return;
     event.preventDefault();button.setPointerCapture(event.pointerId);pointers.set(event.pointerId,bit);
-    button.classList.add('pressed');transmit({type:'input',bits:bits()});navigator.vibrate?.(8);
+    button.classList.add('pressed');sendInput(bits());touchDirection();navigator.vibrate?.(8);
   });
-  const up=event=>{pointers.delete(event.pointerId);if(![...pointers.values()].includes(Number(button.dataset.bit)))button.classList.remove('pressed');if(joined)transmit({type:'input',bits:bits()});};
+  const up=event=>{pointers.delete(event.pointerId);if(![...pointers.values()].includes(Number(button.dataset.bit)))button.classList.remove('pressed');if(joined)sendInput(bits());touchDirection();};
   for(const name of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(name,up);
 }
-for(const button of document.querySelectorAll('[data-power]'))button.onclick=()=>{if(joined&&unity)transmit({type:'power',power:Number(button.dataset.power)});};
+function touchDirection(){if(gyroActive)return;const b=bits();const x=((b&8)?1:0)-((b&4)?1:0),z=((b&1)?1:0)-((b&2)?1:0),length=Math.max(1,Math.hypot(x,z));showDirection(x/length,z/length);}
 window.addEventListener('blur',()=>{focused=false;release();});
 window.addEventListener('focus',()=>{focused=true;});
 window.addEventListener('pagehide',release);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
-setInterval(()=>{if(joined)transmit({type:'input',bits:bits()});},100);
+setInterval(()=>{if(joined)sendInput(bits());},100);
 setInterval(()=>{
   if(joined&&unity&&gyroActive&&document.visibilityState==='visible'&&sensorFresh()){transmit({type:'pose',active:true,x:tilt.x,z:tilt.z,yaw});poseSent=true;}
   else stopPose();
   if(gyroWanted&&!sensorFresh())gyroUI();
 },40);
-$('#leave').onclick=()=>{wanted=false;clearTimeout(retry);release();ws?.close();wake?.release();wake=null;gyroActive=false;gyroWanted=false;reference=null;sensorError='';sensorSamples=0;sensorRequestId++;gyroUI();$('#play').hidden=true;$('#entry').hidden=false;history.replaceState(null,'',location.pathname+location.search);message('');};
+$('#leave').onclick=()=>{wanted=false;clearTimeout(retry);release();ws?.close();wake?.release();wake=null;gyroActive=false;gyroWanted=false;reference=null;sensorError='';sensorRequestId++;gyroUI();$('#play').hidden=true;$('#entry').hidden=false;history.replaceState(null,'',location.pathname+location.search);message('');};
 const inviteCode=clean(new URLSearchParams(location.hash.slice(1)).get('code'));
 if(inviteCode.length===8){$('#room-code').value=format(inviteCode);wanted=true;connect();}

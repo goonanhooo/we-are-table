@@ -1,2 +1,8 @@
 node_modules/
 .runtime/
+.wrangler/
+build/
+.dev.vars
+.dev.vars.*
+.env
+.env.*

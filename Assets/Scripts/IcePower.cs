@@ -16,6 +16,8 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
     // 치트모드: 해금 → 4번 키 바로 먹힘.
     public void CheatUnlock() { unlocked = true; }
     public bool active = false;
+    // Selecting snowman power is separate from freezing/unfreezing it on a phone.
+    public bool Selected { get; private set; }
     [Tooltip("능력 켤 때 테이블에 입힐 얼음(반투명) 재질.")]
     public Material iceMaterial;
 
@@ -27,6 +29,7 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
 
     void Awake()
     {
+        Selected = active;
         cols = GetComponentsInChildren<Collider>(true);
         origColMats = new PhysicsMaterial[cols.Length];
         for (int i = 0; i < cols.Length; i++) origColMats[i] = cols[i] != null ? cols[i].sharedMaterial : null;
@@ -76,7 +79,15 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
     public void SetActive(bool on)
     {
         active = on;
+        Selected = on;
         if(on&&!netVisualOnly)AbilitySelection.Select(this);
+        Apply();
+    }
+
+    public void SetFrozen(bool on)
+    {
+        if (!Selected || !unlocked || netVisualOnly || active == on) return;
+        active = on;
         Apply();
     }
 
@@ -92,10 +103,10 @@ public class IcePower : MonoBehaviour, ICheatUnlockable
         if (netVisualOnly) return;   // ★ 멀티 게스트: 4키 토글 금지(호스트 상태를 따라감)
         Refs();
         bool squidOn = squidRef != null && squidRef.active;
-        if (squidOn && active) SetActive(false);   // 우주(무중력·오징어)에선 얼음 의미 없음 + 보라 틴트와 겹침 방지
+        if (squidOn && (active || Selected)) SetActive(false);   // 우주(무중력·오징어)에선 얼음 의미 없음 + 보라 틴트와 겹침 방지
         var kb = Keyboard.current;
         if (kb == null) return;
-        if (unlocked && kb.digit4Key.wasPressedThisFrame && AbilityHud.CanReadInput(this)) SetActive(!active);
+        if (unlocked && kb.digit4Key.wasPressedThisFrame && AbilityHud.CanReadInput(this)) SetActive(!(Selected || active));
     }
 
     public void Apply()

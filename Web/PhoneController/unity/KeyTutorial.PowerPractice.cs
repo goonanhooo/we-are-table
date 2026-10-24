@@ -11,12 +11,7 @@ public partial class KeyTutorial
     bool PowerOn(string power) => power=="giraffe"?giraffe!=null&&giraffe.active:power=="tennis"?tennis!=null&&tennis.active:power=="ice"?ice!=null&&ice.active:squid!=null&&squid.LookOn;
     bool PracticeEnabled(string power) => power=="giraffe"?showGiraffe:power=="tennis"?showTennis:power=="ice"?showIce:showSquid;
     bool OwnAnyLeg() { for(int i=0;i<4;i++)if(legMine[i])return true;return false; }
-    bool KeyHeld(Key key)
-    {
-        if (Keyboard.current!=null && Keyboard.current[key].isPressed) return true;
-        int power = key==Key.Digit2?2:key==Key.Digit3?3:key==Key.Digit4?4:key==Key.Digit5?5:0;
-        return power!=0 && PhoneControllerBridge.PowerHeld(power);
-    }
+    bool KeyHeld(Key key) => Keyboard.current!=null && Keyboard.current[key].isPressed;
     LegInput PracticeInput(int leg) => ti!=null?ti.Get((LegControlSet)leg):default;
     float PracticeLength(int leg) => practiceLegs[leg]!=null?practiceLegs[leg].localScale.y:0f;
     string PowerName(string p) => p=="giraffe"?P("기린의 힘","Giraffe power","キリンの力","长颈鹿之力"):p=="tennis"?P("테니스공의 힘","Tennis power","テニスボールの力","网球之力"):p=="ice"?P("눈사람의 힘","Snowman power","雪だるまの力","雪人之力"):P("우주오징어의 힘","Space squid power","宇宙イカの力","宇宙乌贼之力");

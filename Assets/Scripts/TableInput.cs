@@ -85,6 +85,21 @@ public class TableInput : MonoBehaviour
 
     /// <summary>이 키셋 다리의 현재 프레임 입력.</summary>
     public LegInput Get(LegControlSet set) => current[(int)set];
+    // Visual/tutorial feedback only. Never turn pose targets into velocity-drive input.
+    public const float PoseDirectionThreshold = .15f;
+    public int GetDirectionMask(LegControlSet set)
+    {
+        var input = Get(set);
+        int mask = (input.up ? 1 : 0) | (input.down ? 2 : 0) | (input.left ? 4 : 0) | (input.right ? 8 : 0);
+        if (TryGetExternalPose(set, out var pose))
+        {
+            if (pose.z > PoseDirectionThreshold) mask |= 1;
+            if (pose.z < -PoseDirectionThreshold) mask |= 2;
+            if (pose.x < -PoseDirectionThreshold) mask |= 4;
+            if (pose.x > PoseDirectionThreshold) mask |= 8;
+        }
+        return mask;
+    }
     // Every physics consumer sees the same sample; short presses survive until one tick.
     public LegInput GetPhysics(LegControlSet set) => physics[(int)set];
 

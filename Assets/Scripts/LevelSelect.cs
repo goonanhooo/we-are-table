@@ -110,18 +110,7 @@ public partial class LevelSelect : MonoBehaviour
     {
         Heading(L.T("웹 다리 방","Web leg room","ウェブの脚ルーム","网页桌腿房间"));
         var bridge=PhoneControllerBridge.Instance;
-        string[] names={L.T("노랑","Yellow","黄","黄"),L.T("파랑","Blue","青","蓝"),L.T("초록","Green","緑","绿"),L.T("빨강","Red","赤","红")};
-        for(int i=0;i<4;i++)
-        {
-            Rect r=new Rect(100+i*350,385,320,325);
-            JourneyMenuUI.Paper(r,false,r.Contains(JourneyMenuUI.MousePosition));
-            JourneyMenuUI.Text(new Rect(r.x+20,r.y+15,280,42),(i+1).ToString("00")+" · "+names[i]+(bridge!=null&&bridge.HasPlayer(i)?" ●":""),27);
-            var qr=bridge!=null?bridge.Qr(i):null;
-            if(qr!=null) GUI.DrawTexture(new Rect(r.x+79,r.y+69,162,162),qr,ScaleMode.ScaleToFit);
-            string code=bridge!=null?bridge.Code(i):"";
-            if(code.Length==8)code=code.Substring(0,4)+" "+code.Substring(4);
-            JourneyMenuUI.Text(new Rect(r.x+18,r.y+259,284,40),code,28,JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
-        }
+        if(bridge!=null)bridge.DrawInvite(new Rect(100,355,1400,350));
         if(bridge==null||!bridge.Connected)JourneyMenuUI.Text(new Rect(100,735,800,35),L.T("연결 대기","Connecting","接続中","连接中"),22,JourneyMenuUI.Muted);
         else if(bridge.WatchCode.Length==8)
             JourneyMenuUI.Text(new Rect(100,739,1200,38),L.T("같은 화면 보기","Watch together","同じ画面を見る","观看同一画面")+"  "+bridge.WatchCode.Substring(0,4)+" "+bridge.WatchCode.Substring(4)+"   "+bridge.PublicOrigin+"/watch",21,JourneyMenuUI.Muted);

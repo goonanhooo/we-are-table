@@ -7,14 +7,15 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
-// Opt-in native/Editor adapter. No scene/prefab modification or Steam session is needed.
-// The relay creates PhoneController.json in the project root (or beside the player EXE).
+// Native/Editor phone adapter. Local configurations remain opt-in.
+// Hosted multiplayer rooms are provisioned when the host opens a game session.
 [DefaultExecutionOrder(-100)]
 public sealed class PhoneControllerBridge : MonoBehaviour
 {
     [Serializable] public sealed class Config { public string url, room, key; }
-    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code; public string[] codes, qrPng; public bool[] occupiedSlots; public int slot, bits, power, viewers; public bool occupied, active; public float x, z, yaw; }
+    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code, joinCode, joinQrPng; public bool[] occupiedSlots, nativeSlots; public int slot, bits, viewers; public bool occupied, active, iceFrozen; public float x, z, yaw; }
     readonly ConcurrentQueue<string> incoming = new ConcurrentQueue<string>();
     readonly bool[] occupied = new bool[4];
     readonly int[] bits = new int[4];
@@ -23,7 +24,6 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     readonly float[] poseX = new float[4], poseZ = new float[4], poseYaw = new float[4];
     readonly bool[] poseActive = new bool[4];
     readonly bool[] applied = new bool[4];
-    readonly float[] powerPulseUntil = new float[4];
     TableInput table;
     Config config;
     CancellationTokenSource cancellation;
@@ -32,29 +32,85 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     volatile string connectionStatus = "연결 중";
     float nextFind;
     static PhoneControllerBridge instance;
-    readonly Texture2D[] qr = new Texture2D[4];
-    string[] codes = Array.Empty<string>();
+    Texture2D joinQr;
+    string joinQrData = "";
+    string joinCode = "";
     bool[] lobbyOccupied = new bool[4];
+    bool[] lobbyNative = new bool[4];
     string publicOrigin = "";
     string watchCode = "";
     int viewerCount;
     bool frameSending;
     string sentMode = "";
+    bool sentIceFrozen;
     int sentNativeMask = -1;
     float nextNativeMask;
     string sentRoomCode;
     float nextRoomCode;
     readonly SemaphoreSlim sendLock = new SemaphoreSlim(1, 1);
-    public static bool WebPlayActive { get; set; }
+    static bool webPlayActive;
+    public static bool WebPlayActive
+    {
+        get => webPlayActive;
+        set { webPlayActive = value; if (value) EnsureHostedConnection(); }
+    }
+    [Serializable] sealed class HostedService { public string origin; }
+
+    static void EnsureHostedConnection()
+    {
+#if UNITY_EDITOR || UNITY_STANDALONE
+        if (instance != null) return; // An explicit local/CLI configuration takes precedence.
+        var asset = Resources.Load<TextAsset>("PhoneControllerService");
+        if (asset == null) return;
+        HostedService service;
+        try { service = JsonUtility.FromJson<HostedService>(asset.text); } catch { return; }
+        if (!Uri.TryCreate(service?.origin, UriKind.Absolute, out var uri) || uri.Scheme != "https" || !string.IsNullOrEmpty(uri.UserInfo)) return;
+        var go = new GameObject("PhoneControllerBridge");
+        DontDestroyOnLoad(go);
+        instance = go.AddComponent<PhoneControllerBridge>();
+        instance.StartCoroutine(instance.ProvisionHostedRoom(uri.GetLeftPart(UriPartial.Authority)));
+#endif
+    }
+
+    IEnumerator ProvisionHostedRoom(string origin)
+    {
+        while (WebPlayActive && config == null)
+        {
+            connectionStatus = "폰 연결 준비 중";
+            using (var request = new UnityWebRequest(origin + "/api/rooms", "POST"))
+            {
+                request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes("{}"));
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = 15;
+                yield return request.SendWebRequest();
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    Config created = null;
+                    try { created = JsonUtility.FromJson<Config>(request.downloadHandler.text); } catch { }
+                    if (created != null && Uri.TryCreate(created.url, UriKind.Absolute, out var socketUri) &&
+                        socketUri.Scheme == "wss" && socketUri.Host == new Uri(origin).Host &&
+                        !string.IsNullOrEmpty(created.room) && !string.IsNullOrEmpty(created.key))
+                    {
+                        config = created;
+                        Begin();
+                        yield break;
+                    }
+                }
+                // The room key stays in memory and never enters a portable build or public URL.
+                connectionStatus = "폰 서버 연결 대기";
+            }
+            yield return new WaitForSecondsRealtime(10);
+        }
+        if (config == null) Destroy(gameObject);
+    }
     public static PhoneControllerBridge Instance => instance;
     public bool Connected => connected;
     public string PublicOrigin => publicOrigin;
     public string WatchCode => watchCode;
-    public string Code(int slot) => slot >= 0 && slot < codes.Length ? codes[slot] : "";
+    public string JoinCode => joinCode;
+    public Texture2D JoinQr => joinQr;
     public bool HasPlayer(int slot) => connected && slot >= 0 && slot < lobbyOccupied.Length && lobbyOccupied[slot];
-    public Texture2D Qr(int slot) => slot >= 0 && slot < qr.Length ? qr[slot] : null;
-    public static bool PowerHeld(int power) => WebPlayActive && instance != null && power >= 2 && power <= 5
-        && Time.unscaledTime < instance.powerPulseUntil[power - 2];
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatic() { instance = null; WebPlayActive = false; }
@@ -163,25 +219,23 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     {
         viewerCount = packet.viewers;
         watchCode = packet.watchCode ?? "";
-        if (packet.codes == null || packet.codes.Length != 4) return;
-        bool changed = publicOrigin != (packet.origin ?? "") || codes.Length != 4;
-        if (!changed) for (int i = 0; i < 4; i++) if (codes[i] != packet.codes[i]) changed = true;
-        codes = packet.codes;
+        joinCode = packet.joinCode ?? "";
         publicOrigin = packet.origin ?? "";
         if (packet.occupiedSlots != null && packet.occupiedSlots.Length == 4) lobbyOccupied = packet.occupiedSlots;
-        if (changed)
-            for (int i = 0; i < 4; i++)
-            {
-                if (qr[i] != null) { Destroy(qr[i]); qr[i] = null; }
-                if (packet.qrPng == null || packet.qrPng.Length != 4 || string.IsNullOrEmpty(packet.qrPng[i])) continue;
-                try
-                {
-                    var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                    if (ImageConversion.LoadImage(texture, Convert.FromBase64String(packet.qrPng[i]))) qr[i] = texture;
-                    else Destroy(texture);
-                }
-                catch (Exception) { }
-            }
+        if (packet.nativeSlots != null && packet.nativeSlots.Length == 4) lobbyNative = packet.nativeSlots;
+        string image = packet.joinQrPng ?? "";
+        if (image == joinQrData) return;
+        if (joinQr != null) { Destroy(joinQr); joinQr = null; }
+        joinQrData = image;
+        if (image.Length == 0) return;
+        Texture2D texture = null;
+        try
+        {
+            texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (ImageConversion.LoadImage(texture, Convert.FromBase64String(image))) { joinQr = texture; texture = null; }
+        }
+        catch (Exception) { }
+        finally { if (texture != null) Destroy(texture); }
     }
 
     void Update()
@@ -199,8 +253,6 @@ public sealed class PhoneControllerBridge : MonoBehaviour
                 int i = packet.slot;
                 occupied[i] = packet.occupied; bits[i] = packet.bits & 255; received[i] = now;
             }
-            if (WebPlayActive && packet.type == "power" && packet.slot >= 0 && packet.slot < 4 && occupied[packet.slot])
-                SelectPower(packet.power);
             if (packet.type == "pose" && packet.slot >= 0 && packet.slot < 4)
             {
                 int i = packet.slot;
@@ -236,6 +288,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             _ = SendPacket(JsonUtility.ToJson(new Packet { type = "native-room", code = nativeRoomCode }), socket);
         }
         string visual = "normal";
+        IcePower selectedIce = null;
         if (WebPlayActive && table != null)
         {
             var root = table.transform.root;
@@ -244,16 +297,19 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             var ice = root.GetComponentInChildren<IcePower>(true);
             var squid = root.GetComponentInChildren<SquidMode>(true);
             if (giraffe != null && giraffe.active) visual = "giraffe";
-            else if (ice != null && ice.active) visual = "ice";
+            else if (ice != null && (ice.Selected || ice.active)) { visual = "ice"; selectedIce = ice; }
             else if (tennis != null && tennis.active) visual = "tennis";
             else if (squid != null && squid.active) visual = "squid";
         }
-        if (connected && visual != sentMode)
+        bool iceFrozen = selectedIce != null && selectedIce.active;
+        if (connected && (visual != sentMode || iceFrozen != sentIceFrozen))
         {
             sentMode = visual;
-            _ = SendPacket(JsonUtility.ToJson(new Packet { type = "visual", mode = visual }), socket);
+            sentIceFrozen = iceFrozen;
+            _ = SendPacket(JsonUtility.ToJson(new Packet { type = "visual", mode = visual, iceFrozen = iceFrozen }), socket);
         }
         if (table == null) return;
+        int iceActions = 0;
         for (int i = 0; i < 4; i++)
         {
             bool nativeOwned = (nativeMask & (1 << i)) != 0;
@@ -268,12 +324,19 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             {
                 // A stale held key must never continue moving after a lost network connection.
                 byte value = now - received[i] <= .65f && Time.timeScale > 0 && !PauseMenu.InputBlocked && !LetterOverlay.IsOpen ? (byte)bits[i] : (byte)0;
+                iceActions |= value & 48;
                 table.SetExternal((LegControlSet)i, Decode(value));
                 bool validPose = poseActive[i] && now - poseReceived[i] <= .65f
                     && Time.timeScale > 0 && !PauseMenu.InputBlocked && !LetterOverlay.IsOpen;
                 if (validPose) table.SetExternalPose((LegControlSet)i, poseX[i], poseZ[i], poseYaw[i]);
                 else table.ClearExternalPose((LegControlSet)i);
             }
+        }
+        if (selectedIce != null)
+        {
+            // Release wins when different phones press opposite actions together.
+            if ((iceActions & 32) != 0) selectedIce.SetFrozen(false);
+            else if ((iceActions & 16) != 0) selectedIce.SetFrozen(true);
         }
     }
 
@@ -327,32 +390,27 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         longer=(b&16)!=0, shorter=(b&32)!=0, grab=(b&64)!=0, release=(b&128)!=0
     };
 
-    void SelectPower(int power)
+    public void DrawInvite(Rect area)
     {
-        if (table == null || !connected || !AbilityHud.CanReadInput(table)) return;
-        var nm = Unity.Netcode.NetworkManager.Singleton;
-        if (nm != null && nm.IsListening && !nm.IsServer) return;
-        var root = table.transform.root;
-        if (power == 2)
+        JourneyMenuUI.Paper(area, false, false);
+        float size = Mathf.Min(area.height - 100f, 260f);
+        var image = new Rect(area.x + 36f, area.y + 24f, size, size);
+        if (JoinQr != null) GUI.DrawTexture(image, JoinQr, ScaleMode.ScaleToFit);
+        else JourneyMenuUI.Text(image, L.T("QR 연결 대기", "Waiting for QR", "QR接続待ち", "等待二维码"), 22, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
+        string code = JoinCode;
+        if (code.Length == 8) code = code.Substring(0, 4) + " " + code.Substring(4);
+        JourneyMenuUI.Text(new Rect(image.x, image.yMax + 14f, size, 42f), code, 29, JourneyMenuUI.Accent, TextAnchor.MiddleCenter);
+        float x = image.xMax + 58f, width = area.xMax - x - 36f;
+        JourneyMenuUI.Text(new Rect(x, area.y + 30f, width, 44f), L.T("같은 QR로 함께 입장", "One QR for everyone", "同じQRでみんな参加", "同一个二维码，一起加入"), 29);
+        JourneyMenuUI.Text(new Rect(x, area.y + 88f, width, 60f), L.T("폰의 색 버튼으로 빈 다리를 고르세요.", "Choose a free leg with the color buttons on your phone.", "スマホの色ボタンで空いている脚を選ぼう。", "用手机的颜色按钮选择空闲桌腿。"), 23, JourneyMenuUI.Muted);
+        string[] names = { L.T("노랑", "Yellow", "黄", "黄"), L.T("파랑", "Blue", "青", "蓝"), L.T("초록", "Green", "緑", "绿"), L.T("빨강", "Red", "赤", "红") };
+        float cellWidth = (width - 18f) / 2f;
+        for (int i = 0; i < 4; i++)
         {
-            var g = root.GetComponentInChildren<GiraffeMode>(true);
-            if (g != null && !g.locked) { g.active = !g.active; if (g.active) AbilitySelection.Select(g); powerPulseUntil[0] = Time.unscaledTime + .18f; }
-        }
-        else if (power == 3)
-        {
-            var t = root.GetComponentInChildren<TennisMode>(true);
-            if (t != null && t.unlocked) { t.SetActive(!t.active); powerPulseUntil[1] = Time.unscaledTime + .18f; }
-        }
-        else if (power == 4)
-        {
-            var ice = root.GetComponentInChildren<IcePower>(true);
-            if (ice != null && ice.unlocked) { ice.SetActive(!ice.active); powerPulseUntil[2] = Time.unscaledTime + .18f; }
-        }
-        else if (power == 5)
-        {
-            var squid = root.GetComponentInChildren<SquidMode>(true);
-            if (squid != null && squid.unlocked && !squid.thrustLocked)
-            { squid.active = !squid.active; if (squid.active) AbilitySelection.Select(squid); powerPulseUntil[3] = Time.unscaledTime + .18f; }
+            var row = new Rect(x + (i % 2) * (cellWidth + 18f), area.y + 174f + (i / 2) * 69f, cellWidth, 55f);
+            JourneyMenuUI.Fill(new Rect(row.x, row.y + 13f, 8f, 30f), LegPalette.BySlot[i]);
+            string state = HasPlayer(i) ? L.T("폰 연결됨", "Phone", "スマホ接続中", "手机已连接") : lobbyNative[i] ? "PC" : L.T("빈 다리", "Available", "空き", "空闲");
+            JourneyMenuUI.Text(new Rect(row.x + 23f, row.y, row.width - 23f, row.height), names[i] + " · " + state, 24);
         }
     }
 
@@ -368,7 +426,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         cancellation?.Cancel(); socket?.Abort();
         if (table != null) for (int i=0;i<4;i++) if(applied[i]) table.SetSource((LegControlSet)i, TableInput.LegSource.Local);
         if (instance == this) instance = null;
-        foreach (var texture in qr) if (texture != null) Destroy(texture);
+        if (joinQr != null) Destroy(joinQr);
         cancellation?.Dispose();
         sendLock.Dispose();
     }

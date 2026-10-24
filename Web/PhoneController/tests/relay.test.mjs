@@ -44,7 +44,9 @@ test('4 phones → authenticated relay → Unity: isolation, timeout, disconnect
     await until(()=>latestPose(unity,1)?.active===false,1500);
     phones[0].send({type:'input',bits:80});await until(()=>latest(unity,0)?.bits===80);
     phones[0].send({type:'input',bits:0});await until(()=>latest(unity,0)?.bits===0);
-    phones[0].send({type:'power',slot:3,power:2});assert.equal((await until(()=>unity.messages.find(m=>m.type==='power'))).slot,0);
+    phones[0].send({type:'power',slot:3,power:2});
+    phones[0].send({type:'input',bits:2});await until(()=>latest(unity,0)?.bits===2);
+    assert.equal(unity.messages.some(m=>m.type==='power'),false);
     phones[1].send({type:'input',bits:255});await until(()=>latest(unity,1)?.bits===255);
     await until(()=>latest(unity,1)?.bits===0,1500); // stale heartbeat release
     phones[2].send({type:'input',bits:80});await until(()=>latest(unity,2)?.bits===80);
@@ -81,11 +83,13 @@ test('4 phones → authenticated relay → Unity: isolation, timeout, disconnect
     const qr=await fetch(`http://127.0.0.1:${port}/api/qr?text=https%3A%2F%2Fexample.com`);assert.equal(qr.status,200);assert.match(await qr.text(),/<svg/);
     const png=await fetch(`http://127.0.0.1:${port}/api/qr?format=png&text=https%3A%2F%2Fexample.com`);assert.equal(png.status,200);assert.deepEqual([...new Uint8Array(await png.arrayBuffer()).slice(0,8)],[137,80,78,71,13,10,26,10]);
     for(const mode of ['normal','giraffe','tennis','ice','squid'])for(const suffix of ['','-colors'])assert.equal((await fetch(`http://127.0.0.1:${port}/assets/table-${mode}${suffix}.png`)).status,200);
+    for(const suffix of ['','-colors'])assert.equal((await fetch(`http://127.0.0.1:${port}/assets/table-start${suffix}.svg`)).status,200);
     assert.equal((await fetch(`http://127.0.0.1:${port}/api/public-origin`,{method:'POST',body:JSON.stringify({origin:'http://unsafe.test'})})).status,400);
     assert.equal((await fetch(`http://127.0.0.1:${port}/api/public-origin`,{method:'POST',body:JSON.stringify({origin:'https://example.com'})})).status,200);
-    const qrLobby=await until(()=>nextUnity.messages.filter(m=>m.type==='lobby').at(-1)?.qrPng?.length===4&&nextUnity.messages.filter(m=>m.type==='lobby').at(-1));
-    assert.equal(qrLobby.qrPng.length,4);
-    assert.deepEqual([...Buffer.from(qrLobby.qrPng[0],'base64').subarray(0,8)],[137,80,78,71,13,10,26,10]);
+    const qrLobby=await until(()=>nextUnity.messages.filter(m=>m.type==='lobby').at(-1)?.joinQrPng&&nextUnity.messages.filter(m=>m.type==='lobby').at(-1));
+    assert.equal(qrLobby.joinCode,room.joinCode);
+    assert.equal(qrLobby.qrPng,undefined);
+    assert.deepEqual([...Buffer.from(qrLobby.joinQrPng,'base64').subarray(0,8)],[137,80,78,71,13,10,26,10]);
   }finally{await relay.close();}
 });
 
@@ -113,5 +117,74 @@ test('native PC legs and phone legs share one room without double ownership',asy
     await until(()=>unity.messages.filter(m=>m.type==='lobby').at(-1)?.nativeSlots?.every(v=>!v));
     const reopened=await socket(port,room.id,'player',room.codes[0]);
     assert.equal((await until(()=>reopened.messages.find(m=>m.type==='joined'))).slot,0);
+  }finally{await relay.close();}
+});
+
+test('one invite joins four free legs, preserves reservations and reconnect preferences',async()=>{
+  const relay=await createRelay({port:0}),{room,port}=relay;
+  try{
+    const unity=await socket(port,room.id,'unity',room.hostKey);
+    await until(()=>unity.messages.some(m=>m.type==='ready'));
+    assert.ok(!room.codes.includes(room.joinCode)&&room.joinCode!==room.watchCode);
+    const phones=await Promise.all(Array.from({length:4},(_,i)=>socket(port,room.id,'player',room.joinCode,`shared${i}`)));
+    const assignments=await Promise.all(phones.map(p=>until(()=>p.messages.find(m=>m.type==='joined'))));
+    assert.deepEqual(assignments.map(m=>m.slot).sort(),[0,1,2,3]);
+    const full=await socket(port,room.id,'player',room.joinCode);
+    assert.equal((await once(full.ws,'close'))[0],1008);
+    assert.ok(full.messages.some(m=>m.type==='error'&&m.message==='빈 다리가 없습니다'));
+    for(const p of phones)p.ws.close();
+    await until(()=>room.players.every(p=>!p));
+    unity.send({type:'native-slots',bits:5});
+    await until(()=>room.nativeSlots[0]&&room.nativeSlots[2]);
+    const preferred=await socket(port,room.id,'player',room.joinCode);
+    assert.equal((await until(()=>preferred.messages.find(m=>m.type==='joined'))).slot,1);
+    preferred.send({type:'switch',slot:3});
+    await until(()=>preferred.messages.some(m=>m.type==='switched'&&m.slot===3));
+    preferred.send({type:'input',bits:80});await until(()=>latest(unity,3)?.bits===80);
+    preferred.ws.close();await until(()=>!room.players[3]);
+    const reconnect=new WebSocket(`ws://127.0.0.1:${port}/ws`),messages=[];
+    reconnect.on('message',b=>messages.push(JSON.parse(b)));
+    await once(reconnect,'open');
+    reconnect.send(JSON.stringify({type:'hello',role:'player',code:room.joinCode,preferredSlot:3}));
+    assert.equal((await until(()=>messages.find(m=>m.type==='joined'))).slot,3);
+    const fallback=await socket(port,room.id,'player',room.joinCode);
+    assert.equal((await until(()=>fallback.messages.find(m=>m.type==='joined'))).slot,1);
+    fallback.send({type:'switch',slot:0});
+    await until(()=>fallback.messages.some(m=>m.type==='error'&&m.message==='사용 중인 다리'));
+    assert.equal(latest(unity,3)?.bits,0);
+    fallback.send({type:'power',power:2});fallback.send({type:'input',bits:160});
+    await until(()=>latest(unity,1)?.bits===160);
+    assert.equal(unity.messages.some(m=>m.type==='power'),false);
+  }finally{await relay.close();}
+});
+
+test('mode-specific action bits, ice state and stale power changes remain isolated',async()=>{
+  const relay=await createRelay({port:0}),{room,port}=relay;
+  try{
+    const unity=await socket(port,room.id,'unity',room.hostKey);
+    await until(()=>unity.messages.some(m=>m.type==='ready'));
+    const phone=await socket(port,room.id,'player',room.joinCode);
+    const {slot}=await until(()=>phone.messages.find(m=>m.type==='joined'));
+    for(const [mode,mask] of [['normal',0],['giraffe',48],['tennis',192],['ice',48],['squid',16]]){
+      unity.send({type:'visual',mode,iceFrozen:true});
+      await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.mode===mode);
+      phone.send({type:'input',mode,bits:255});
+      await until(()=>latest(unity,slot)?.bits===(15|mask));
+      phone.send({type:'input',mode:'outdated-mode',bits:255});
+      await until(()=>latest(unity,slot)?.bits===15);
+    }
+    phone.send({type:'input',mode:'squid',bits:17});
+    await until(()=>latest(unity,slot)?.bits===17);
+    unity.send({type:'visual',mode:'ice',iceFrozen:false});
+    await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.mode==='ice');
+    assert.equal(phone.messages.filter(m=>m.type==='status').at(-1).visual.iceFrozen,false);
+    await until(()=>latest(unity,slot)?.bits===1);
+    phone.send({type:'input',mode:'squid',bits:16});
+    await until(()=>latest(unity,slot)?.bits===0);
+    phone.send({type:'input',mode:'ice',bits:32});
+    await until(()=>latest(unity,slot)?.bits===32);
+    unity.send({type:'visual',mode:'ice',iceFrozen:true});
+    await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.iceFrozen===true);
+    assert.equal(phone.messages.filter(m=>m.type==='status').at(-1).visual.mode,'ice');
   }finally{await relay.close();}
 });

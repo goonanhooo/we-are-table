@@ -1,14 +1,115 @@
 {
-  "build": "Unity 6000.3.17f1 standalone Windows player built successfully; source scripts copied to the project and relay package",
-  "relayTests": "4/4 passed: fixed phone legs, authenticated input/pose/ability, occupancy, reconnect, native PC and phone leg mutual exclusion",
-  "publicTunnel": "HTTPS/WSS reached through temporary Cloudflare tunnel",
-  "fourPhonesFourViewers": "4 public phone clients and 4 public PC viewers connected together; viewers received identical native Unity frames at about 8 fps",
-  "nativeLobby": "Visually verified: native Steam room created with PC room code; host-only Phone QR page displayed four distinct codes and QR images",
-  "hybridLobby": "Visually verified: one PC-owned yellow leg and one phone-owned blue leg in the same native room; phone connection and switching into the PC leg were rejected",
-  "hybridGameplay": "Visually verified in the native Unity level: PC and phone labels appeared on separate legs while the host was playing",
-  "sensorUi": "Public HTTPS browser QA verified upright calibration, green gyro-on status, live tilt/readout and active controls; controller tests verified both iPhone permission calls begin within the same click, motion fallback, rotation rate, stale-signal release and resumption",
-  "mobileLayout": "Public HTTPS browser QA verified zero page scroll and visible ability buttons in touch, calibration-ready and gyro-active states at 390x844, 375x667 and 320x568 CSS pixels",
-  "nativeGuest": "Existing Steam/Unity Relay PC join and NetworkTransform synchronization compiled into player; a second physical PC and Steam account were unavailable for an end-to-end join test",
-  "physicalPhone": "User confirmed iPhone Safari gyro works on the updated public HTTPS controller; separate distant-network four-phone physical play remains untested",
-  "hosting": "Temporary Cloudflare Quick Tunnel; public URL and phone codes can change on restart"
+  "updated": "2026-10-16",
+  "relayTests": "6/6 passed, including exact per-mode button input masks, shared QR occupancy, ice-state updates and stale action rejection during power changes.",
+  "phonePowers": "Ability selection remains on the host PC. Phones show only the selected power actions: giraffe length, tennis adhesion, snowman freeze/release, or a single squid jet.",
+  "browserUi": "Local browser against isolated relay with simulated Unity mode updates: all four button sets appeared correctly and were clicked; ice release kept both buttons and freeze could be re-enabled; squid showed one full-width button. Actual Unity physics were not exercised.",
+  "mobileLayout": {
+    "320x568": "No scroll; squid has one 296x91 CSS px button.",
+    "390x844": "No horizontal or vertical scroll; color buttons 83x78 CSS px, plus/minus 174x135."
+  },
+  "sensorChecks": "Automated permission, upright calibration, orientation, motion fallback, yaw, stale release and recovery passed. Physical iPhone sensor retest was not performed for this UI change.",
+  "unityCompile": "Unity 6000.3.17f1 macOS universal and Windows x64 Mono standalone builds succeeded, each with 0 errors and 2 warnings. Windows build contains all 9 enabled scenes.",
+  "nativeRuntime": "Actual Mac release player started, initialized Steam App ID 480, rendered the start screen and connected four automated phone clients over Cloudflare. Separate actual Mac QA gameplay passed 9 checks. Native menu clicking, physical sensors in this run and Windows execution remain unverified.",
+  "hosting": "Frontend and WebSocket relay deployed together at the fixed Cloudflare workers.dev origin. Updated Mac and Windows players include public bootstrap configuration and create rooms without a local relay.",
+  "previousVersion": {
+    "build": "Unity 6000.3.17f1 standalone Windows player built successfully; source scripts copied to the project and relay package",
+    "relayTests": "4/4 passed: fixed phone legs, authenticated input/pose/ability, occupancy, reconnect, native PC and phone leg mutual exclusion",
+    "publicTunnel": "HTTPS/WSS reached through temporary Cloudflare tunnel",
+    "fourPhonesFourViewers": "4 public phone clients and 4 public PC viewers connected together; viewers received identical native Unity frames at about 8 fps",
+    "nativeLobby": "Visually verified: native Steam room created with PC room code; host-only Phone QR page displayed four distinct codes and QR images",
+    "hybridLobby": "Visually verified: one PC-owned yellow leg and one phone-owned blue leg in the same native room; phone connection and switching into the PC leg were rejected",
+    "hybridGameplay": "Visually verified in the native Unity level: PC and phone labels appeared on separate legs while the host was playing",
+    "sensorUi": "Public HTTPS browser QA verified upright calibration, green gyro-on status, live tilt/readout and active controls; controller tests verified both iPhone permission calls begin within the same click, motion fallback, rotation rate, stale-signal release and resumption",
+    "mobileLayout": "Public HTTPS browser QA verified zero page scroll and visible ability buttons in touch, calibration-ready and gyro-active states at 390x844, 375x667 and 320x568 CSS pixels",
+    "nativeGuest": "Existing Steam/Unity Relay PC join and NetworkTransform synchronization compiled into player; a second physical PC and Steam account were unavailable for an end-to-end join test",
+    "physicalPhone": "User confirmed iPhone Safari gyro works on the updated public HTTPS controller; separate distant-network four-phone physical play remains untested",
+    "hosting": "Temporary Cloudflare Quick Tunnel; public URL and phone codes can change on restart"
+  },
+  "phoneActions": {
+    "giraffe": [
+      "다리 늘이기",
+      "다리 줄이기"
+    ],
+    "tennis": [
+      "테니스공 접착",
+      "접착 해제"
+    ],
+    "ice": [
+      "얼음",
+      "풀기"
+    ],
+    "squid": [
+      "분출"
+    ],
+    "normal": []
+  },
+  "directionCircle": "4px solid selected-leg outline, 30% color fill, heavier crosshair and a 27px central dot. Color followed the selected leg.",
+  "cloudDeployment": {
+    "origin": "https://we-are-table-controller.eraser-room-game.workers.dev",
+    "versionId": "40306f67-64ca-4d49-b0af-97dfa132be5f",
+    "publicProtocolChecksPassed": 10,
+    "actualMacRuntimeChecksPassed": 9,
+    "localRelayRequired": false,
+    "physicalPhoneSensorsTestedThisRun": false,
+    "twoLocationSteamTested": false,
+    "legacyChecksPassed": 6
+  },
+  "macReleaseVerification": {
+    "actualReleasePlayerStarted": true,
+    "steamInitialized": true,
+    "renderedStartScreen": true,
+    "fourAutomatedPhoneClientsConnected": true,
+    "steamPluginSignatureRepaired": true,
+    "unpackedAllArchitectureSignatureVerified": true,
+    "signingIdentity": "ad-hoc testing",
+    "nativeMenuClicksVerified": false,
+    "notarized": false
+  },
+  "windowsReleaseVerification": {
+    "target": "StandaloneWindows64",
+    "backend": "Mono",
+    "errors": 0,
+    "warnings": 2,
+    "enabledScenes": 9,
+    "exeUnityPlayerMonoSteamAmd64": true,
+    "steamAppId": 480,
+    "steamDllMatchesSource": true,
+    "embeddedCloudOriginVerified": true,
+    "qaDriverExcluded": true,
+    "privateHostConfigExcluded": true,
+    "zipCrcAndEveryFileHashVerified": true,
+    "zipFileCount": 205,
+    "windowsRuntimeTested": false,
+    "archiveSha256": "f3ff41cd3eeb07842514c4f73e56d5b22c64087a04b86f51aca4895d483b10ae"
+  },
+  "phoneLegFeedback": {
+    "checksPassed": 14,
+    "checksTotal": 14,
+    "actualUnityPlayer": true,
+    "gameHost": "local NGO host on macOS",
+    "phoneTransport": "public Cloudflare WSS",
+    "clients": "four automated phone clients with synthetic poses",
+    "phoneOwnedLegsIncludedInHostTutorial": true,
+    "gyroDirectionsCountForMovementTutorial": true,
+    "gyroArrowsRendered": true,
+    "colorOptionAndScenePersistenceVerified": true,
+    "lobbyColorsRemainHidden": true,
+    "physicalPhoneSensorsTested": false,
+    "windowsRuntimeTested": false,
+    "macUniversalRelease": {
+      "errors": 0,
+      "warnings": 3,
+      "qaDriversExcluded": true,
+      "extractedSignatureVerified": true,
+      "sha256": "98d271d8e5125779ac7d1703c9e7a526a172336cf8de415f4956ac1d2c4571c1"
+    },
+    "windowsX64Release": {
+      "errors": 0,
+      "warnings": 2,
+      "qaDriversExcluded": true,
+      "zipVerified": true,
+      "sha256": "47c0ab65cc687180e54169ded9b86f462a8f2addd71f5eaf4cbea4483a1c267e",
+      "windowsRuntimeTested": false
+    }
+  }
 }

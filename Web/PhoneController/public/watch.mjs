@@ -2,11 +2,14 @@ const $=selector=>document.querySelector(selector);
 const clean=value=>String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
 const format=value=>{const code=clean(value);return code.length>4?`${code.slice(0,4)} ${code.slice(4)}`:code;};
 let ws,retry,wanted=false,received=false;
+// Bound the cloud relay to one unrendered frame for a slow viewer.
+$('#watch-image').addEventListener('load',()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'frame-ack'}));});
+$('#watch-image').addEventListener('error',()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'frame-ack'}));});
 function connect(){
   clearTimeout(retry);if(!wanted)return;
   const code=clean($('#watch-input').value);
   if(code.length!==8){$('#watch-state').textContent='코드 8자리';wanted=false;return;}
-  const live=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);ws=live;
+  const live=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws?code=${encodeURIComponent(code)}`);ws=live;
   live.onopen=()=>live.send(JSON.stringify({type:'hello',role:'viewer',code}));
   live.onmessage=event=>{
     const data=JSON.parse(event.data);

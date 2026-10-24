@@ -72,12 +72,11 @@ public class LegColorXray : MonoBehaviour
 
     void Start()
     {
-        // ★멀티 세션이면 자동으로 켜고 선도 굵게 — 누가 어느 다리인지 색으로 바로 보이게.
+        // 멀티 세션에서도 같은 선 굵기를 사용하고, 최초 색 표시만 자동으로 켠다.
         var nm = Unity.Netcode.NetworkManager.Singleton;
         if (nm != null && nm.IsListening)
         {
             if (!PlayerPrefs.HasKey(PreferenceKey)) startOn = true;
-            lineWidth = Mathf.Max(lineWidth, 0.025f);
         }
 
         var shader = Shader.Find("Custom/XrayLine");
@@ -234,10 +233,18 @@ public class LegColorXray : MonoBehaviour
                 float fw = (inp.up ? 1f : 0f) - (inp.down ? 1f : 0f);
                 bool spin = inp.left || inp.right;
                 Vector3 mid = _legT[i].TransformPoint(_legC[i]);
-
-                if (fw != 0f)
+                Vector3 dir = _yawT[i].forward * fw;
+                bool moving = fw != 0f;
+                if (_tin.TryGetExternalPose(_ctrl[i].controlSet, out var pose))
                 {
-                    Vector3 dir = _yawT[i].forward * fw;
+                    var lean = new Vector3(pose.x, 0f, pose.z);
+                    moving = lean.sqrMagnitude > TableInput.PoseDirectionThreshold * TableInput.PoseDirectionThreshold;
+                    var frame = _yawT[i].parent != null ? _yawT[i].parent : transform;
+                    dir = frame.TransformDirection(lean);
+                    spin = !moving && Mathf.Abs(Mathf.DeltaAngle(_ctrl[i].YawAngle, pose.yaw)) > 3f;
+                }
+                if (moving)
+                {
                     dir.y = 0f;
                     if (dir.sqrMagnitude > 1e-4f)
                     {

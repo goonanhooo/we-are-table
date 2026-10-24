@@ -1,5 +1,5 @@
 const $=selector=>document.querySelector(selector);
-const labels=['01 · 노랑','02 · 파랑','03 · 초록','04 · 빨강'];
+const labels=['노랑','파랑','초록','빨강'];
 let session,ws,retry;
 function render(data){
   if(data.codes)session={...session,...data};
@@ -9,24 +9,21 @@ function render(data){
   $('#pc-invite').hidden=!session.nativeRoomCode;
   $('#pc-code').textContent=session.nativeRoomCode||'';
   $('#pc-copy').onclick=async()=>{try{await navigator.clipboard.writeText(session.nativeRoomCode);$('#host-message').textContent='복사됨';}catch{$('#host-message').textContent=session.nativeRoomCode;}};
+  const phoneUrl=session.origin?`${session.origin}/#code=${session.joinCode}`:'';
+  $('#phone-code').textContent=session.joinCode?`${session.joinCode.slice(0,4)} ${session.joinCode.slice(4)}`:'';
+  $('#phone-qr').hidden=!phoneUrl;if(phoneUrl)$('#phone-qr').src=`/api/qr?text=${encodeURIComponent(phoneUrl)}`;
+  $('#phone-copy').disabled=!phoneUrl;$('#phone-copy').onclick=async()=>{try{await navigator.clipboard.writeText(phoneUrl);$('#host-message').textContent='복사됨';}catch{$('#host-message').textContent=phoneUrl;}};
   const watchUrl=session.origin?`${session.origin}/watch#code=${session.watchCode}`:'';
   $('#watch-code').textContent=session.watchCode?`${session.watchCode.slice(0,4)} ${session.watchCode.slice(4)}`:'';
   $('#watch-link').href=watchUrl||'#';$('#watch-link').hidden=!watchUrl;
-  $('#watch-qr').hidden=!watchUrl;if(watchUrl)$('#watch-qr').src=`/api/qr?text=${encodeURIComponent(watchUrl)}`;
   $('#watch-copy').disabled=!watchUrl;$('#watch-copy').onclick=async()=>{try{await navigator.clipboard.writeText(watchUrl);$('#host-message').textContent='복사됨';}catch{$('#host-message').textContent=watchUrl;}};
   $('#viewer-count').textContent=`관전 ${data.viewers||0}`;
   const slots=$('#host-slots');slots.replaceChildren();
   for(let i=0;i<4;i++){
     const card=document.createElement('article');card.className='host-slot';card.dataset.slot=i;
     const label=document.createElement('div');label.className='leg-label';label.textContent=labels[i];
-    const qr=document.createElement('img');qr.alt=`${labels[i]} QR`;
-    const code=document.createElement('code');code.textContent=`${session.codes[i].slice(0,4)} ${session.codes[i].slice(4)}`;
-    const state=document.createElement('span');state.className='slot-state';state.textContent=data.nativeSlots?.[i]?'PC 사용 중':data.occupiedSlots?.[i]?'폰 연결됨':'';
-    const copy=document.createElement('button');copy.textContent='복사';
-    const link=session.origin?`${session.origin}/#code=${session.codes[i]}`:'';
-    if(link)qr.src=`/api/qr?text=${encodeURIComponent(link)}`;else qr.hidden=true;
-    copy.disabled=!link;copy.onclick=async()=>{try{await navigator.clipboard.writeText(link);$('#host-message').textContent='복사됨';}catch{$('#host-message').textContent=link;}};
-    card.append(label,qr,code,state,copy);slots.append(card);
+    const state=document.createElement('span');state.className='slot-state';state.textContent=data.nativeSlots?.[i]?'PC 사용 중':data.occupiedSlots?.[i]?'폰 연결됨':'빈 다리';
+    card.append(label,state);slots.append(card);
   }
 }
 async function init(){

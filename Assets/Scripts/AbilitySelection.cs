@@ -12,7 +12,7 @@ public static class AbilitySelection
         var squid=root.GetComponentInChildren<SquidMode>(true);
         if(giraffe!=null&&giraffe!=selected&&!giraffe.netVisualOnly)giraffe.active=false;
         if(tennis!=null&&tennis!=selected&&!tennis.netVisualOnly&&tennis.active)tennis.SetActive(false);
-        if(ice!=null&&ice!=selected&&!ice.netVisualOnly&&ice.active)ice.SetActive(false);
+        if(ice!=null&&ice!=selected&&!ice.netVisualOnly&&(ice.active||ice.Selected))ice.SetActive(false);
         if(squid!=null&&squid!=selected&&!squid.netVisualOnly)squid.active=false;
     }
 }

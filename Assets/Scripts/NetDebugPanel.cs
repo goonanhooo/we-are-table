@@ -111,16 +111,7 @@ public class NetDebugPanel : MonoBehaviour
         JourneyMenuUI.Fill(new Rect(0,0,1600,900),new Color(.978f,.974f,.951f));
         JourneyMenuUI.Text(new Rect(100,210,1400,58),L.T("폰으로 다리 조작","Control legs with phones","スマホで脚を操作","用手机控制桌腿"),40);
         var bridge=PhoneControllerBridge.Instance;
-        string[] names={L.T("노랑","Yellow","黄","黄"),L.T("파랑","Blue","青","蓝"),L.T("초록","Green","緑","绿"),L.T("빨강","Red","赤","红")};
-        for(int i=0;i<4;i++)
-        {
-            Rect r=new Rect(100+i*350,340,320,325);JourneyMenuUI.Paper(r,false,false);
-            JourneyMenuUI.Text(new Rect(r.x+18,r.y+15,284,42),(i+1).ToString("00")+" · "+names[i]+(bridge!=null&&bridge.HasPlayer(i)?" ●":Link.OwnerOf(i)>=-1?" · PC":""),26);
-            var qr=bridge!=null?bridge.Qr(i):null;
-            if(qr!=null)GUI.DrawTexture(new Rect(r.x+79,r.y+69,162,162),qr,ScaleMode.ScaleToFit);
-            string code=bridge!=null?bridge.Code(i):"";if(code.Length==8)code=code.Substring(0,4)+" "+code.Substring(4);
-            JourneyMenuUI.Text(new Rect(r.x+18,r.y+259,284,40),code,27,JourneyMenuUI.Accent,TextAnchor.MiddleCenter);
-        }
+        if(bridge!=null)bridge.DrawInvite(new Rect(100,320,1400,350));
         if(bridge!=null&&bridge.WatchCode.Length==8)
             JourneyMenuUI.Text(new Rect(100,711,1400,40),L.T("웹 화면 보기","Watch on web","ウェブで見る","网页观看")+"  "+bridge.PublicOrigin+"/watch   "+bridge.WatchCode,19,JourneyMenuUI.Muted);
         if(JourneyMenuUI.BackButton(LeaveRect,L.T("다리 선택","Choose legs","脚の選択","选择腿")))phoneInvites=false;

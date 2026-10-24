@@ -246,12 +246,11 @@ public partial class KeyTutorial : MonoBehaviour
     bool MoveAchieved(string id, int leg)
     {
         if (ti == null) return false;
-        var input = ti.Get((LegControlSet)leg);
-        bool held = input.up || input.down || input.left || input.right;
+        int mask = ti.GetDirectionMask((LegControlSet)leg);
+        bool held = mask != 0;
         if (hallway == null) return held;
         // Only the visible leg accumulates input; other legs and paused/hidden lessons cannot skip ahead.
         if (cur == null || cur.id != id || thoughtWant || hallwayAlpha < .5f) return false;
-        int mask = (input.up ? 1 : 0) | (input.down ? 2 : 0) | (input.left ? 4 : 0) | (input.right ? 8 : 0);
         hallwayKeyMasks[leg] |= mask;
         if (hallwayKeyMasks[leg] != 15) return false;
         if (hallwayAllPressedAt[leg] < 0f) hallwayAllPressedAt[leg] = Time.time;
@@ -269,9 +268,11 @@ public partial class KeyTutorial : MonoBehaviour
         if (nm != null && nm.IsListening && link != null && link.IsSpawned)
         {
             long o = link.OwnerOf(set);
-            return nm.IsServer ? (o == -1 || o == -2) : link.IsMine(set);
+            // Phone-owned legs (-3) are simulated and taught on the host screen too.
+            return nm.IsServer ? (o == -1 || o == -2 || o == -3) : link.IsMine(set);
         }
-        return ti == null || ti.IsLocal((LegControlSet)set);
+        return ti == null || ti.IsLocal((LegControlSet)set)
+            || (PhoneControllerBridge.WebPlayActive && PhoneControllerBridge.Instance != null && PhoneControllerBridge.Instance.HasPlayer(set));
     }
 
     /// <summary>지금 조작 가능한 상태(컷씬/일시정지/동결 아님).</summary>
@@ -650,8 +651,8 @@ public partial class KeyTutorial : MonoBehaviour
 
     void DrawThoughtKey(Rect r, Key key, int leg, int direction)
     {
-        var input = ti != null ? ti.Get((LegControlSet)leg) : default;
-        bool pressed = direction == 0 ? input.up : direction == 1 ? input.down : direction == 2 ? input.left : input.right;
+        int mask = ti != null ? ti.GetDirectionMask((LegControlSet)leg) : 0;
+        bool pressed = (mask & (1 << direction)) != 0;
         if (pressed) r.y += 4f;
         bool completed = (hallwayKeyMasks[leg] & (1 << direction)) != 0;
         Color tint = Color.Lerp(Color.white, LegPalette.BySlot[leg], completed ? (pressed ? .9f : .7f) : .16f);

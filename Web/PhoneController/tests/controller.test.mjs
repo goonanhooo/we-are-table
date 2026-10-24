@@ -18,13 +18,16 @@ test('upright calibration and left/right orientation',()=>{
   assert.ok(Math.abs(calibratedLegTilt({w:1,x:0,y:0,z:0},gravity).z-.5)<.001);
 });
 
-test('QR code joins a fixed leg; controls, sensor, ability and visual release',async()=>{
+test('shared invite, large leg selection, touch feedback and calibrated sensor controls',async()=>{
   function element(dataset={}){
     const events={},classes=new Set();
-    return {dataset,events,style:{},hidden:false,value:'',textContent:'',src:'',classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),toggle:(c,b)=>{if(b===undefined)b=!classes.has(c);b?classes.add(c):classes.delete(c);},contains:c=>classes.has(c)},addEventListener:(n,f)=>events[n]=f,setPointerCapture(){},setAttribute(){}};
+    const style={setProperty(name,value){this[name]=value;}};
+    return {dataset,events,style,hidden:false,value:'',textContent:'',src:'',classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),toggle:(c,b)=>{if(b===undefined)b=!classes.has(c);b?classes.add(c):classes.delete(c);},contains:c=>classes.has(c)},addEventListener:(n,f)=>events[n]=f,setPointerCapture(){},setAttribute(){},removeAttribute(){}};
   }
   const ids=new Map();for(const id of ['message','connection','game-state','entry','play','slot-name','table-stage','table-image','leg-key','color-toggle','gyro-panel','gyro-title','gyro-feedback','tilt-dot','tilt-total','tilt-front','tilt-side','tilt-yaw','sensor','recenter','touch-switch','sensor-readout','sensor-state','sensor-angle','room-code','join-form','leave'])ids.set('#'+id,element());
-  const buttons=[1,2,4,8,80,160].map(bit=>element({bit:String(bit)}));
+  const buttons=[1,2,4,8,0,0].map(bit=>element({bit:String(bit)}));
+  ids.set('#action-primary',buttons[4]);ids.set('#action-secondary',buttons[5]);
+  for(const id of ['ability-actions','action-primary-symbol','action-primary-label','action-secondary-symbol','action-secondary-label'])ids.set('#'+id,element());
   const marks=[0,1,2,3].map(leg=>element({leg:String(leg)}));
   const powers=[2,3,4,5].map(power=>element({power:String(power)}));
   const events={},timers=[],permissionCalls=[];let now=100;
@@ -41,26 +44,62 @@ test('QR code joins a fixed leg; controls, sensor, ability and visual release',a
   const script=(await readFile(new URL('../public/controller.mjs',import.meta.url),'utf8')).replace(/^import .*\n/,'');
   vm.runInNewContext(script,context);
   const ws=FakeSocket.instance;ws.readyState=1;ws.onopen();
-  assert.deepEqual(ws.sent.at(-1),{type:'hello',role:'player',code:'ABCDEFGH'});
+  assert.deepEqual(ws.sent.at(-1),{type:'hello',role:'player',code:'ABCDEFGH',preferredSlot:-1});
   ws.receive({type:'joined',slot:2});ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
-  assert.equal(ids.get('#slot-name').textContent,'03 · 초록');
+  assert.equal(ids.get('#slot-name').textContent,'초록 다리');
+  assert.equal(ids.get('#play').style['--leg-rgb'],'60 175 92');
   assert.equal(marks[2].classList.contains('mine'),true);
   ws.receive({type:'status',unity:true,occupiedSlots:[false,false,true,false],visual:{mode:'normal'}});
   marks[0].onclick();assert.deepEqual(ws.sent.at(-1),{type:'switch',slot:0});
   ws.receive({type:'switched',slot:0});
   ws.receive({type:'status',unity:true,occupiedSlots:[true,false,true,false],visual:{mode:'normal'}});
-  assert.equal(ids.get('#slot-name').textContent,'01 · 노랑');
+  assert.equal(ids.get('#slot-name').textContent,'노란 다리');
+  assert.equal(ids.get('#play').style['--leg-rgb'],'242 187 43');
   assert.equal(marks[2].disabled,true);
   const pointer=id=>({pointerId:id,preventDefault(){}});
   buttons[0].events.pointerdown(pointer(1));buttons[2].events.pointerdown(pointer(2));assert.equal(ws.sent.at(-1).bits,5);
+  assert.equal(ids.get('#tilt-dot').style.transform,'translate(-25cqw,-25cqw)');
   timers[0]();assert.equal(ws.sent.at(-1).bits,5);
   buttons[0].events.pointerup(pointer(1));assert.equal(ws.sent.at(-1).bits,4);
   buttons[2].events.pointercancel(pointer(2));assert.equal(ws.sent.at(-1).bits,0);
-  powers[0].onclick();assert.deepEqual(ws.sent.at(-1),{type:'power',power:2});
+  assert.equal(powers[0].onclick,undefined);
   ws.receive({type:'status',unity:true,visual:{mode:'giraffe'}});
   assert.equal(ids.get('#table-image').src,'/assets/table-giraffe-colors.png');
-  ids.get('#color-toggle').onclick();assert.equal(ids.get('#table-image').src,'/assets/table-giraffe.png');assert.equal(ids.get('#leg-key').hidden,true);
-  assert.equal(powers[0].classList.contains('active'),true);
+  ids.get('#color-toggle').onclick();assert.equal(ids.get('#table-image').src,'/assets/table-giraffe.png');assert.equal(ids.get('#leg-key').hidden,false);
+  ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
+  assert.equal(ids.get('#table-image').src,'/assets/table-start.svg');
+  assert.equal(ids.get('#ability-actions').hidden,true);
+  const cases=[
+    ['giraffe',['다리 늘이기','다리 줄이기'],[16,32]],
+    ['tennis',['테니스공 접착','접착 해제'],[64,128]],
+    ['ice',['얼음','풀기'],[16,32]],
+    ['squid',['분출'],[16]],
+  ];
+  for(const [mode,names,expectedBits] of cases){
+    ws.receive({type:'status',unity:true,visual:{mode,iceFrozen:true}});
+    assert.equal(ids.get('#ability-actions').hidden,false);
+    assert.equal(buttons[5].hidden,names.length===1);
+    for(let i=0;i<names.length;i++){
+      assert.equal(ids.get(i===0?'#action-primary-label':'#action-secondary-label').textContent,names[i]);
+      buttons[i+4].events.pointerdown(pointer(10+i));
+      assert.equal(ws.sent.at(-1).bits,expectedBits[i]);assert.equal(ws.sent.at(-1).mode,mode);
+      buttons[i+4].events.pointerup(pointer(10+i));assert.equal(ws.sent.at(-1).bits,0);
+    }
+  }
+  ws.receive({type:'status',unity:true,visual:{mode:'giraffe'}});
+  buttons[4].events.pointerdown(pointer(20));assert.equal(ws.sent.at(-1).bits,16);
+  ws.receive({type:'status',unity:true,visual:{mode:'tennis'}});
+  assert.equal(ws.sent.at(-1).bits,0);assert.equal(ws.sent.at(-1).mode,'giraffe');
+  timers[0]();assert.equal(ws.sent.at(-1).bits,0);assert.equal(ws.sent.at(-1).mode,'tennis');
+  ws.receive({type:'status',unity:true,visual:{mode:'ice',iceFrozen:false}});
+  assert.equal(ids.get('#ability-actions').hidden,false);
+  assert.equal(ids.get('#action-secondary-label').textContent,'풀기');
+  assert.equal(buttons[5].classList.contains('is-on'),true);
+  assert.equal(ids.get('#table-image').src,'/assets/table-start.svg');
+  ws.receive({type:'status',unity:true,visual:{mode:'ice',iceFrozen:true}});
+  assert.equal(buttons[4].classList.contains('is-on'),true);
+  assert.equal(ids.get('#table-image').src,'/assets/table-ice.png');
+  ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
   events.deviceorientation({alpha:0,beta:90,gamma:0});const enable=ids.get('#sensor').onclick();
   assert.deepEqual(permissionCalls,['orientation','motion']);
   await enable;
@@ -68,14 +107,13 @@ test('QR code joins a fixed leg; controls, sensor, ability and visual release',a
   assert.equal(ids.get('#recenter').hidden,false);
   assert.equal(ids.get('#recenter').disabled,false);
   assert.equal(ids.get('#gyro-title').textContent,'자이로 켜짐 · 수직보정 대기');
-  assert.match(ids.get('#sensor-state').textContent,/수직보정/);
+  assert.equal(ids.get('#sensor-state').hidden,true);
   timers[1]();assert.notEqual(ws.sent.at(-1).type,'pose');
   ids.get('#recenter').onclick();
   events.deviceorientation({alpha:0,beta:120,gamma:0});timers[1]();
   assert.equal(ws.sent.at(-1).type,'pose');assert.ok(Math.abs(ws.sent.at(-1).z-.5)<1e-6);
   assert.equal(ids.get('#gyro-title').textContent,'자이로 켜짐 · 다리 조작 중');
-  assert.equal(ids.get('#tilt-total').textContent,'30°');
-  assert.equal(ids.get('#tilt-front').textContent,'앞 30°');
+  assert.equal(ids.get('#tilt-dot').style.transform,'translate(0cqw,-17cqw)');
   events.deviceorientation({alpha:30,beta:90,gamma:0});timers[1]();
   assert.ok(Math.abs(ws.sent.at(-1).yaw-30)<1e-6);
   ids.get('#recenter').onclick();timers[1]();assert.equal(ws.sent.at(-1).z,0);
@@ -87,7 +125,7 @@ test('QR code joins a fixed leg; controls, sensor, ability and visual release',a
   now=2500;
   events.devicemotion({accelerationIncludingGravity:{x:0,y:9.8,z:0},rotationRate:{beta:0}});
   await ids.get('#sensor').onclick();
-  assert.match(ids.get('#sensor-angle').textContent,/동작 센서/);
+  assert.equal(ids.get('#sensor-state').hidden,true);
   ids.get('#recenter').onclick();
   now=2550;
   events.devicemotion({accelerationIncludingGravity:{x:0,y:8.487,z:-4.9},rotationRate:{beta:60}});timers[1]();
@@ -97,4 +135,6 @@ test('QR code joins a fixed leg; controls, sensor, ability and visual release',a
   buttons[1].events.pointerdown(pointer(3));ws.receive({type:'status',unity:false});
   assert.equal(ws.sent.findLast(item=>item.type==='input').bits,0);
   ids.get('#leave').onclick();assert.equal(ids.get('#entry').hidden,false);
+  const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  assert.doesNotMatch(html,/data-power|sensor-readout|gyro-values|tilt-total|sensor-angle/);
 });
