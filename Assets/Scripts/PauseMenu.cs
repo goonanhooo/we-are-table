@@ -38,9 +38,9 @@ public class PauseMenu : MonoBehaviour
     bool handMode;
 
     // ★2026-10-25 '지우개 대소동' 규칙으로 개편(사용자: "옵션 메뉴 박스는 더 키워도 됨"):
-    //   1600×900 캔버스(JourneyMenuUI) 가운데 큰 종이 창 1088×804, 왼쪽 열 = 소리·화면, 오른쪽 열 = 언어·조작법·게임.
+    //   1600×900 캔버스(JourneyMenuUI) 가운데 큰 종이 창 1088×752, 왼쪽 열 = 소리·화면, 오른쪽 열 = 언어·조작법·게임.
     //   클릭/드래그 판정은 Update가 같은 Rect 필드로(캔버스 좌표) 처리하고 OnGUI는 그리기만 한다.
-    public static readonly Rect Panel = new Rect(256f, 48f, 1088f, 804f);
+    public static readonly Rect Panel = new Rect(256f, 74f, 1088f, 752f);
     Rect titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
     Rect ctrlImg, cPrev, cNext, cClose;
@@ -79,7 +79,7 @@ public class PauseMenu : MonoBehaviour
         const float S1 = JourneyMenuUI.S1, S2 = JourneyMenuUI.S2, S4 = JourneyMenuUI.S4, S5 = JourneyMenuUI.S5, HS = JourneyMenuUI.HS, HM = JourneyMenuUI.HM;
         float x = Panel.x + S5, w = (Panel.width - 3 * S5) * .5f, rx = x + w + S5;
         titleRect = new Rect(x, Panel.y + S4, Panel.width - 2 * S5, 52f);
-        float top = Panel.y + 176f;   // 구역 이름(120) 아래
+        float top = Panel.y + 120f;   // 제목 아래
         // 왼쪽 열: 소리 3개 + 화면 2개
         float cy = top;
         volLabel = new Rect(x, cy, w, 40f); volSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f;
@@ -112,7 +112,7 @@ public class PauseMenu : MonoBehaviour
         cPrev = new Rect(1600f - 80f - 88f - JourneyMenuUI.S2 - 88f, by, 88f, HM);
         cNext = new Rect(1600f - 80f - 88f, by, 88f, HM);
         // 이미지(16:9)를 제목 아래~버튼 위에 맞춤
-        float top = 192f, bottom = by - S4, availW = 1440f, availH = bottom - top;
+        float top = 144f, bottom = by - S4, availW = 1440f, availH = bottom - top;
         float h = availH, wdt = h * 16f / 9f; if (wdt > availW) { wdt = availW; h = wdt * 9f / 16f; }
         ctrlImg = new Rect((1600f - wdt) * .5f, top + (availH - h) * .5f, wdt, h);
     }
@@ -254,10 +254,6 @@ public class PauseMenu : MonoBehaviour
     {
         JourneyMenuUI.Box(Panel, JourneyMenuUI.Kind.Sheet);
         JourneyMenuUI.Text(titleRect, L.T("설정", "Options", "設定", "设置"), JourneyMenuUI.TL);
-        if (!handMode) JourneyMenuUI.Note(new Rect(titleRect.x + titleRect.width * .5f, titleRect.y, titleRect.width * .5f, titleRect.height), L.T("ESC = 계속하기", "ESC = resume", "ESC = 再開", "ESC = 继续"), TextAnchor.MiddleRight);
-        float w = volLabel.width;
-        JourneyMenuUI.Section(new Rect(volLabel.x, Panel.y + 120f, w, 40f), L.T("소리 · 화면", "Sound · display", "サウンド · 画面", "声音 · 画面"));
-        JourneyMenuUI.Section(new Rect(langBtn.x, Panel.y + 120f, w, 40f), L.T("게임", "Game", "ゲーム", "游戏"));
 
         SliderRow(volLabel, volSlider, L.T("소리", "Master", "音量", "总音量"), AudioListener.volume);
         SliderRow(bgmLabel, bgmSlider, L.T("배경음", "Music", "BGM", "音乐"), Bgm.Volume);
@@ -317,9 +313,7 @@ public class PauseMenu : MonoBehaviour
         if (pages.Length == 0) { showControls = false; return; }
         controlsPage = Mathf.Clamp(controlsPage, 0, pages.Length - 1);
 
-        JourneyMenuUI.Heading(L.T("조작법 — ", "Controls — ", "操作方法 — ", "操作说明 — ") + names[controlsPage],
-            L.T("2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어", "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid",
-                "2 キリン   ·   3 テニスボール   ·   4 雪だるま   ·   5 宇宙イカ", "2 长颈鹿   ·   3 网球   ·   4 雪人   ·   5 太空鱿鱼"));
+        JourneyMenuUI.Heading(names[controlsPage]);
         var frame = new Rect(ctrlImg.x - JourneyMenuUI.S2, ctrlImg.y - JourneyMenuUI.S2, ctrlImg.width + 2 * JourneyMenuUI.S2, ctrlImg.height + 2 * JourneyMenuUI.S2);
         JourneyMenuUI.Box(frame, JourneyMenuUI.Kind.Card);
         if (pages[controlsPage] != null) LocalizedControlGuide.Draw(ctrlImg, pages[controlsPage]);

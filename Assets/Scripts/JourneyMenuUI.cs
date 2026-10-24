@@ -348,14 +348,15 @@ public static class JourneyMenuUI
         if(Time.unscaledTime%1<.55f)Fill(new Rect(t.x,r.center.y-16,3,32),Ink);
         if(!string.IsNullOrEmpty(placeholder))Text(new Rect(t.x+S2,t.y,t.width-S2,t.height),placeholder,TS,Muted);
     }
-    /// <summary>선택 카드: [아이콘 → 이름 → 설명 → 아래 버튼]. 카드 전체가 버튼, 호버 시 떠오름.</summary>
+    /// <summary>선택 카드: [아이콘 → 이름 → (설명) → 아래 버튼]. 카드 전체가 버튼, 호버 시 떠오름.</summary>
     public static bool ChoiceCard(Rect r,int icon,string title,string desc,string action,bool enabled=true,bool selected=false,string badge=null)
     {
         BeginCard(r,enabled,selected);
         Icon(new Rect(r.x+S4,r.y+S4,96,96),icon,enabled?Ink:Muted);
         if(!string.IsNullOrEmpty(badge))Text(new Rect(r.x+r.width*.5f,r.y+S4,r.width*.5f-S4,40),badge,TXS,Muted,TextAnchor.MiddleRight);
-        Text(new Rect(r.x+S4,r.y+S4+96+S3,r.width-2*S4,52),title,TL,enabled?Ink:Muted);
-        Text(new Rect(r.x+S4,r.y+S4+96+S3+52+S1,r.width-2*S4,r.height-(S4+96+S3+52+S1)-HS-S4-S2),desc,TS,Muted,TextAnchor.UpperLeft);
+        float ty=r.y+S4+96+S3;
+        Text(new Rect(r.x+S4,ty,r.width-2*S4,52),title,TL,enabled?Ink:Muted);
+        if(!string.IsNullOrEmpty(desc))Text(new Rect(r.x+S4,ty+52+S1,r.width-2*S4,40),desc,TS,Muted);
         if(!string.IsNullOrEmpty(action))
         {
             var b=new Rect(r.x+S4,r.yMax-S4-HS,r.width-2*S4,HS);
@@ -364,6 +365,29 @@ public static class JourneyMenuUI
         }
         EndCard();
         return Click(r,enabled);
+    }
+    /// <summary>ChoiceCard 높이: 설명이 있으면 한 줄 더.</summary>
+    public static float ChoiceCardHeight(bool desc)=>S4+96+S3+52+(desc?S1+40:0)+S4+HS+S4;
+
+    // ── 자판 키캡(다리 선택·조작법) ──
+    /// <summary>다리 슬롯별 키(위·왼쪽·아래·오른쪽) — LegLayout과 같은 순서(0 WASD · 1 TFGH · 2 IJKL · 3 [ ; ' Enter).</summary>
+    public static readonly string[][] LegKeys={new[]{"W","A","S","D"},new[]{"T","F","G","H"},new[]{"I","J","K","L"},new[]{"[",";","'","Enter"}};
+    /// <summary>키캡 하나: 흰 바탕 + 손그림 진한 선 + 글자(Enter처럼 긴 글자는 넓게).</summary>
+    public static void KeyCap(Rect r,string label,bool enabled=true)
+    {
+        Box(r,enabled?Kind.Card:Kind.Disabled);
+        Literal(r,label,label.Length>1?TXS:TS,enabled?Ink:Muted,TextAnchor.MiddleCenter);
+    }
+    public static float KeyWidth(string label,float size)=>label.Length>1?size*1.8f:size;
+    /// <summary>뒤집힌 T자 키 묶음(위 1개 + 아래 3개)을 area 안 가운데에 그린다.</summary>
+    public static void KeyCluster(Rect area,int slot,bool enabled=true)
+    {
+        var k=LegKeys[slot];float gap=S1,size=Mathf.Min((area.height-gap)*.5f,48f);
+        float w1=KeyWidth(k[1],size),w2=KeyWidth(k[2],size),w3=KeyWidth(k[3],size),row=w1+w2+w3+2*gap;
+        float x=area.center.x-row*.5f,y=area.center.y-size-gap*.5f;
+        var mid=new Rect(x+w1+gap,y+size+gap,w2,size);
+        KeyCap(new Rect(mid.center.x-KeyWidth(k[0],size)*.5f,y,KeyWidth(k[0],size),size),k[0],enabled);
+        KeyCap(new Rect(x,y+size+gap,w1,size),k[1],enabled);KeyCap(mid,k[2],enabled);KeyCap(new Rect(mid.xMax+gap,y+size+gap,w3,size),k[3],enabled);
     }
     /// <summary>작은 회색 구역 이름(예: 소리 · 게임).</summary>
     public static void Section(Rect r,string text){Text(new Rect(r.x,r.y,r.width,32),text,TXS,Muted);SketchRule(r.x,r.y+40,r.width);}

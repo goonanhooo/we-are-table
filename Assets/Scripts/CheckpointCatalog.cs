@@ -10,7 +10,7 @@ public static class CheckpointCatalog
         public bool SceneStart => id==0||id==1||id==5||id==13;
     }
     public static readonly Point[] All={
-        new Point(0,"Hallway",0,"처음 시작 · 복도","The beginning · Hallway"),
+        new Point(0,"Hallway",0,"복도에서 시작","Hallway start"),
         new Point(1,"Jungle",1,"정글에 도착","Jungle arrival"),
         new Point(2,"Jungle",1,"기린의 힘 획득","Giraffe power acquired"),
         new Point(3,"Jungle",1,"용암을 건넌 뒤","Across the lava"),
@@ -25,7 +25,7 @@ public static class CheckpointCatalog
         new Point(12,"Space",4,"달에 접근","Approaching the moon"),
         new Point(13,"Moon",5,"달에서 시작","Moon arrival"),
         new Point(14,"Moon",5,"집에 도착","Home at last"),
-        new Point(15,"Moon",5,"끝 · 다시 보기","The ending · Replay")
+        new Point(15,"Moon",5,"엔딩 다시 보기","Replay the ending")
     };
     public static bool Valid(int id)=>id>=0&&id<All.Length;
     public static bool Matches(int id,string scene)=>Valid(id)&&(All[id].scene==scene||(id>=13&&scene=="Moon_CozyKitchen"));

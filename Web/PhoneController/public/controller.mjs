@@ -36,12 +36,12 @@ $('#color-toggle').onclick=()=>{colorsOn=!colorsOn;colorUI();try{localStorage.se
 colorUI();
 const sensorFresh=()=>latest&&performance.now()-lastSensor<1000;
 const iphone=/iPhone|iPad|iPod/.test(navigator.userAgent||'');
-const missingSensorText=()=>iphone?'아이폰 Safari에서 HTTPS 주소를 직접 열고 동작 및 방향 접근을 허용하세요':'센서 신호 없음 · 동작/방향 권한을 확인해 주세요';
+const missingSensorText=()=>iphone?'아이폰 Safari에서 HTTPS 주소를 직접 열고 동작 및 방향 접근을 허용하세요':'센서 신호 없음, 동작/방향 권한을 확인해 주세요';
 function gyroUI(){
   const fresh=!!sensorFresh();
   const state=sensorRequesting?'requesting':sensorError?'error':!gyroWanted?'off':!fresh?(gyroActive?'stale':'waiting'):gyroActive?'active':'ready';
-  let title={requesting:'자이로 권한 요청 중',error:'자이로 연결 실패',off:'자이로 꺼짐',waiting:'센서 신호 기다리는 중',stale:'센서 신호 끊김',ready:'자이로 켜짐 · 수직보정 대기',active:'자이로 켜짐 · 다리 조작 중'}[state];
-  if(sensorSource==='motion'&&!motionHasGyro&&['ready','active'].includes(state))title=state==='active'?'기울기 센서 켜짐 · 다리 조작 중':'기울기 센서 켜짐 · 수직보정 대기';
+  let title={requesting:'자이로 권한 요청 중',error:'자이로 연결 실패',off:'자이로 꺼짐',waiting:'센서 신호 기다리는 중',stale:'센서 신호 끊김',ready:'자이로 켜짐, 수직보정 대기',active:'자이로 켜짐, 다리 조작 중'}[state];
+  if(sensorSource==='motion'&&!motionHasGyro&&['ready','active'].includes(state))title=state==='active'?'기울기 센서 켜짐, 다리 조작 중':'기울기 센서 켜짐, 수직보정 대기';
   const detail={requesting:'동작 및 방향 접근을 허용해 주세요',waiting:'폰을 움직여 센서를 연결해 주세요',stale:'센서가 다시 연결되면 이어집니다'}[state]||sensorError;
   $('#gyro-panel').dataset.state=state;
   $('#gyro-title').textContent=title;
@@ -122,7 +122,7 @@ $('#sensor').onclick=async()=>{
       }
     }
     const results=await Promise.allSettled(permissions);
-    if(results.length&&results.every(result=>result.status!=='fulfilled'||result.value!=='granted'))throw Error(iphone?'동작 및 방향 접근을 허용하세요 · Safari에서 다시 시도':'브라우저에서 동작/방향 권한을 허용해 주세요');
+    if(results.length&&results.every(result=>result.status!=='fulfilled'||result.value!=='granted'))throw Error(iphone?'동작 및 방향 접근을 허용하세요, Safari에서 다시 시도':'브라우저에서 동작/방향 권한을 허용해 주세요');
     gyroWanted=true;gyroActive=false;reference=null;sensorError='';focused=true;
     const request=++sensorRequestId;
     setTimeout(()=>{if(request===sensorRequestId&&gyroWanted&&!sensorFresh()){sensorError=missingSensorText();gyroUI();}},3000);

@@ -13,12 +13,12 @@ public partial class LevelSelect
     readonly JourneyWheel friendWheel = new JourneyWheel();
     const int FriendsPerPage=3;
     // 캔버스 단위(지우개 대소동 규칙 ×2): 간격 8·16·24·32·48, 높이 72·88.
-    public static readonly Rect FriendPanelRect=new Rect(80,192,1440,376);
-    public static readonly Rect FriendRefreshRect=new Rect(1248,208,240,JourneyMenuUI.HS);
-    public static readonly Rect RoomCodePanelRect=new Rect(80,592,1440,160);
-    public static readonly Rect RoomCodeRect=new Rect(112,664,1000,JourneyMenuUI.HS);
-    public static readonly Rect CodeJoinRect=new Rect(1136,664,352,JourneyMenuUI.HS);
-    public static Rect FriendRowRect(int row)=>new Rect(112,296+row*88,1376,JourneyMenuUI.HS);
+    public static readonly Rect FriendPanelRect=new Rect(80,160,1440,376);
+    public static readonly Rect FriendRefreshRect=new Rect(1248,176,240,JourneyMenuUI.HS);
+    public static readonly Rect RoomCodePanelRect=new Rect(80,560,1440,160);
+    public static readonly Rect RoomCodeRect=new Rect(112,632,1000,JourneyMenuUI.HS);
+    public static readonly Rect CodeJoinRect=new Rect(1136,632,352,JourneyMenuUI.HS);
+    public static Rect FriendRowRect(int row)=>new Rect(112,264+row*88,1376,JourneyMenuUI.HS);
     public static Rect FriendJoinRect(int row)=>FriendRowRect(row);
 
     void EnterFriendRooms()
@@ -75,7 +75,7 @@ public partial class LevelSelect
 
     void DrawFriendJoin()
     {
-        Heading(L.T("친구 방에 참가","Join a friend","フレンドに参加","加入好友"),L.T("친구의 방을 고르거나 방 코드를 입력하세요.","Choose a friend's room or enter a room code.","フレンドのルームを選ぶか、ルームコードを入力。","选择好友的房间，或输入房间代码。"));
+        Heading(L.T("친구 방에 참가","Join a friend","フレンドに参加","加入好友"));
         var panel=FriendPanelRect;JourneyMenuUI.Box(panel,JourneyMenuUI.Kind.Panel);
         JourneyMenuUI.Text(new Rect(panel.x+JourneyMenuUI.S4,panel.y+JourneyMenuUI.S2,640,JourneyMenuUI.HS),friendSearching?L.T("Steam 친구 찾는 중...","Finding Steam friends...","Steamフレンドを検索中…","正在查找 Steam 好友…"):L.T("Steam 친구의 방","Steam friends' rooms","Steamフレンドのルーム","Steam 好友的房间"),JourneyMenuUI.TM);
         int pages=Mathf.Max(1,Mathf.CeilToInt(friendRooms.Length/(float)FriendsPerPage));
@@ -110,7 +110,6 @@ public partial class LevelSelect
         }
         var code=RoomCodePanelRect;JourneyMenuUI.Box(code,JourneyMenuUI.Kind.Panel);
         JourneyMenuUI.Text(new Rect(code.x+JourneyMenuUI.S4,code.y+JourneyMenuUI.S2,640,40),L.T("방 코드로 참가","Join with a room code","ルームコードで参加","通过房间代码加入"),JourneyMenuUI.TS);
-        JourneyMenuUI.Note(new Rect(code.x+680,code.y+JourneyMenuUI.S2,code.width-680-JourneyMenuUI.S4,40),L.T("바로 입력 · 붙여넣기 가능 · Enter로 참가","Type or paste a code · Enter to join","入力・貼り付けできます · Enterで参加","直接输入或粘贴代码 · Enter 加入"),TextAnchor.MiddleRight);
         JourneyMenuUI.Field(RoomCodeRect,codeInput,L.T("방 코드","Room code","ルームコード","房间代码"));
         if(JourneyMenuUI.Button(CodeJoinRect,L.T("참가","Join","参加","加入"),RoomCodeInput.IsValid(codeInput),true))JoinRoom();
         Status();

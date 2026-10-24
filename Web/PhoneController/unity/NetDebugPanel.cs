@@ -23,7 +23,7 @@ public class NetDebugPanel : MonoBehaviour
     public static readonly Rect NextRect=new Rect(1120,780,400,JourneyMenuUI.HS);
     public static readonly Rect LeaveRect=new Rect(80,780,280,JourneyMenuUI.HS);
     public static readonly Rect CopyRect=new Rect(800,184,224,JourneyMenuUI.HS),InviteRect=new Rect(1040,184,224,JourneyMenuUI.HS),QrRect=new Rect(1280,184,224,JourneyMenuUI.HS);
-    public static Rect LegButton(int i)=>new Rect(i%2==0?80:1184,i<2?568:312,336,176);
+    public static Rect LegButton(int i)=>new Rect(i%2==0?80:1184,i<2?560:304,336,192);
     bool OverlayBlocked {get{if(select==null)select=FindAnyObjectByType<LevelSelect>();return PauseMenu.InputBlocked||LetterOverlay.IsOpen||(select!=null&&select.Showing);}}
     void Start(){if(NM!=null)NM.OnClientDisconnectCallback+=OnDisconnected;}
     void OnDestroy(){LobbyOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
@@ -86,8 +86,7 @@ public class NetDebugPanel : MonoBehaviour
     {
         if(phoneInvites){DrawPhoneInvites();return;}
         bool map=Link.ChoosingMap;
-        JourneyMenuUI.Heading(map?L.T("맵 선택","Choose a checkpoint","チェックポイント選択","选择检查点"):L.T("다리 선택","Choose your legs","操作する脚を選ぼう","选择要操控的腿"),
-            map?L.T("호스트가 출발 지점과 난이도를 골라요.","The host picks the starting point and difficulty.","ホストが出発地点と難易度を選びます。","由房主选择出发地点和难度。"):L.T("맡을 다리를 눌러요. 여러 개도 맡을 수 있어요.","Click the legs you want. You can take more than one.","担当する脚をクリック。複数でもOK。","点击你要操控的腿，可以选多条。"),48);
+        JourneyMenuUI.Heading(map?L.T("맵 선택","Choose a checkpoint","チェックポイント選択","选择检查点"):L.T("다리 선택","Choose your legs","操作する脚を選ぼう","选择要操控的腿"),"",64);
         DrawSteps(map);DrawRoom();
         if(map)DrawMap();else DrawLegs();
         if(JourneyMenuUI.BackButton(LeaveRect,map?L.T("다리 선택","Choose legs","脚の選択","选择腿"):L.T("나가기","Leave","退出","离开"),!startPending))HandleBack();
@@ -108,7 +107,7 @@ public class NetDebugPanel : MonoBehaviour
         JourneyMenuUI.Text(new Rect(r.x+JourneyMenuUI.S4,r.y+JourneyMenuUI.S2,320,32),L.T("방 코드","Room code","ルームコード","房间代码"),JourneyMenuUI.TXS,JourneyMenuUI.Muted);
         JourneyMenuUI.Literal(new Rect(r.x+JourneyMenuUI.S4,r.y+48,440,44),code,JourneyMenuUI.TM,JourneyMenuUI.Ink);
         int phones=0;for(int i=0;i<4;i++)if((Link.PhoneMask&(1<<i))!=0)phones++;
-        string info=Time.unscaledTime<statusUntil?status:L.T("PC ","PC ","PC ","电脑 ")+Link.LobbyPlayerCount+" / 4  ·  "+L.T("폰 ","Phone ","スマホ ","手机 ")+phones+" / 4";
+        string info=Time.unscaledTime<statusUntil?status:L.T("PC ","PC ","PC ","电脑 ")+Link.LobbyPlayerCount+" / 4      "+L.T("폰 ","Phone ","スマホ ","手机 ")+phones+" / 4";
         JourneyMenuUI.Text(new Rect(r.x+480,r.y,CopyRect.x-r.x-480-JourneyMenuUI.S4,r.height),info,JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleRight);
         if(JourneyMenuUI.Button(CopyRect,L.T("코드 복사","Copy code","コードをコピー","复制代码"),!string.IsNullOrEmpty(NetSession.JoinCode))){GUIUtility.systemCopyBuffer=NetSession.JoinCode;status=L.T("방 코드를 복사했어요","Room code copied","コードをコピーしました","已复制房间代码");statusUntil=Time.unscaledTime+2;}
         if(JourneyMenuUI.Button(InviteRect,L.T("친구 초대","Invite friends","フレンド招待","邀请好友"),NM.IsHost&&SteamLobby.InLobby))SteamLobby.OpenInviteOverlay();
@@ -116,11 +115,11 @@ public class NetDebugPanel : MonoBehaviour
     }
     void DrawPhoneInvites()
     {
-        JourneyMenuUI.Heading(L.T("폰으로 다리 조작","Control legs with phones","スマホで脚を操作","用手机控制桌腿"),L.T("폰 카메라로 QR을 찍고 색 버튼으로 다리를 골라요.","Scan the QR with a phone, then pick a leg by color.","スマホでQRを読み取り、色ボタンで脚を選びます。","用手机扫二维码，再按颜色选择桌腿。"));
+        JourneyMenuUI.Heading(L.T("폰으로 다리 조작","Control legs with phones","スマホで脚を操作","用手机控制桌腿"));
         var bridge=PhoneControllerBridge.Instance;
-        if(bridge!=null)bridge.DrawInvite(new Rect(80,208,1440,456));
+        if(bridge!=null)bridge.DrawInvite(new Rect(80,192,1440,456));
         if(bridge!=null&&bridge.WatchCode.Length==8)
-            JourneyMenuUI.Note(new Rect(80,688,1440,40),L.T("웹 화면 보기","Watch on web","ウェブで見る","网页观看")+"  "+bridge.PublicOrigin+"/watch   "+bridge.WatchCode);
+            JourneyMenuUI.Note(new Rect(80,672,1440,40),L.T("웹 화면 보기","Watch on web","ウェブで見る","网页观看")+"   "+bridge.PublicOrigin+"/watch   "+bridge.WatchCode);
         if(JourneyMenuUI.BackButton(LeaveRect,L.T("다리 선택","Choose legs","脚の選択","选择腿")))phoneInvites=false;
     }
     void DrawLegs()
@@ -142,17 +141,15 @@ public class NetDebugPanel : MonoBehaviour
             JourneyMenuUI.BeginCard(r,can,mine);
             JourneyMenuUI.RoundFill(new Rect(r.x+JourneyMenuUI.S3,r.y+JourneyMenuUI.S3,8,r.height-2*JourneyMenuUI.S3),c,4);   // 다리 색 = 어느 다리인지
             float tx=r.x+JourneyMenuUI.S3+8+JourneyMenuUI.S3,tw=r.xMax-JourneyMenuUI.S3-tx;
-            JourneyMenuUI.Text(new Rect(tx,r.y+JourneyMenuUI.S3,tw,36),LegLayout.Name(i),JourneyMenuUI.TXS,JourneyMenuUI.Muted);
-            JourneyMenuUI.Literal(new Rect(tx,r.y+64,tw,48),LegLayout.Keys(i),JourneyMenuUI.TL,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
-            string who=open?L.T("눌러서 맡기","Click to take","クリックで担当","点击操控"):Link.DisplayNameOf(owner)+(mine?L.T(" · 나"," · you"," · 自分"," · 我"):"");
-            JourneyMenuUI.Literal(new Rect(tx,r.y+120,tw,36),who,JourneyMenuUI.TXS,mine?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
+            JourneyMenuUI.Text(new Rect(tx,r.y+JourneyMenuUI.S2,tw,32),LegLayout.Name(i),JourneyMenuUI.TXS,JourneyMenuUI.Muted);
+            JourneyMenuUI.KeyCluster(new Rect(tx,r.y+52,tw,88),i,can);   // 자판 키캡 그대로(위 1 + 아래 3)
+            string who=open?L.T("빈 자리","Free","空き","空位"):Link.DisplayNameOf(owner)+(mine?L.T(" (나)"," (you)","（自分）","（我）"):"");
+            JourneyMenuUI.Literal(new Rect(tx,r.y+r.height-JourneyMenuUI.S2-32,tw,32),who,JourneyMenuUI.TXS,mine?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
             JourneyMenuUI.EndCard();
             bool hit=JourneyMenuUI.Click(r,can);
             if(!hit&&tablePreview.Ready)hit=JourneyMenuUI.Click(tablePreview.LegBounds(i,TableRect),can);
             if(hit){JourneyMenuUI.BlockClick();Link.ClaimLegRpc((byte)i);}
         }
-        string hint=NM.IsHost?L.T("빈 다리는 호스트가 조종해요","The host controls unclaimed legs","空席の脚はホストが操作します","空位由房主操控"):L.T("PC 다리를 선택하거나 폰으로 접속하세요","Choose a PC leg or connect by phone","PCの脚を選ぶかスマホで参加","选择电脑桌腿或用手机连接");
-        JourneyMenuUI.Note(new Rect(LeaveRect.xMax+JourneyMenuUI.S4,LeaveRect.y,NextRect.x-LeaveRect.xMax-2*JourneyMenuUI.S4,LeaveRect.height),hint,TextAnchor.MiddleCenter);
         if(JourneyMenuUI.Button(NextRect,L.T("다음","Next","次へ","下一步"),NM.IsHost&&Link.CanChooseMap,true)){JourneyMenuUI.BlockClick();Link.ChooseMap();}
     }
     void DrawMap()
@@ -163,11 +160,10 @@ public class NetDebugPanel : MonoBehaviour
         if(JourneyMenuUI.ArrowButton(new Rect(80,ry,88,JourneyMenuUI.HS),-1,NM.IsHost))ChangePoint(-1);
         if(JourneyMenuUI.ArrowButton(new Rect(1432,ry,88,JourneyMenuUI.HS),1,NM.IsHost))ChangePoint(1);
         int id=Mathf.Max(0,Link.MapIndex);
-        JourneyMenuUI.Text(new Rect(200,ry,1200,40),(id+1).ToString("00")+"  "+CheckpointCatalog.Label(id,Link.CheckpointMask),JourneyMenuUI.TM,null,TextAnchor.MiddleCenter);
-        JourneyMenuUI.Text(new Rect(200,ry+40,1200,32),(id+1).ToString("00")+" / 16",JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Text(new Rect(200,ry,1200,JourneyMenuUI.HS),(id+1).ToString("00")+" / 16",JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
         // 아래 줄 가운데: 난이도 두 칸(호스트만 바꿈)
         var area=new Rect(LeaveRect.xMax+JourneyMenuUI.S4,LeaveRect.y,NextRect.x-LeaveRect.xMax-2*JourneyMenuUI.S4,LeaveRect.height);
-        JourneyMenuUI.Note(new Rect(area.x,area.y-40,area.width,32),NM.IsHost?L.T("난이도","Difficulty","難易度","难度"):L.T("호스트가 맵과 난이도를 선택하고 시작해요","The host chooses the checkpoint and starts","ホストが地点と難易度を選んで開始します","由房主选择地图和难度并开始"));
+        JourneyMenuUI.Note(new Rect(area.x,area.y-40,area.width,32),L.T("난이도","Difficulty","難易度","难度"));
         float w=(area.width-JourneyMenuUI.S2)*.5f;
         for(int i=0;i<2;i++)
         {

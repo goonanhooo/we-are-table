@@ -217,7 +217,7 @@ public partial class KeyTutorial : MonoBehaviour
             var l = AddLesson(id,
                 () => showMove && !moveDone && legMine[i] && !SquidOn,
                 () => MoveAchieved(id, i),   // 방향키·보조키·게스트 RPC 모두 '그 다리 입력'
-                () => L.F("걷기 · {0}", "Walk · {0}", LegLayout.Name(i)),
+                () => L.F("걷기: {0}", "Walk: {0}", LegLayout.Name(i)),
                 () =>
                 {
                     for (int k = 0; k < 4; k++) Add(Map[i][k], id, LegPalette.BySlot[i], true);   // 자판 그림에 없는 키(방향키)는 자동 생략
@@ -553,7 +553,7 @@ public partial class KeyTutorial : MonoBehaviour
             DrawThoughtKey(new Rect(cx-size*1.5f-gap,keyTop+size+gap,size,size),keys[2],leg,2);
             DrawThoughtKey(new Rect(cx-size*.5f,keyTop+size+gap,size,size),keys[1],leg,1);
             DrawThoughtKey(new Rect(cx+size*.5f+gap,keyTop+size+gap,size,size),keys[3],leg,3);
-            string footer=LegLayout.Name(leg)+" · "+pressedCount+"/4 · "+(pressedCount==4?L.T("손을 떼면 다음 다리","release to continue"):L.T("네 방향","press every key"));
+            string footer=LegLayout.Name(leg)+"   "+pressedCount+"/4   "+(pressedCount==4?L.T("손을 떼면 다음 다리","release to continue"):L.T("네 방향","press every key"));
             ThoughtBubbleUI.FittedLabel(new Rect(content.x,content.yMax-20f,content.width,20f),footer,hallwayFooter,22);
             GUI.color = old;
         }

@@ -21,13 +21,15 @@ public static class LocalizedControlGuide
     public static void Draw(Rect target,Texture2D source) => Draw(target,Kind(source!=null?source.name:"ControlsMove"));
     public static void Draw(Rect target,int kind)
     {
-        if(title==null){title=new GUIStyle(GUI.skin.label){alignment=TextAnchor.MiddleCenter,fontStyle=FontStyle.Bold};text=new GUIStyle(title);small=new GUIStyle(title){fontStyle=FontStyle.Normal};key=new GUIStyle(title);}
+        if(title==null){title=new GUIStyle(GUI.skin.label){alignment=TextAnchor.MiddleCenter,fontStyle=FontStyle.Normal};   // 굵기는 하나(지우개 규칙)
+            text=new GUIStyle(title);small=new GUIStyle(title){fontStyle=FontStyle.Normal};key=new GUIStyle(title);}
         Color ink=new Color(.06f,.09f,.14f), muted=new Color(.34f,.38f,.44f);
         title.normal.textColor=Lin(ink);text.normal.textColor=Lin(ink);small.normal.textColor=Lin(muted);
         const float width=1200,height=675;
         float scale=Mathf.Min(target.width/width,target.height/height);var matrix=GUI.matrix;Color old=GUI.color,oldContent=GUI.contentColor;
         GUI.matrix=matrix*Matrix4x4.TRS(new Vector3(target.center.x-width*scale/2,target.center.y-height*scale/2),Quaternion.identity,Vector3.one*scale);GUI.color=Color.white;GUI.contentColor=Color.white;
         UiKit.Fill(new Rect(0,0,width,height),Color.white);
+        if(kind==0&&DrawKeyboard(ink,muted)){GUI.matrix=matrix;GUI.color=old;GUI.contentColor=oldContent;return;}
         Label(new Rect(60,22,1080,65),Name(kind),title,48);
         Label(new Rect(50,88,1100,44),kind==0?L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"):L.T("한 번에 한 가지 힘만 사용할 수 있어요","Use one power at a time"),small,24);
         if(kind>0)
@@ -66,6 +68,67 @@ public static class LocalizedControlGuide
         Label(new Rect(45,602,1110,44),kind==0?L.T("마우스로 카메라 회전 · 휠로 확대/축소","Mouse: camera · Wheel: zoom"):L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"),small,24);
         GUI.matrix=matrix;GUI.color=old;GUI.contentColor=oldContent;
     }
+    // ── 기본 조작 = 실제 자판 그림 위에 다리 색 키 + 키 묶음마다 다리 이름 + 아래에 키 설명 ──
+    [System.Serializable] class KbKey { public string name; public float x, y, w, h; }
+    [System.Serializable] class KbLayout { public KbKey[] keys; }
+    static Texture2D kbImage; static KbLayout kb; static GUIStyle left;
+    static readonly string[][] legKeyNames = { new[]{"W","A","S","D"},new[]{"T","F","G","H"},new[]{"I","J","K","L"},new[]{"LeftBracket","Semicolon","Quote","Enter"} };
+    static Rect KbRect(string name, Rect img)
+    {
+        foreach (var k in kb.keys) if (k.name == "Key_" + name) { float s = img.width / 1620f; return new Rect(img.x + k.x * s, img.y + k.y * s, k.w * s, k.h * s); }
+        return Rect.zero;
+    }
+    static void Round(Rect r, Color c, float radius) => GUI.DrawTexture(r, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0, Lin(c), 0, radius);
+    /// <summary>자판 그림 위 키 하나를 칠한다: 바탕 색 + 진한 테두리 + 글자.</summary>
+    static void PaintKey(Rect r, string label, Color fill, Color border, Color glyph, int size)
+    {
+        Round(r, border, 9); Round(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), fill, 7);
+        key.normal.textColor = key.hover.textColor = key.active.textColor = key.focused.textColor = Lin(glyph); key.font = LocaleFonts.Body; key.wordWrap = false; key.fontStyle = FontStyle.Normal; key.fontSize = size;
+        var content = new GUIContent(label); while (key.fontSize > 10 && key.CalcSize(content).x > r.width - 8) key.fontSize--;
+        GUI.Label(r, content, key);
+    }
+    static bool DrawKeyboard(Color ink, Color muted)
+    {
+        if (kbImage == null) kbImage = Resources.Load<Texture2D>("HandUI/keyboard_base");
+        if (kb == null) { var t = Resources.Load<TextAsset>("HandUI/keyboard_layout"); if (t != null) kb = JsonUtility.FromJson<KbLayout>(t.text); }
+        if (kbImage == null || kb == null || kb.keys == null) return false;
+        float kh = 1120f * 710f / 1620f; var img = new Rect(40, (675f - (kh + 28 + 56)) * .5f, 1120, kh);   // 자판 + 설명 줄을 세로 가운데
+        GUI.DrawTexture(img, kbImage, ScaleMode.StretchToFill);
+        // 다리 키 16개: 그 다리 색으로 칠함, 키 묶음 위(자판 위 빈 줄)에 다리 이름
+        for (int slot = 0; slot < 4; slot++)
+        {
+            Color c = LegPalette.BySlot[slot];
+            for (int n = 0; n < 4; n++)
+            {
+                var r = KbRect(legKeyNames[slot][n], img);
+                PaintKey(r, LocalizedLabel(slot, n), Color.Lerp(Color.white, c, .5f), Color.Lerp(c, Color.black, .25f), ink, 30);
+            }
+            var up = KbRect(legKeyNames[slot][0], img);
+            var name = new Rect(up.center.x - 110, img.y + 22, 220, 40);
+            Round(new Rect(name.center.x - 70, name.yMax - 2, 140, 6), c, 3);
+            Label(name, LegLayout.Name(slot), small, 26);
+        }
+        var one = KbRect("Digit1", img); PaintKey(one, "1", ink, ink, Color.white, 30);
+        Label(new Rect(img.x + 40, img.y + 438, img.width - 80, 40), L.T("마우스로 카메라 돌리기, 휠로 확대 축소", "Mouse turns the camera, wheel zooms", "マウスでカメラを回す、ホイールでズーム", "鼠标转动视角，滚轮缩放"), small, 24);
+        // 아래 줄: 키가 하는 일
+        string[][] keys = { new[]{"↑","↓"}, new[]{"←","→"}, new[]{"1"}, new[]{"F1"} };
+        string[] what = {
+            L.T("앞뒤로 흔들기","Swing","前後に振る","前后摆动"),
+            L.T("좌우로 돌리기","Turn","左右に回す","左右旋转"),
+            L.T("넘어지면 바로서기","Stand up","起き上がる","站起来"),
+            L.T("처음부터 다시","Restart","最初から","重新开始") };
+        float y = img.yMax + 28, cell = 1200f / 4f;
+        for (int i = 0; i < 4; i++)
+        {
+            float x = i * cell + 24, kx = x;
+            foreach (var k in keys[i]) { float w = k.Length > 1 ? 72 : 56; PaintKey(new Rect(kx, y, w, 56), k, Color.white, ink, ink, 28); kx += w + 6; }
+            if (left == null) left = new GUIStyle(text) { alignment = TextAnchor.MiddleLeft };
+            left.normal.textColor = text.normal.textColor;
+            Label(new Rect(kx + 10, y, x + cell - 16 - kx - 10, 56), what[i], left, 26);
+        }
+        return true;
+    }
+    static string LocalizedLabel(int slot, int n) => slot == 3 ? new[]{"[",";","'","Enter"}[n] : legKeyNames[slot][n];
     static void Circle(Vector2 center,float radius,Color color) => GUI.DrawTexture(new Rect(center.x-radius,center.y-radius,radius*2,radius*2),Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,Lin(color),0,radius);
     // DrawTexture의 color 인자는 선형 색(프로젝트 = Linear) — 글자색과 같은 진하기로 맞춤
     static Color Lin(Color c) => QualitySettings.activeColorSpace==ColorSpace.Linear ? c.linear : c;

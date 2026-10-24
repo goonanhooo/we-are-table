@@ -406,17 +406,15 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         JourneyMenuUI.Literal(new Rect(card.x, card.yMax + S2, size, 56f), code, JourneyMenuUI.TL, JourneyMenuUI.Ink, TextAnchor.MiddleCenter);
         float x = card.xMax + S4 + S3, width = area.xMax - x - S4;
         JourneyMenuUI.Text(new Rect(x, area.y + S4, width, 52f), L.T("같은 QR로 함께 입장", "One QR for everyone", "同じQRでみんな参加", "同一个二维码，一起加入"), JourneyMenuUI.TL);
-        JourneyMenuUI.Text(new Rect(x, area.y + S4 + 52f + S1, width, 40f), L.T("폰의 색 버튼으로 빈 다리를 고르세요.", "Choose a free leg with the color buttons on your phone.", "スマホの色ボタンで空いている脚を選ぼう。", "用手机的颜色按钮选择空闲桌腿。"), JourneyMenuUI.TS, JourneyMenuUI.Muted);
-        JourneyMenuUI.SketchRule(x, area.y + S4 + 52f + S1 + 40f + S3, width);
-        string[] names = { L.T("노랑", "Yellow", "黄", "黄"), L.T("파랑", "Blue", "青", "蓝"), L.T("초록", "Green", "緑", "绿"), L.T("빨강", "Red", "赤", "红") };
-        float cellWidth = (width - S2) / 2f, top = area.y + S4 + 52f + S1 + 40f + S3 + S4;
+        JourneyMenuUI.SketchRule(x, area.y + S4 + 52f + S3, width);
+        float cellWidth = (width - S2) / 2f, top = area.y + S4 + 52f + S3 + S4;
         for (int i = 0; i < 4; i++)
         {
             var row = new Rect(x + (i % 2) * (cellWidth + S2), top + (i / 2) * (JourneyMenuUI.HS + S2), cellWidth, JourneyMenuUI.HS);
             bool phone = HasPlayer(i), pc = !phone && lobbyNative[i];
             JourneyMenuUI.Box(row, phone || pc ? JourneyMenuUI.Kind.Card : JourneyMenuUI.Kind.Soft, phone);
             JourneyMenuUI.Dot(new Vector2(row.x + S3 + 8f, row.center.y), 8f, LegPalette.BySlot[i]);
-            JourneyMenuUI.Text(new Rect(row.x + S3 + 16f + S2, row.y, row.width * .5f, row.height), names[i] + " · " + LegLayout.Name(i), JourneyMenuUI.TXS);
+            JourneyMenuUI.Text(new Rect(row.x + S3 + 16f + S2, row.y, row.width * .5f, row.height), LegLayout.Name(i), JourneyMenuUI.TXS);
             string state = phone ? L.T("폰 연결됨", "Phone", "スマホ接続中", "手机已连接") : pc ? "PC" : L.T("빈 다리", "Available", "空き", "空闲");
             JourneyMenuUI.Text(new Rect(row.x + row.width * .5f, row.y, row.width * .5f - S3, row.height), state, JourneyMenuUI.TXS, phone || pc ? JourneyMenuUI.Ink : JourneyMenuUI.Muted, TextAnchor.MiddleRight);
         }
@@ -427,7 +425,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         if (!WebPlayActive) return;
         int count = 0; foreach (bool p in occupied) if (p && connected) count++;
         JourneyMenuUI.Begin();
-        try { JourneyMenuUI.Note(new Rect(JourneyMenuUI.S2, 900f - JourneyMenuUI.S2 - 32f, 640f, 32f), L.T("폰 ", "Phones ", "スマホ ", "手机 ") + count + "/4 · " + connectionStatus); }
+        try { JourneyMenuUI.Note(new Rect(JourneyMenuUI.S2, 900f - JourneyMenuUI.S2 - 32f, 640f, 32f), L.T("폰 ", "Phones ", "スマホ ", "手机 ") + count + "/4   " + connectionStatus); }
         finally { JourneyMenuUI.End(); }
     }
 

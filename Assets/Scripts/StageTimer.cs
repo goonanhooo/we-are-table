@@ -98,6 +98,6 @@ public class StageTimer : MonoBehaviour
         string resets = L.T("바로서기 ", "pose resets ") + resetsAtClear + L.T("회", "");
         resets += newBestResets ? L.T("  ★ 최소 기록!", "  ★ fewest!") : L.T("  (최소 ", "  (best ") + bestResets + L.T("회)", ")");
         GUI.Label(new Rect(r.x, r.y + 134f, w, 26f), resets, UiKit.Center);
-        GUI.Label(new Rect(r.x, r.y + 176f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? L.T("계속 돌아다녀도 돼요 · ESC = 메뉴", "Keep exploring · ESC = menu") : L.Text(FooterOverride), UiKit.Small);
+        GUI.Label(new Rect(r.x, r.y + 176f, w, 24f), string.IsNullOrEmpty(FooterOverride) ? L.T("계속 돌아다녀도 돼요 (ESC = 메뉴)", "Keep exploring (ESC = menu)") : L.Text(FooterOverride), UiKit.Small);
     }
 }

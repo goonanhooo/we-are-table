@@ -49,7 +49,7 @@ public static class L
     public static bool Korean { get => Current == Language.Korean; set => Current = value ? Language.Korean : Language.English; }
     public static string Code => new[] { "ko", "en", "ja", "zh-Hans" }[(int)Current];
     public static string NativeName => new[] { "한국어", "English", "日本語", "简体中文" }[(int)Current];
-    public static string LanguageButton => "文 / A  ·  " + NativeName;
+    public static string LanguageButton => "文 / A   " + NativeName;
     public static void Cycle(int direction = 1) => Current = (Language)((((int)Current + direction) % 4 + 4) % 4);
     static void Load()
     {

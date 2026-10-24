@@ -191,10 +191,10 @@
     },
     {
       "file": "CheatMode.cs",
-      "ko": "🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2 · 테니스3 · 눈사람4 · 오징어5)",
+      "ko": "🛠 CHEAT ON  —  화살표=비행(카메라 기준), Space/'>'=상, LeftCtrl/'<'=하, Shift=가속\nT=보는 곳으로 순간이동,  `=문 열기,  모든 능력 해금(기린2, 테니스3, 눈사람4, 오징어5)",
       "en": "🛠 CHEAT ON  —  arrows=fly (camera-relative), Space/'>'=up, LeftCtrl/'<'=down, Shift=boost\nT=teleport to view,  `=open door,  all powers unlocked (giraffe 2, tennis 3, snowman 4, squid 5)",
-      "ja": "CHEAT ON — 矢印=飛行、Space / > = 上昇、左Ctrl / < = 下降、Shift = 加速\nT = 視線の先へ移動、` = 扉を開く、全能力解放（キリン2・テニス3・雪だるま4・イカ5）",
-      "zh": "CHEAT ON — 方向键=飞行，Space / > = 上升，左Ctrl / < = 下降，Shift = 加速\nT = 传送到视线位置，` = 开门，解锁全部能力（长颈鹿2·网球3·雪人4·鱿鱼5）"
+      "ja": "CHEAT ON — 矢印=飛行、Space / > = 上昇、左Ctrl / < = 下降、Shift = 加速\nT = 視線の先へ移動、` = 扉を開く、全能力解放（キリン2、テニス3、雪だるま4、イカ5）",
+      "zh": "CHEAT ON — 方向键=飞行，Space / > = 上升，左Ctrl / < = 下降，Shift = 加速\nT = 传送到视线位置，` = 开门，解锁全部能力（长颈鹿2，网球3，雪人4，鱿鱼5）"
     },
     {
       "file": "NetDebugPanel.cs",
@@ -249,7 +249,7 @@
       "file": "NetDebugPanel.cs",
       "ko": "다리 클릭 = 선택/해제 — 여러 개 가능 (접속 ",
       "en": "click a leg to take it — multiple ok (",
-      "ja": "脚を選択・解除（複数可／参加者",
+      "ja": "脚を選択／解除（複数可／参加者",
       "zh": "点击选择或取消桌腿，可多选（已加入"
     },
     {
@@ -632,10 +632,10 @@
     },
     {
       "file": "PauseMenu.cs",
-      "ko": "2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어",
-      "en": "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid",
-      "ja": "2 キリン · 3 テニス · 4 雪だるま · 5 宇宙イカ",
-      "zh": "2 长颈鹿 · 3 网球 · 4 雪人 · 5 宇宙鱿鱼"
+      "ko": "2 기린, 3 테니스공, 4 눈사람, 5 우주오징어",
+      "en": "2 Giraffe, 3 Tennis, 4 Snowman, 5 Space squid",
+      "ja": "2 キリン、3 テニス、4 雪だるま、5 宇宙イカ",
+      "zh": "2 长颈鹿，3 网球，4 雪人，5 宇宙鱿鱼"
     },
     {
       "file": "PauseMenu.cs",
@@ -667,10 +667,10 @@
     },
     {
       "file": "KeyTutorial.cs",
-      "ko": "늘리기 / 줄이기 · 2 = 끄기",
-      "en": "stretch / shrink · 2 = off",
-      "ja": "伸ばす／縮める · 2 = オフ",
-      "zh": "伸长／缩短 · 2 = 关闭"
+      "ko": "늘리기 / 줄이기, 2 = 끄기",
+      "en": "stretch / shrink, 2 = off",
+      "ja": "伸ばす／縮める、2 = オフ",
+      "zh": "伸长／缩短，2 = 关闭"
     },
     {
       "file": "KeyTutorial.cs",
@@ -688,17 +688,17 @@
     },
     {
       "file": "KeyTutorial.cs",
-      "ko": "테니스공 · 붙기 · 3 = 켜기/끄기",
-      "en": "tennis · stick · 3 = on/off",
-      "ja": "テニス · くっつく · 3 = オン／オフ",
-      "zh": "网球 · 附着 · 3 = 开／关"
+      "ko": "테니스공, 붙기, 3 = 켜기/끄기",
+      "en": "tennis, stick, 3 = on/off",
+      "ja": "テニス、くっつく、3 = オン／オフ",
+      "zh": "网球，附着，3 = 开／关"
     },
     {
       "file": "KeyTutorial.cs",
-      "ko": "테니스공 · 떼기",
-      "en": "tennis balls · let go",
-      "ja": "テニスボール · 離す",
-      "zh": "网球 · 松开"
+      "ko": "테니스공, 떼기",
+      "en": "tennis balls, let go",
+      "ja": "テニスボール、離す",
+      "zh": "网球，松开"
     },
     {
       "file": "KeyTutorial.cs",
@@ -723,10 +723,10 @@
     },
     {
       "file": "KeyTutorial.cs",
-      "ko": "발끝 분사 · 5 = 켜기/끄기",
-      "en": "thrust from feet · 5 = on/off",
-      "ja": "足先から噴射 · 5 = オン／オフ",
-      "zh": "脚尖喷射 · 5 = 开／关"
+      "ko": "발끝 분사, 5 = 켜기/끄기",
+      "en": "thrust from feet, 5 = on/off",
+      "ja": "足先から噴射、5 = オン／オフ",
+      "zh": "脚尖喷射，5 = 开／关"
     },
     {
       "file": "KeyTutorial.cs",
@@ -1180,10 +1180,10 @@
       "zh": "右前腿"
     },
     {
-      "ko": "걷기 · {0}",
-      "en": "Walk · {0}",
-      "ja": "歩く · {0}",
-      "zh": "移动 · {0}"
+      "ko": "걷기: {0}",
+      "en": "Walk: {0}",
+      "ja": "歩く: {0}",
+      "zh": "移动：{0}"
     },
     {
       "ko": "내 {0}는",
@@ -1258,10 +1258,10 @@
       "zh": "最佳时间  "
     },
     {
-      "ko": "계속 돌아다녀도 돼요 · ESC = 메뉴",
-      "en": "Keep exploring · ESC = menu",
-      "ja": "探索を続けられます · ESC = メニュー",
-      "zh": "可以继续探索 · ESC = 菜单"
+      "ko": "계속 돌아다녀도 돼요 (ESC = 메뉴)",
+      "en": "Keep exploring (ESC = menu)",
+      "ja": "探索を続けられます（ESC = メニュー）",
+      "zh": "可以继续探索（ESC = 菜单）"
     },
     {
       "ko": "클릭 또는 ESC로 닫기",
@@ -1378,10 +1378,10 @@
       "zh": "方向键或 [ ' ; Enter"
     },
     {
-      "ko": "마우스로 카메라 회전 · 휠로 확대/축소",
-      "en": "Mouse: camera · Wheel: zoom",
-      "ja": "マウス：カメラ · ホイール：ズーム",
-      "zh": "鼠标：转动视角 · 滚轮：缩放"
+      "ko": "마우스로 카메라 회전, 휠로 확대/축소",
+      "en": "Mouse: camera, Wheel: zoom",
+      "ja": "マウス：カメラ、ホイール：ズーム",
+      "zh": "鼠标：转动视角，滚轮：缩放"
     },
     {
       "ko": "체크포인트",
@@ -1408,10 +1408,10 @@
       "zh": "检查点已保存"
     },
     {
-      "ko": "처음 시작 · 복도",
-      "en": "The beginning · Hallway",
-      "ja": "はじまり · 廊下",
-      "zh": "最初的起点 · 走廊"
+      "ko": "복도에서 시작",
+      "en": "Hallway start",
+      "ja": "廊下から出発",
+      "zh": "从走廊出发"
     },
     {
       "ko": "정글에 도착",
@@ -1498,10 +1498,10 @@
       "zh": "终于到家"
     },
     {
-      "ko": "끝 · 다시 보기",
-      "en": "The ending · Replay",
-      "ja": "エンディング · もう一度",
-      "zh": "结局 · 重看"
+      "ko": "엔딩 다시 보기",
+      "en": "Replay the ending",
+      "ja": "エンディングをもう一度",
+      "zh": "重看结局"
     },
     {
       "ko": "호스트만 다시 시작할 수 있어요",

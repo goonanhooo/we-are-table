@@ -54,7 +54,7 @@ public partial class KeyTutorial
         Key key=PowerKey(power);bool initial=false;
         Practice("activate_"+power,power,-1,new[]{key},_=>KeyHeld(key),n=>PowerOn(power)==(n==0?!initial:initial),
             ()=>"[ "+LabelOf(key)+" ]  "+PowerName(power),
-            n=>P("직접 켜고 꺼 보자","Try switching on and off","オン・オフを試そう","试着开启和关闭")+"  "+(n+1)+" / 2",
+            n=>P("직접 켜고 꺼 보자","Try switching on and off","オンとオフを試そう","试着开启和关闭")+"  "+(n+1)+" / 2",
             n=>{if(n==0)initial=PowerOn(power);},0f,0f);
         var enable=Practice("enable_"+power,power,-1,new[]{key},_=>KeyHeld(key),_=>PowerOn(power),()=>PowerName(power),
             _=>P("힘을 켜고 시작하자","Turn the power on","力をオンにしよう","开启能力"),null,0f);
@@ -70,7 +70,7 @@ public partial class KeyTutorial
             int i=slot;float initial=0;
             Practice("stretch"+i,"giraffe",i,new[]{Map[i][4],Map[i][5]},n=>n==0?PracticeInput(i).longer:PracticeInput(i).shorter,
                 n=>PowerOn("giraffe")&&(n==0?PracticeLength(i)>=initial+.06f||PracticeLength(i)>=practiceBaseLengths[i]*giraffe.maxMultiplier-.015f:PracticeLength(i)<=initial-.06f||PracticeLength(i)<=practiceBaseLengths[i]+.015f),
-                ()=>PowerName("giraffe")+" · "+LegLayout.Name(i),
+                ()=>PowerName("giraffe")+" ("+LegLayout.Name(i)+")",
                 n=>"[ "+LabelOf(Map[i][n==0?4:5])+" ] "+(n==0?P("길게 늘려 보자","Make this leg longer","この脚を伸ばそう","伸长这条腿"):P("짧게 줄여 보자","Make this leg shorter","この脚を縮めよう","缩短这条腿")),
                 _=>initial=PracticeLength(i),.12f,.12f);
         }
@@ -90,7 +90,7 @@ public partial class KeyTutorial
             int i=slot;
             Practice("tennisPractice"+i,"tennis",i,new[]{GrabKeys[i],ReleaseKeys[i]},n=>n==0?PracticeInput(i).grab:PracticeInput(i).release,
                 n=>PowerOn("tennis")&&tennis.PracticeStuck((LegControlSet)i)==(n==0),
-                ()=>PowerName("tennis")+" · "+LegLayout.Name(i),
+                ()=>PowerName("tennis")+" ("+LegLayout.Name(i)+")",
                 n=>"[ "+LabelOf(n==0?GrabKeys[i]:ReleaseKeys[i])+" ] "+(n==0?P("바닥이나 물체에 발을 대고 붙여 보자","Touch the floor or an object, then stick","床や物に足を当ててくっつけよう","让脚接触地面或物体，再粘住"):P("붙인 발을 떼어 보자","Detach this foot","くっつけた足を離そう","松开粘住的脚")),null,0f,0f);
         }
         ActivationPractice("ice");
@@ -98,7 +98,7 @@ public partial class KeyTutorial
         var slide=Practice("iceSlide","ice",-1,new Key[0],_=>
         {var v=PracticeInput(slideLeg);return v.up||v.down||v.left||v.right;},
         _=>PowerOn("ice")&&root!=null&&Vector2.Distance(new Vector2(root.transform.position.x,root.transform.position.z),new Vector2(slideStart.x,slideStart.z))>.15f,
-        ()=>PowerName("ice"),_=>P("방향키로 밀어서 미끄러져 보자 · 4로 해제","Push with the movement keys to slide · 4 to turn off","移動キーで押して滑ろう · 4で解除","用移动键推动滑行 · 4 关闭"),
+        ()=>PowerName("ice"),_=>P("방향키로 밀어서 미끄러져 보자 (4로 해제)","Push with the movement keys to slide (4 to turn off)","移動キーで押して滑ろう（4で解除）","用移动键推动滑行（4 关闭）"),
         _=>{slideStart=root!=null?root.transform.position:Vector3.zero;for(int i=0;i<4;i++)if(legMine[i]){slideLeg=i;break;}},.12f);
         slide.fill=()=>{var keys=slideLeg==3?new[]{Key.LeftBracket,Key.Quote,Key.Semicolon,Key.Enter}:new[]{Map[slideLeg][0],Map[slideLeg][1],Map[slideLeg][2],Map[slideLeg][3]};foreach(var key in keys)Add(key,slide.id,LegPalette.BySlot[slideLeg],true);Add(Key.Digit4,slide.id,Color.white,false,true);};
 
@@ -108,7 +108,7 @@ public partial class KeyTutorial
             int i=slot;
             var jet=Practice("squidPractice"+i,"squid",i,new[]{Map[i][4]},_=>PracticeInput(i).longer,
                 _=>PowerOn("squid")&&squid.PracticeJetting((LegControlSet)i),
-                ()=>PowerName("squid")+" · "+LegLayout.Name(i),
+                ()=>PowerName("squid")+" ("+LegLayout.Name(i)+")",
                 _=>P("길게 눌러 분사하고 손을 떼어 멈춰 보자","Hold to thrust, then release to stop","長押しで噴射し、離して止めよう","按住喷射，松开停止"),null,.2f);
             jet.releaseEffect=_=>!squid.PracticeJetting((LegControlSet)i);
         }
