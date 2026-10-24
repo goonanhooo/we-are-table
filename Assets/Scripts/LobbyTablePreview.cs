@@ -27,7 +27,7 @@ public sealed class LobbyTablePreview : System.IDisposable
         }
         var camObject=new GameObject("Lobby table camera"){hideFlags=HideFlags.HideAndDontSave};camObject.transform.SetParent(root.transform,false);camera=camObject.AddComponent<Camera>();
         camera.transform.localPosition=new Vector3(2.7f,1.8f,-3.8f);camera.transform.LookAt(root.transform.position+new Vector3(0,.42f,0));camera.orthographic=true;camera.orthographicSize=1.04f;
-        camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=new Color(.978f,.974f,.951f,1);camera.cullingMask=1<<31;camera.nearClipPlane=.1f;camera.farClipPlane=15;
+        camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=JourneyMenuUI.Out(JourneyMenuUI.Background);   // IMGUI에 그대로 그려지므로 바탕(#f3f2eb)과 같게 보이도록 선형값camera.cullingMask=1<<31;camera.nearClipPlane=.1f;camera.farClipPlane=15;
         camera.allowHDR=false;camera.allowMSAA=true;camera.depth=-50;
         camera.GetUniversalAdditionalCameraData().renderPostProcessing=false;
         image=new RenderTexture(1200,850,24){name="Lobby table preview",hideFlags=HideFlags.HideAndDontSave,antiAliasing=2};image.Create();camera.targetTexture=image;

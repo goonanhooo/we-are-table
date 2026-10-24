@@ -29,32 +29,27 @@ public class PauseMenu : MonoBehaviour
     LegColorXray xray;
     bool paused;
     public static bool InputBlocked {get;private set;}
-    float UiScale=>showControls?1f:Mathf.Min(1f,Screen.height/(handMode?1160f:860f),Screen.width/760f);
-    float ViewWidth=>Screen.width/UiScale;
-    float ViewHeight=>Screen.height/UiScale;
     bool showControls;      // 조작법 화면 표시 중
     int controlsPage;       // 현재 조작법 페이지
     int dragSlider;         // 드래그 중인 슬라이더: 0 없음 / 1 마스터 / 2 BGM / 3 SFX
     int openedFrame = -1;   // 메뉴를 연 프레임. 그 프레임의 클릭은 '바깥 클릭 닫기'로 처리하지 않음.
 
-    GUIStyle titleStyle, btnStyle, labelStyle, centerStyle;
-    GUIStyle handTitle, handItem, handLabel, handItemC, handTitleC, handPage;   // ★손글씨(시작 화면+인게임)
-    Texture2D tex;
-
-    // ★2026-07-14 시작 화면(StartScreenMenu 존재)에선 가운데 창 대신 왼쪽 손글씨 메뉴 계층으로(사용자 요청)
+    // 시작 화면(StartScreenMenu 존재)인지 — 그때는 계속하기/다시 시작/메인 메뉴/종료가 없다.
     bool handMode;
 
-    // ★2026-08-17 언어/화면 모드 2행 추가로 664→772 (box_panel은 wobbly 손그림이라 ~16% 세로 스트레치 무해)
-    const float PanelW = 420f, PanelH = 772f;
-    Rect panel, titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
+    // ★2026-10-25 '지우개 대소동' 규칙으로 개편(사용자: "옵션 메뉴 박스는 더 키워도 됨"):
+    //   1600×900 캔버스(JourneyMenuUI) 가운데 큰 종이 창 1088×804, 왼쪽 열 = 소리·화면, 오른쪽 열 = 언어·조작법·게임.
+    //   클릭/드래그 판정은 Update가 같은 Rect 필드로(캔버스 좌표) 처리하고 OnGUI는 그리기만 한다.
+    public static readonly Rect Panel = new Rect(256f, 48f, 1088f, 804f);
+    Rect titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
-    Rect ctrlTitle, ctrlImg, ctrlPageLbl, cPrev, cNext, cClose;
+    Rect ctrlImg, cPrev, cNext, cClose;
 
-    static readonly Rect Off = new Rect(-9999f, -9999f, 0f, 0f);   // 손글씨 모드에서 숨길 버튼
+    static readonly Rect Off = new Rect(-9999f, -9999f, 0f, 0f);   // 이 화면에 없는 버튼
 
     void Awake() => xray = GetComponent<LegColorXray>();
 
-    /// <summary>외부(시작화면 Option 표지판 등)에서 옵션 메뉴를 연다.</summary>
+    /// <summary>외부(시작화면 설정 버튼 등)에서 옵션 메뉴를 연다.</summary>
     public void OpenMenu() => SetPaused(true);
     public bool IsOpen => paused;
 
@@ -62,6 +57,7 @@ public class PauseMenu : MonoBehaviour
     bool IsBackground() => gameObject.scene != SceneManager.GetActiveScene();
 
     static float Frac(Rect s, Vector2 gm) => Mathf.Clamp01((gm.x - s.x) / s.width);
+    static Rect Grab(Rect slider) => new Rect(slider.x - 16f, slider.y - 16f, slider.width + 32f, slider.height + 32f);   // 슬라이더는 위아래로 넉넉히 잡힘
 
     // 현재 해금된 조작법 페이지(이미지 + 이름) 목록
     Texture2D[] CtrlPages(out string[] names)
@@ -78,88 +74,51 @@ public class PauseMenu : MonoBehaviour
         names = nms.ToArray(); return texs.ToArray();
     }
 
-    // ★2026-07-14 인게임도 손그림 흰 종이 박스 + 손글씨 항목(사용자 요청) — 시작 화면과 같은 룩,
-    //   다만 게임 화면 위라 중앙 박스+딤 유지. 항목 순서: 계속하기 먼저(복귀가 제일 중요).
     void ComputeLayout()
     {
-        if (handMode) { ComputeHandLayout(); return; }
-
-        float x = (ViewWidth - PanelW) * 0.5f;
-        float y = (ViewHeight - PanelH) * 0.5f;
-        panel = new Rect(x, y, PanelW, PanelH);
-
-        float ix = x + 34f, iw = PanelW - 68f;
-        float cy = y + 28f;
-        titleRect   = new Rect(ix, cy, iw, 40f);   cy += 52f;
-        resumeBtn   = new Rect(ix, cy, iw, 46f);   cy += 56f;
-        volLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
-        volSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
-        bgmLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
-        bgmSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
-        sfxLabel    = new Rect(ix, cy, iw, 26f);   cy += 28f;
-        sfxSlider   = new Rect(ix, cy, iw, 20f);   cy += 34f;
-        colorBtn    = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        controlsBtn = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        langBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        displayBtn  = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        restartBtn  = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        menuBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        quitBtn     = new Rect(ix, cy, iw, 46f);   cy += 54f;
-        cheatBtn    = new Rect(ix, cy, iw, 46f);   // 맨 아래 '숨은' 버튼 — 호버해야만 보임
-    }
-
-    /// <summary>★손글씨 모드(시작 화면): 홈 메뉴와 같은 왼쪽 열 — 가운데 창 없음.
-    /// Update의 클릭/드래그 판정이 같은 Rect 필드를 쓰므로 위치만 바꾸면 로직 공유.</summary>
-    void ComputeHandLayout()
-    {
-        float lx = ViewWidth * 0.09f;
-        float cy = ViewHeight * 0.34f;   // 타이틀 그래픽 아래(LevelSelect와 같은 기준대)
-        float sw = 340f;   // 슬라이더 폭
-
-        panel = Off;
-        titleRect  = new Rect(lx, cy, 500f, 44f);  cy += 56f;
-        volLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
-        volSlider  = new Rect(lx, cy, sw, 24f);    cy += 40f;
-        bgmLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
-        bgmSlider  = new Rect(lx, cy, sw, 24f);    cy += 40f;
-        sfxLabel   = new Rect(lx, cy, sw, 30f);    cy += 32f;
-        sfxSlider  = new Rect(lx, cy, sw, 24f);    cy += 48f;
-        colorBtn   = new Rect(lx, cy, 420f, 50f);  cy += 58f;
-        controlsBtn = new Rect(lx, cy, 420f, 50f); cy += 58f;
-        langBtn    = new Rect(lx, cy, 420f, 50f);  cy += 58f;
-        displayBtn = new Rect(lx, cy, 420f, 50f);  cy += 58f;
-        resumeBtn  = new Rect(lx, cy, 195f, 50f);  cy += 58f;   // = 뒤로(닫기)
-        cheatBtn   = new Rect(lx, cy, 420f, 44f);               // 숨은 치트(호버 시만 표시)
-        restartBtn = Off; menuBtn = Off; quitBtn = Off;          // 시작 화면에선 의미 없음
+        const float S1 = JourneyMenuUI.S1, S2 = JourneyMenuUI.S2, S4 = JourneyMenuUI.S4, S5 = JourneyMenuUI.S5, HS = JourneyMenuUI.HS, HM = JourneyMenuUI.HM;
+        float x = Panel.x + S5, w = (Panel.width - 3 * S5) * .5f, rx = x + w + S5;
+        titleRect = new Rect(x, Panel.y + S4, Panel.width - 2 * S5, 52f);
+        float top = Panel.y + 176f;   // 구역 이름(120) 아래
+        // 왼쪽 열: 소리 3개 + 화면 2개
+        float cy = top;
+        volLabel = new Rect(x, cy, w, 40f); volSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f;
+        bgmLabel = new Rect(x, cy, w, 40f); bgmSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f;
+        sfxLabel = new Rect(x, cy, w, 40f); sfxSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f + S2;
+        colorBtn = new Rect(x, cy, w, HS); cy += HS + S2;
+        displayBtn = new Rect(x, cy, w, HS);
+        // 오른쪽 열: 언어 · 조작법 · (인게임) 다시 시작 · 메인 메뉴 · 게임 종료
+        cy = top;
+        langBtn = new Rect(rx, cy, w, HS); cy += HS + S2;
+        controlsBtn = new Rect(rx, cy, w, HS); cy += HS + S2 + S4;
+        if (handMode) { restartBtn = Off; menuBtn = Off; quitBtn = Off; }
+        else
+        {
+            restartBtn = new Rect(rx, cy, w, HS); cy += HS + S2;
+            menuBtn = new Rect(rx, cy, w, HS); cy += HS + S2;
+            quitBtn = new Rect(rx, cy, w, HS);
+        }
+        // 아래 줄: 시작 화면=왼쪽 '뒤로' / 인게임=오른쪽 '계속하기'(주요)
+        float by = Panel.yMax - S5 - HM;
+        resumeBtn = handMode ? new Rect(x, by, 320f, HM) : new Rect(Panel.xMax - S5 - 400f, by, 400f, HM);
+        cheatBtn = handMode ? new Rect(x + 320f + S4, by, 320f, HM) : new Rect(x, by, 320f, HM);   // 숨은 치트(호버해야만 보임)
     }
 
     void ComputeControlsLayout()
     {
-        float cx = Screen.width * 0.5f;
-        float by = Screen.height - 56f;                 // 하단 버튼 행
-        cClose = new Rect(cx - 70f, by, 140f, 44f);
-        cPrev  = new Rect(cx - 230f, by, 140f, 44f);
-        cNext  = new Rect(cx + 90f, by, 140f, 44f);
-        ctrlTitle   = new Rect(0f, 16f, Screen.width, 40f);
-        ctrlPageLbl = new Rect(cx - 120f, by - 30f, 240f, 24f);
-
-        // 이미지(16:9) 화면에 맞춤
-        float top = 92f, bottom = by - 36f;
-        float availH = bottom - top, availW = Screen.width - 48f;
-        float ar = 16f / 9f;
-        float w = availW, h = w / ar;
-        if (h > availH) { h = availH; w = h * ar; }
-        ctrlImg = new Rect((Screen.width - w) * 0.5f, top + (availH - h) * 0.5f, w, h);
+        const float S4 = JourneyMenuUI.S4, HM = JourneyMenuUI.HM;
+        float by = 900f - S4 - HM;
+        cClose = new Rect(80f, by, 280f, HM);
+        cPrev = new Rect(1600f - 80f - 88f - JourneyMenuUI.S2 - 88f, by, 88f, HM);
+        cNext = new Rect(1600f - 80f - 88f, by, 88f, HM);
+        // 이미지(16:9)를 제목 아래~버튼 위에 맞춤
+        float top = 192f, bottom = by - S4, availW = 1440f, availH = bottom - top;
+        float h = availH, wdt = h * 16f / 9f; if (wdt > availW) { wdt = availW; h = wdt * 9f / 16f; }
+        ctrlImg = new Rect((1600f - wdt) * .5f, top + (availH - h) * .5f, wdt, h);
     }
 
-    // Input System 마우스 좌표(좌하 원점) → GUI 좌표(좌상 원점)
-    Vector2 GuiMouse()
-    {
-        var m = Mouse.current;
-        if (m == null) return new Vector2(-1f, -1f);
-        Vector2 p = m.position.ReadValue();
-        return new Vector2(p.x, Screen.height - p.y)/UiScale;
-    }
+    // 마우스 = JourneyMenuUI 캔버스 좌표(그리기와 같은 좌표계)
+    static Vector2 GuiMouse() => JourneyMenuUI.MousePosition;
 
     void Update()
     {
@@ -208,22 +167,22 @@ public class PauseMenu : MonoBehaviour
         // 3개 볼륨 슬라이더 드래그 (마스터 / BGM / SFX)
         if (mouse.leftButton.wasPressedThisFrame)
         {
-            if (volSlider.Contains(gm)) dragSlider = 1;
-            else if (bgmSlider.Contains(gm)) dragSlider = 2;
-            else if (sfxSlider.Contains(gm)) dragSlider = 3;
+            if (Grab(volSlider).Contains(gm)) dragSlider = 1;
+            else if (Grab(bgmSlider).Contains(gm)) dragSlider = 2;
+            else if (Grab(sfxSlider).Contains(gm)) dragSlider = 3;
         }
         if (!mouse.leftButton.isPressed) dragSlider = 0;
         if (dragSlider == 1) AudioListener.volume = Frac(volSlider, gm);
         else if (dragSlider == 2) { Bgm.Volume = Frac(bgmSlider, gm); Bgm.Apply(); }
         else if (dragSlider == 3) Sfx.Volume = Frac(sfxSlider, gm);
 
-        // 버튼 클릭. 버튼·슬라이더가 아닌 바깥 아무데나 클릭하면 창을 닫는다.
+        // 버튼 클릭. 창 바깥을 클릭하면 닫는다(창 안 빈 곳은 그대로).
         if (mouse.leftButton.wasPressedThisFrame)
         {
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
-            else if (langBtn.Contains(gm)) { LanguageSelector.HandleClick(langBtn, gm, true); }
+            else if (langBtn.Contains(gm)) { LanguageSelector.HandleClick(langBtn, gm); }
             else if (displayBtn.Contains(gm)) { DisplayMode.Toggle(); }
             else if (restartBtn.Contains(gm))
             {
@@ -245,8 +204,7 @@ public class PauseMenu : MonoBehaviour
                 UnityEditor.EditorApplication.isPlaying = false;   // 에디터: 플레이 정지
 #endif
             }
-            else if (!volSlider.Contains(gm) && !bgmSlider.Contains(gm) && !sfxSlider.Contains(gm))
-                SetPaused(false); // 바깥/패널 빈 곳 클릭 → 닫기
+            else if (!Panel.Contains(gm)) SetPaused(false); // 창 바깥 클릭 → 닫기
         }
     }
 
@@ -258,7 +216,7 @@ public class PauseMenu : MonoBehaviour
         if(nm==null||!nm.IsListening)Time.timeScale=p?0f:1f;
         if (p)
         {
-            // ★시작 화면(홈 메뉴 존재)이면 손글씨 왼쪽 열 모드
+            // 시작 화면(홈 메뉴 존재)이면 '뒤로'만, 인게임이면 계속하기·다시 시작·메인 메뉴·종료까지
             handMode = Object.FindAnyObjectByType<StartScreenMenu>() != null;
             openedFrame = Time.frameCount;
             Cursor.lockState = CursorLockMode.None;
@@ -278,94 +236,78 @@ public class PauseMenu : MonoBehaviour
     {
         UiKit.ApplyKoreanFont();   // 웹(WebGL) 한글 폰트
         if (IsBackground() || !paused) return;
-        EnsureStyles();
         Vector2 gm = GuiMouse();
-
-        var matrix=GUI.matrix;GUI.matrix=Matrix4x4.Scale(Vector3.one*UiScale);
+        // 바탕: 시작 화면=종이색, 인게임=게임 화면 위 살짝 어둡게(미끄러지지 않음)
+        JourneyMenuUI.Begin();
+        if (handMode) JourneyMenuUI.Backdrop(.97f); else JourneyMenuUI.Fill(new Rect(-400, -400, 2400, 1700), new Color(0f, 0f, 0f, .38f));
+        JourneyMenuUI.End();
+        JourneyMenuUI.BeginModal("pause", showControls ? "controls" : "menu");
         try
         {
-            if(showControls){DrawControlsScreen(gm);return;}
-            ComputeLayout();DrawHandMenu(gm);
+            if (showControls) { DrawControlsScreen(gm); return; }
+            ComputeLayout(); DrawMenu(gm);
         }
-        finally{GUI.matrix=matrix;}
+        finally { JourneyMenuUI.End(); }
     }
 
-    /// <summary>★손글씨 옵션(두 모드 공통 룩): 시작 화면=왼쪽 열 맨글씨, 인게임=딤+손그림 흰 종이 박스.
-    /// 클릭 판정은 Update가 같은 Rect로 처리하므로 여기선 그리기만.</summary>
-    void DrawHandMenu(Vector2 gm)
+    void DrawMenu(Vector2 gm)
     {
-        if (!handMode)
-        {
-            // 게임 화면 위: 살짝 어둡게 + 손그림 흰 종이 박스
-            Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.40f));
-            // box_panel은 패널(420×664)의 정확히 2배 비율로 재생성됨(2026-07-14) — 선 중심 여백 20px/840 기준 인셋
-            if (HandUI.BoxPanel != null) HandUI.Paper(panel, HandUI.BoxPanel, 0.97f, 0.028f, 0.018f);
-            else UiKit.Panel(panel, 0.97f);
-        }
+        JourneyMenuUI.Box(Panel, JourneyMenuUI.Kind.Sheet);
+        JourneyMenuUI.Text(titleRect, L.T("설정", "Options", "設定", "设置"), JourneyMenuUI.TL);
+        if (!handMode) JourneyMenuUI.Note(new Rect(titleRect.x + titleRect.width * .5f, titleRect.y, titleRect.width * .5f, titleRect.height), L.T("ESC = 계속하기", "ESC = resume", "ESC = 再開", "ESC = 继续"), TextAnchor.MiddleRight);
+        float w = volLabel.width;
+        JourneyMenuUI.Section(new Rect(volLabel.x, Panel.y + 120f, w, 40f), L.T("소리 · 화면", "Sound · display", "サウンド · 画面", "声音 · 画面"));
+        JourneyMenuUI.Section(new Rect(langBtn.x, Panel.y + 120f, w, 40f), L.T("게임", "Game", "ゲーム", "游戏"));
 
-        GUI.Label(titleRect, L.T("설정", "options"), handTitle);
-
-        if (!handMode) HandItem(resumeBtn, L.T("계속하기", "resume"), gm);
-
-        GUI.Label(volLabel, L.T("소리", "master") + "   " + Mathf.RoundToInt(AudioListener.volume * 100f) + "%", handLabel);
-        HandSlider(volSlider, AudioListener.volume);
-        GUI.Label(bgmLabel, L.T("배경음", "music") + "   " + Mathf.RoundToInt(Bgm.Volume * 100f) + "%", handLabel);
-        HandSlider(bgmSlider, Bgm.Volume);
-        GUI.Label(sfxLabel, L.T("효과음", "sfx") + "   " + Mathf.RoundToInt(Sfx.Volume * 100f) + "%", handLabel);
-        HandSlider(sfxSlider, Sfx.Volume);
+        SliderRow(volLabel, volSlider, L.T("소리", "Master", "音量", "总音量"), AudioListener.volume);
+        SliderRow(bgmLabel, bgmSlider, L.T("배경음", "Music", "BGM", "音乐"), Bgm.Volume);
+        SliderRow(sfxLabel, sfxSlider, L.T("효과음", "Effects", "効果音", "音效"), Sfx.Volume);
 
         bool on = xray != null && xray.IsOn;
-        HandItem(colorBtn, L.T("다리 색 표시: ", "leg colors: ") + (on ? L.T("켜짐", "on") : L.T("꺼짐", "off")), gm);
-        HandItem(controlsBtn, L.T("조작법", "controls"), gm);
-        LanguageSelector.Draw(langBtn, gm, true);
-        HandItem(displayBtn, DisplayMode.Label(), gm);
-
+        ToggleRow(colorBtn, L.T("다리 색 표시", "Leg colors", "脚の色表示", "桌腿颜色"), on);
+        JourneyMenuUI.ButtonVisual(displayBtn, DisplayMode.Label());
+        LanguageSelector.Draw(langBtn, gm);
+        JourneyMenuUI.ButtonVisual(controlsBtn, L.T("조작법 보기", "Controls", "操作方法", "操作说明"));
         if (!handMode)
         {
-            HandItem(restartBtn, L.T("다시 시작", "restart"), gm);
-            HandItem(menuBtn, L.T("메인 메뉴", "main menu"), gm);
-            HandItem(quitBtn, L.T("게임 종료", "quit game"), gm);
+            JourneyMenuUI.ButtonVisual(restartBtn, L.T("이 지점부터 다시 시작", "Restart from checkpoint", "地点からやり直す", "从检查点重来"), CheckpointRuntime.Authority);
+            JourneyMenuUI.ButtonVisual(menuBtn, L.T("메인 메뉴", "Main menu", "メインメニュー", "主菜单"));
+            JourneyMenuUI.ButtonVisual(quitBtn, L.T("게임 종료", "Quit game", "ゲーム終了", "退出游戏"));
+            JourneyMenuUI.ButtonVisual(resumeBtn, L.T("계속하기", "Resume", "再開", "继续"), true, true);
         }
-        else { JourneyMenuUI.BackArrow(resumeBtn,HandUI.Ink); HandItem(new Rect(resumeBtn.x+54,resumeBtn.y,resumeBtn.width-54,resumeBtn.height), L.T("뒤로", "back"), gm); }
+        else BackVisual(resumeBtn);
 
-        // 숨은 치트: 맨 아래 빈 자리에 호버해야만 보임(기존과 동일)
+        // 숨은 치트: 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
-            HandItem(cheatBtn, L.T("치트: ", "cheat: ") + (CheatMode.Active ? "ON" : "OFF"), gm);
+            JourneyMenuUI.Text(cheatBtn, L.T("치트: ", "Cheat: ") + (CheatMode.Active ? "ON" : "OFF"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
     }
 
-    /// <summary>손글씨 메뉴 항목: 맨글씨 + 호버 시 살짝 기울임+밑줄(홈/LevelSelect와 동일 룩, 색 변화 없음).</summary>
-    void HandItem(Rect r, string text, Vector2 gm, GUIStyle style = null)
+    static void SliderRow(Rect label, Rect slider, string name, float value)
     {
-        if (style == null) style = handItem;
-        bool hover = r.Contains(gm);
-        var m = GUI.matrix;
-        if (hover) GUIUtility.RotateAroundPivot(-1.2f, new Vector2(r.x, r.center.y));
-        GUI.Label(r, text, style);
-        if (hover && HandUI.Underline != null)
-        {
-            float tw2 = Mathf.Min(style.CalcSize(new GUIContent(text)).x, r.width);
-            float ux = style.alignment == TextAnchor.MiddleCenter ? r.center.x - tw2 * 0.5f : r.x;
-            GUI.DrawTexture(new Rect(ux, r.yMax - 8f, tw2, 14f), HandUI.Underline, ScaleMode.StretchToFill);
-        }
-        GUI.matrix = m;
+        JourneyMenuUI.Text(label, name, JourneyMenuUI.TS);
+        JourneyMenuUI.Text(label, Mathf.RoundToInt(value * 100f) + "%", JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleRight);
+        JourneyMenuUI.Slider(slider, value);
     }
 
-    /// <summary>손그림 슬라이더: 연한 밑줄 트랙 + 값만큼 진한 밑줄 채움.</summary>
-    void HandSlider(Rect r, float v)
+    /// <summary>켜짐/꺼짐 줄: 보통 버튼 + 오른쪽 작은 스위치(켜짐=검정 채움).</summary>
+    static void ToggleRow(Rect r, string name, bool on)
     {
-        if (HandUI.Underline == null) { UiKit.Slider(r, v); return; }
-        v = Mathf.Clamp01(v);
-        float ty = r.y + r.height * 0.5f - 7f;
-        var pc = GUI.color;
-        GUI.color = new Color(1f, 1f, 1f, 0.25f);
-        GUI.DrawTexture(new Rect(r.x, ty, r.width, 14f), HandUI.Underline, ScaleMode.StretchToFill);
-        GUI.color = pc;
-        if (v > 0.01f)
-        {
-            GUI.BeginGroup(new Rect(r.x, r.y, r.width * v, r.height));
-            GUI.DrawTexture(new Rect(0f, r.height * 0.5f - 7f, r.width, 14f), HandUI.Underline, ScaleMode.StretchToFill);
-            GUI.EndGroup();
-        }
+        bool hover = JourneyMenuUI.Hover(r); float lift = JourneyMenuUI.Lift(r, hover);
+        JourneyMenuUI.Box(r, JourneyMenuUI.Kind.Card, false, lift);
+        var c = new Rect(r.x, r.y - lift, r.width, r.height);
+        JourneyMenuUI.Text(new Rect(c.x + JourneyMenuUI.S3, c.y, c.width - 160f, c.height), name, JourneyMenuUI.TS);
+        var sw = new Rect(c.xMax - JourneyMenuUI.S3 - 88f, c.center.y - 20f, 88f, 40f);
+        JourneyMenuUI.RoundFill(sw, on ? JourneyMenuUI.Ink : JourneyMenuUI.LineSoft, 20f);
+        JourneyMenuUI.RoundFill(new Rect(on ? sw.xMax - 36f : sw.x + 4f, sw.y + 4f, 32f, 32f), JourneyMenuUI.White, 16f);
+        JourneyMenuUI.Text(new Rect(sw.x - 120f, c.y, 112f, c.height), on ? L.T("켜짐", "On", "オン", "开") : L.T("꺼짐", "Off", "オフ", "关"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleRight);
+    }
+
+    static void BackVisual(Rect r)
+    {
+        bool hover = JourneyMenuUI.Hover(r); float lift = JourneyMenuUI.Lift(r, hover);
+        JourneyMenuUI.Box(r, JourneyMenuUI.Kind.Card, false, lift);
+        var lr = new Rect(r.x, r.y - lift, r.width, r.height); JourneyMenuUI.BackArrow(lr, JourneyMenuUI.Ink);
+        JourneyMenuUI.Text(new Rect(lr.x + 76f, lr.y, lr.width - 100f, lr.height), JourneyMenuUI.Back, JourneyMenuUI.TM, null, TextAnchor.MiddleCenter);
     }
 
     void DrawControlsScreen(Vector2 gm)
@@ -375,65 +317,25 @@ public class PauseMenu : MonoBehaviour
         if (pages.Length == 0) { showControls = false; return; }
         controlsPage = Mathf.Clamp(controlsPage, 0, pages.Length - 1);
 
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(1f, 1f, 1f, 0.97f));
-
-        GUI.Label(ctrlTitle, L.T("조작법 — ", "controls — ") + names[controlsPage], handTitleC);
-        GUI.Label(new Rect(12f, 55f, Screen.width - 24f, 28f),
-            L.T("2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어",
-                "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid"), handPage);
-        if (pages[controlsPage] != null)
-            LocalizedControlGuide.Draw(ctrlImg,pages[controlsPage]);
-
-        GUI.Label(ctrlPageLbl, (controlsPage + 1) + " / " + pages.Length, handPage);
+        JourneyMenuUI.Heading(L.T("조작법 — ", "Controls — ", "操作方法 — ", "操作说明 — ") + names[controlsPage],
+            L.T("2 기린   ·   3 테니스공   ·   4 눈사람   ·   5 우주오징어", "2 Giraffe   ·   3 Tennis   ·   4 Snowman   ·   5 Space squid",
+                "2 キリン   ·   3 テニスボール   ·   4 雪だるま   ·   5 宇宙イカ", "2 长颈鹿   ·   3 网球   ·   4 雪人   ·   5 太空鱿鱼"));
+        var frame = new Rect(ctrlImg.x - JourneyMenuUI.S2, ctrlImg.y - JourneyMenuUI.S2, ctrlImg.width + 2 * JourneyMenuUI.S2, ctrlImg.height + 2 * JourneyMenuUI.S2);
+        JourneyMenuUI.Box(frame, JourneyMenuUI.Kind.Card);
+        if (pages[controlsPage] != null) LocalizedControlGuide.Draw(ctrlImg, pages[controlsPage]);
 
         if (pages.Length > 1)
         {
-            HandItem(cPrev, L.T("◀ 이전", "◀ prev"), gm, handItemC);
-            HandItem(cNext, L.T("다음 ▶", "next ▶"), gm, handItemC);
+            JourneyMenuUI.ArrowVisual(cPrev, -1);
+            JourneyMenuUI.ArrowVisual(cNext, 1);
+            JourneyMenuUI.Literal(new Rect(cPrev.x - 200f, cPrev.y, 184f, cPrev.height), (controlsPage + 1) + " / " + pages.Length, JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleRight);
         }
-        HandItem(cClose, L.T("닫기", "close"), gm, handItemC);
+        bool hover = JourneyMenuUI.Hover(cClose); float lift = JourneyMenuUI.Lift(cClose, hover);
+        JourneyMenuUI.Box(cClose, JourneyMenuUI.Kind.Card, false, lift);
+        var lr = new Rect(cClose.x, cClose.y - lift, cClose.width, cClose.height); JourneyMenuUI.BackArrow(lr, JourneyMenuUI.Ink);
+        JourneyMenuUI.Text(new Rect(lr.x + 76f, lr.y, lr.width - 100f, lr.height), L.T("닫기", "Close", "閉じる", "关闭"), JourneyMenuUI.TM, null, TextAnchor.MiddleCenter);
     }
 
-    void DrawButton(Rect r, string label, Vector2 gm)
-    {
-        UiKit.Button(r, label, r.Contains(gm));   // 흰 배경+검은 테두리+검은 글씨(hover=옅은 회색)
-    }
-
-    void DrawSlider(Rect r, float v) => UiKit.Slider(r, v);
-
-    void Fill(Rect r, Color c) => UiKit.Fill(r, c);
-
-    void EnsureStyles()
-    {
-        if (titleStyle != null) return;
-        tex = Texture2D.whiteTexture;
-        // 통일 스타일: 검은 글씨(UiKit과 동일 톤)
-        Color ink = new Color(0.08f, 0.08f, 0.08f, 1f);
-
-        titleStyle = new GUIStyle(GUI.skin.label)
-        { fontSize = 32, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        titleStyle.normal.textColor = ink;
-
-        btnStyle = new GUIStyle(GUI.skin.label)
-        { fontSize = 20, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        btnStyle.normal.textColor = ink;
-
-        labelStyle = new GUIStyle(GUI.skin.label)
-        { fontSize = 16, alignment = TextAnchor.MiddleLeft };
-        labelStyle.normal.textColor = ink;
-
-        centerStyle = new GUIStyle(GUI.skin.label)
-        { fontSize = 17, alignment = TextAnchor.MiddleCenter };
-        centerStyle.normal.textColor = new Color(0.3f, 0.3f, 0.3f, 1f);
-
-        // ★손글씨 스타일(시작 화면 + 인게임 공통) — 홈/LevelSelect와 같은 톤
-        handTitle = HandUI.Style(28, HandUI.InkSoft, TextAnchor.MiddleLeft);
-        handItem = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleLeft);
-        handLabel = HandUI.Style(22, HandUI.Ink, TextAnchor.MiddleLeft);
-        handItemC = HandUI.Style(28, HandUI.Ink, TextAnchor.MiddleCenter);
-        handTitleC = HandUI.Style(32, HandUI.Ink, TextAnchor.MiddleCenter);
-        handPage = HandUI.Style(20, HandUI.InkSoft, TextAnchor.MiddleCenter);
-    }
     void OnDestroy(){if(paused){InputBlocked=false;if(Time.timeScale==0)Time.timeScale=1;}}
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]static void ResetInputBlock(){InputBlocked=false;}
 

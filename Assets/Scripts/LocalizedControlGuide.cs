@@ -8,12 +8,12 @@ public static class LocalizedControlGuide
     static readonly string[][] moves = { new[]{"W","A","S","D"},new[]{"T","F","G","H"},new[]{"I","J","K","L"},new[]{"[",";","'","Enter"} };
     public static int Kind(string name) => name.Contains("Giraffe") ? 1 : name.Contains("Tennis") ? 2 : name.Contains("Snowman") || name.Contains("Ice") ? 3 : name.Contains("Squid") ? 4 : 0;
     public static string Name(int kind) => kind == 1 ? L.T("기린의 힘","giraffe power") : kind == 2 ? L.T("테니스공의 힘","tennis power") : kind == 3 ? L.T("눈사람의 힘","snowman power") : kind == 4 ? L.T("우주오징어의 힘","Space squid") : L.T("기본 조작","basic moves");
-    static void Label(Rect r,string s,GUIStyle style,int size) { style.font=LocaleFonts.Body; style.wordWrap=true; ThoughtBubbleUI.FittedLabel(r,s,style,size,14); }
+    static void Label(Rect r,string s,GUIStyle style,int size) { style.hover.textColor=style.active.textColor=style.focused.textColor=style.normal.textColor; style.font=LocaleFonts.Body; style.wordWrap=true; ThoughtBubbleUI.FittedLabel(r,s,style,size,14); }
     static void Key(Rect r,string s,Color color,int size=38)
     {
-        GUI.DrawTexture(r,Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,color,0,10);
+        GUI.DrawTexture(r,Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,Lin(color),0,10);
         GUI.DrawTexture(new Rect(r.x+3,r.y+3,r.width-6,r.height-6),Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,Color.white,0,8);
-        key.normal.textColor=color;key.font=LocaleFonts.Body;key.wordWrap=false;key.fontSize=size;
+        key.normal.textColor=key.hover.textColor=key.active.textColor=key.focused.textColor=Lin(color);key.font=LocaleFonts.Body;key.wordWrap=false;key.fontSize=size;
         var content=new GUIContent(s);var inset=new Rect(r.x+4,r.y+4,r.width-8,r.height-8);
         while(key.fontSize>10&&(key.CalcSize(content).x>inset.width||key.CalcSize(content).y>inset.height))key.fontSize--;
         GUI.Label(inset,content,key);
@@ -23,7 +23,7 @@ public static class LocalizedControlGuide
     {
         if(title==null){title=new GUIStyle(GUI.skin.label){alignment=TextAnchor.MiddleCenter,fontStyle=FontStyle.Bold};text=new GUIStyle(title);small=new GUIStyle(title){fontStyle=FontStyle.Normal};key=new GUIStyle(title);}
         Color ink=new Color(.06f,.09f,.14f), muted=new Color(.34f,.38f,.44f);
-        title.normal.textColor=ink;text.normal.textColor=ink;small.normal.textColor=muted;
+        title.normal.textColor=Lin(ink);text.normal.textColor=Lin(ink);small.normal.textColor=Lin(muted);
         const float width=1200,height=675;
         float scale=Mathf.Min(target.width/width,target.height/height);var matrix=GUI.matrix;Color old=GUI.color,oldContent=GUI.contentColor;
         GUI.matrix=matrix*Matrix4x4.TRS(new Vector3(target.center.x-width*scale/2,target.center.y-height*scale/2),Quaternion.identity,Vector3.one*scale);GUI.color=Color.white;GUI.contentColor=Color.white;
@@ -66,5 +66,7 @@ public static class LocalizedControlGuide
         Label(new Rect(45,602,1110,44),kind==0?L.T("마우스로 카메라 회전 · 휠로 확대/축소","Mouse: camera · Wheel: zoom"):L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"),small,24);
         GUI.matrix=matrix;GUI.color=old;GUI.contentColor=oldContent;
     }
-    static void Circle(Vector2 center,float radius,Color color) => GUI.DrawTexture(new Rect(center.x-radius,center.y-radius,radius*2,radius*2),Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,color,0,radius);
+    static void Circle(Vector2 center,float radius,Color color) => GUI.DrawTexture(new Rect(center.x-radius,center.y-radius,radius*2,radius*2),Texture2D.whiteTexture,ScaleMode.StretchToFill,true,0,Lin(color),0,radius);
+    // DrawTexture의 color 인자는 선형 색(프로젝트 = Linear) — 글자색과 같은 진하기로 맞춤
+    static Color Lin(Color c) => QualitySettings.activeColorSpace==ColorSpace.Linear ? c.linear : c;
 }

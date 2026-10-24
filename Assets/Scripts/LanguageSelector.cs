@@ -1,18 +1,18 @@
 using UnityEngine;
 
-/// <summary>The same previous/current/next language control on the home and pause menus.</summary>
+/// <summary>설정 메뉴의 언어 고르기: [‹] 현재 언어 [›]. 좌표는 JourneyMenuUI 캔버스(1600×900) 단위.</summary>
 public static class LanguageSelector
 {
-    static GUIStyle nameStyle, arrowStyle, labelStyle;
+    const float ArrowW = 88f;
     static Rect Choices(Rect row, bool label)
     {
-        if (label) { float width = Mathf.Min(104f, row.width * .28f); row.x += width; row.width -= width; }
+        if (label) { float width = Mathf.Min(176f, row.width * .3f); row.x += width; row.width -= width; }
         return row;
     }
     public static Rect PreviousRect(Rect row, bool label = false)
-    { row = Choices(row, label); return new Rect(row.x, row.y, 44f, row.height); }
+    { row = Choices(row, label); return new Rect(row.x, row.y, ArrowW, row.height); }
     public static Rect NextRect(Rect row, bool label = false)
-    { row = Choices(row, label); return new Rect(row.xMax - 44f, row.y, 44f, row.height); }
+    { row = Choices(row, label); return new Rect(row.xMax - ArrowW, row.y, ArrowW, row.height); }
     public static bool HandleClick(Rect row, Vector2 pointer, bool label = false)
     {
         if (PreviousRect(row, label).Contains(pointer)) { L.Cycle(-1); return true; }
@@ -21,29 +21,12 @@ public static class LanguageSelector
     }
     public static void Draw(Rect row, Vector2 pointer, bool label = false)
     {
-        if (nameStyle == null)
-        {
-            nameStyle = HandUI.Style(28, HandUI.Ink, TextAnchor.MiddleCenter);
-            arrowStyle = HandUI.Style(30, HandUI.Ink, TextAnchor.MiddleCenter);
-            labelStyle = HandUI.Style(24, HandUI.InkSoft, TextAnchor.MiddleLeft);
-            nameStyle.wordWrap = arrowStyle.wordWrap = labelStyle.wordWrap = false;
-        }
         Rect choices = Choices(row, label);
-        if (label) GUI.Label(new Rect(row.x, row.y, choices.x - row.x, row.height), L.T("언어", "language", "言語", "语言"), labelStyle);
-        var nameRect = new Rect(choices.x + 44f, row.y, choices.width - 88f, row.height);
-        var content = new GUIContent(L.NativeName);
-        nameStyle.fontSize = 28;
-        while (nameStyle.fontSize > 18 && nameStyle.CalcSize(content).x > nameRect.width - 8f) nameStyle.fontSize--;
-        GUI.Label(nameRect, content, nameStyle);
-        Arrow(PreviousRect(row, label), "<", pointer);
-        Arrow(NextRect(row, label), ">", pointer);
-    }
-    static void Arrow(Rect rect, string text, Vector2 pointer)
-    {
-        bool hover = rect.Contains(pointer);
-        arrowStyle.fontSize = hover ? 34 : 30;
-        GUI.Label(rect, text, arrowStyle);
-        if (hover && HandUI.Underline != null)
-            GUI.DrawTexture(new Rect(rect.x + 10f, rect.yMax - 8f, rect.width - 20f, 10f), HandUI.Underline);
+        if (label) JourneyMenuUI.Text(new Rect(row.x, row.y, choices.x - row.x - JourneyMenuUI.S2, row.height), L.T("언어", "Language", "言語", "语言"), JourneyMenuUI.TS);
+        var name = new Rect(choices.x + ArrowW + JourneyMenuUI.S1, row.y, choices.width - 2 * (ArrowW + JourneyMenuUI.S1), row.height);
+        JourneyMenuUI.Box(name, JourneyMenuUI.Kind.Soft);
+        JourneyMenuUI.Literal(name, L.NativeName, JourneyMenuUI.TS, JourneyMenuUI.Ink, TextAnchor.MiddleCenter);
+        JourneyMenuUI.ArrowVisual(PreviousRect(row, label), -1);
+        JourneyMenuUI.ArrowVisual(NextRect(row, label), 1);
     }
 }

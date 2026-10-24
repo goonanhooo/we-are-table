@@ -19,7 +19,7 @@ public partial class LevelSelect : MonoBehaviour
     string codeInput="", busyMsg="";
     readonly CheckpointJourney journey=new CheckpointJourney();
     public int SelectedCheckpoint => journey.Selected;
-    public static readonly Rect BackRect=new Rect(100,790,180,52);
+    public static readonly Rect BackRect=new Rect(80,780,280,JourneyMenuUI.HS);
 
     bool CanOpen()
     {
@@ -29,7 +29,7 @@ public partial class LevelSelect : MonoBehaviour
     void Show(int next,bool direct)
     {
         if(!CanOpen())return;
-        Showing=true;step=next;directStage=direct;codeInput="";
+        if(!Showing)shownAt=0;Showing=true;step=next;directStage=direct;codeInput="";
         JourneyMenuUI.BlockClick();
         if(preview!=null)preview.HideAll();
         if(next==2)EnterFriendRooms();
@@ -77,68 +77,74 @@ public partial class LevelSelect : MonoBehaviour
         if(this==null)return;busy=false;if(ok)Close();
     }
     void OnDisable(){CancelFriendSearch();if(preview!=null)preview.HideAll();}
+    float shownAt;
     void OnGUI()
     {
         if(!Showing||PauseMenu.InputBlocked||LetterOverlay.IsOpen)return;
-        JourneyMenuUI.Begin();
+        if(Event.current.type==EventType.Layout&&shownAt<=0)shownAt=Time.unscaledTime;
+        // 바탕은 미끄러지지 않고 한 번만 살짝 나타남, 내용은 화면이 바뀔 때마다 옆에서 들어옴.
+        JourneyMenuUI.Begin();JourneyMenuUI.Backdrop(Mathf.Clamp01((Time.unscaledTime-shownAt)/.18f));JourneyMenuUI.End();
+        JourneyMenuUI.Begin("levelselect",busy?"busy":"step"+step);
         try{
-            if(busy){JourneyMenuUI.Icon(new Rect(110,355,110,110),step==2?2:1);JourneyMenuUI.Text(new Rect(250,365,1000,65),L.Text(busyMsg)+new string('.',(int)(Time.unscaledTime*2)%4),40);JourneyMenuUI.Text(new Rect(250,435,1000,40),L.T("잠시만 기다려 주세요","Just a moment","しばらくお待ちください","请稍候"),26,JourneyMenuUI.Muted);return;}
+            if(busy){DrawBusy();return;}
             if(step==0)DrawModeSelect();else if(step==1)DrawStageSelect();else if(step==3)DrawDifficulty();else if(step==4)DrawWebLobby();else DrawJoin();
             if(JourneyMenuUI.BackButton(BackRect))Back();
         }finally{JourneyMenuUI.End();}
     }
-    void Heading(string title,string description="")
+    public static readonly Rect ActionRect=new Rect(1120,780,400,JourneyMenuUI.HS);
+    void DrawBusy()
     {
-        JourneyMenuUI.Text(new Rect(100,276,1390,58),title,40);
-        JourneyMenuUI.Text(new Rect(103,337,1390,40),description,25,JourneyMenuUI.Muted);
+        var r=new Rect(480,288,640,300);JourneyMenuUI.Box(r,JourneyMenuUI.Kind.Sheet);
+        JourneyMenuUI.Icon(new Rect(r.center.x-48,r.y+JourneyMenuUI.S4,96,96),step==2?2:1);
+        JourneyMenuUI.Text(new Rect(r.x+JourneyMenuUI.S4,r.y+152,r.width-2*JourneyMenuUI.S4,52),L.Text(busyMsg)+new string('.',(int)(Time.unscaledTime*2)%4),JourneyMenuUI.TL,null,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Text(new Rect(r.x+JourneyMenuUI.S4,r.y+212,r.width-2*JourneyMenuUI.S4,40),L.T("잠시만 기다려 주세요","Just a moment","しばらくお待ちください","请稍候"),JourneyMenuUI.TS,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+    }
+    void Heading(string title,string description="")=>JourneyMenuUI.Heading(title,description);
+    void Status()
+    {
+        if(!string.IsNullOrEmpty(NetSession.Status))JourneyMenuUI.Note(new Rect(BackRect.xMax+JourneyMenuUI.S4,BackRect.y,ActionRect.x-BackRect.xMax-2*JourneyMenuUI.S4,BackRect.height),NetSession.Status);
     }
     void DrawModeSelect()
     {
-        Heading(L.T("함께하기","Play together","いっしょに遊ぶ","一起玩"));
+        Heading(L.T("함께하기","Play together","いっしょに遊ぶ","一起玩"),L.T("방을 만들거나 친구의 방에 들어가요.","Host a room or join a friend.","ルームを作るか、フレンドに参加します。","创建房间，或加入好友。"));
         for(int i=0;i<2;i++){
-            Rect r=new Rect(100+i*710,410,670,305);bool hover=r.Contains(JourneyMenuUI.MousePosition);
-            JourneyMenuUI.Paper(r,false,hover);JourneyMenuUI.Icon(new Rect(r.x+28,r.y+35,82,82),i+1);
+            var r=new Rect(80+i*736,208,704,440);
             string title=i==0?L.T("방 만들기","Host a room","ルームを作る","创建房间"):L.T("친구 방에 참가","Join a friend","フレンドに参加","加入好友");
-            JourneyMenuUI.HoverText(new Rect(r.x+125,r.y+38,510,55),title,r,32);
-            JourneyMenuUI.Text(new Rect(r.x+30,r.y+132,610,80),i==0?L.T("PC와 폰이 한 방에서 함께","PCs and phones in one room","PCとスマホで一緒に","电脑和手机同房间"):L.T("PC 방코드로 접속","Join with a PC room code","PCのルームコードで参加","输入电脑房间代码"),26,JourneyMenuUI.Muted);
-            JourneyMenuUI.Text(new Rect(r.x+30,r.y+240,610,42),L.T("열기 →","Open →","開く →","打开 →"),28,JourneyMenuUI.Accent);
-            if(JourneyMenuUI.Click(r)){if(i==0)HostRoom();else Show(2,false);}
+            string desc=i==0?L.T("PC와 폰이 한 방에서 함께 다리를 나눠 맡아요.","PCs and phones share the legs in one room.","PCとスマホが一つのルームで脚を分担します。","电脑和手机在同一房间分担桌腿。"):L.T("Steam 친구의 방을 고르거나 방 코드를 입력해요.","Pick a Steam friend's room or type a room code.","Steamフレンドのルームを選ぶか、コードを入力します。","选择 Steam 好友的房间，或输入房间代码。");
+            string action=i==0?L.T("방 만들기","Create room","作成する","创建"):L.T("방 찾기","Find rooms","ルームを探す","查找房间");
+            if(JourneyMenuUI.ChoiceCard(r,i+1,title,desc,action)){if(i==0)HostRoom();else Show(2,false);}
         }
-        if(!string.IsNullOrEmpty(NetSession.Status))JourneyMenuUI.Text(new Rect(310,784,1180,68),NetSession.Status,23,JourneyMenuUI.Muted);
+        Status();
     }
     void DrawWebLobby()
     {
-        Heading(L.T("웹 다리 방","Web leg room","ウェブの脚ルーム","网页桌腿房间"));
+        Heading(L.T("웹 다리 방","Web leg room","ウェブの脚ルーム","网页桌腿房间"),L.T("폰으로 QR을 찍어 다리를 하나씩 맡아요.","Scan the QR with a phone to take a leg.","スマホでQRを読み取り、脚を担当します。","用手机扫二维码，各自负责一条腿。"));
         var bridge=PhoneControllerBridge.Instance;
-        if(bridge!=null)bridge.DrawInvite(new Rect(100,355,1400,350));
-        if(bridge==null||!bridge.Connected)JourneyMenuUI.Text(new Rect(100,735,800,35),L.T("연결 대기","Connecting","接続中","连接中"),22,JourneyMenuUI.Muted);
-        else if(bridge.WatchCode.Length==8)
-            JourneyMenuUI.Text(new Rect(100,739,1200,38),L.T("같은 화면 보기","Watch together","同じ画面を見る","观看同一画面")+"  "+bridge.WatchCode.Substring(0,4)+" "+bridge.WatchCode.Substring(4)+"   "+bridge.PublicOrigin+"/watch",21,JourneyMenuUI.Muted);
-        if(JourneyMenuUI.Button(new Rect(1070,790,430,52),L.T("맵 고르기 →","Choose map →","マップを選ぶ →","选择地图 →"),true,true))Show(3,false);
+        if(bridge!=null)bridge.DrawInvite(new Rect(80,208,1440,440));
+        string note=bridge==null||!bridge.Connected?L.T("연결 대기","Connecting","接続中","连接中"):
+            bridge.WatchCode.Length==8?L.T("같은 화면 보기","Watch together","同じ画面を見る","观看同一画面")+"  "+bridge.WatchCode.Substring(0,4)+" "+bridge.WatchCode.Substring(4)+"   "+bridge.PublicOrigin+"/watch":"";
+        JourneyMenuUI.Note(new Rect(80,672,1440,40),note);
+        if(JourneyMenuUI.Button(ActionRect,L.T("맵 고르기","Choose map","マップを選ぶ","选择地图"),true,true))Show(3,false);
     }
     void DrawDifficulty()
     {
-        Heading(L.T("난이도 선택","Choose difficulty","難易度選択","选择难度"));
+        Heading(L.T("난이도 선택","Choose difficulty","難易度選択","选择难度"),L.T("언제든 다시 고를 수 있어요.","You can change this any time.","いつでも変更できます。","随时可以更改。"));
         for(int i=0;i<2;i++){
-            var mode=i==0?Difficulty.Mode.Coward:Difficulty.Mode.Normal;
-            var r=new Rect(100+i*710,420,670,270);bool selected=Difficulty.Local==mode;
-            JourneyMenuUI.Paper(r,selected,r.Contains(JourneyMenuUI.MousePosition));JourneyMenuUI.Icon(new Rect(r.x+30,r.y+65,105,105),0);
-            JourneyMenuUI.HoverText(new Rect(r.x+164,r.y+62,472,68),Difficulty.Name(mode,false),r,37);
-            JourneyMenuUI.Text(new Rect(r.x+164,r.y+137,472,90),Difficulty.Desc(mode),26,JourneyMenuUI.Muted);
-            if(selected)JourneyMenuUI.Text(new Rect(r.x+20,r.y+11,620,35),L.T("현재 선택","Selected","選択中","已选择"),21,JourneyMenuUI.Accent,TextAnchor.MiddleRight);
-            // The selection badge persists; the underline exists only under the pointer.
-            if(JourneyMenuUI.Click(r)){Difficulty.Local=mode;step=1;}
+            var mode=i==0?Difficulty.Mode.Coward:Difficulty.Mode.Normal;bool selected=Difficulty.Local==mode;
+            var r=new Rect(80+i*736,208,704,440);
+            if(JourneyMenuUI.ChoiceCard(r,0,Difficulty.Name(mode,false),Difficulty.Desc(mode),L.T("이 난이도로","Choose this","これにする","选择此难度"),true,selected,selected?L.T("현재 선택","Selected","選択中","已选择"):null)){Difficulty.Local=mode;step=1;JourneyMenuUI.BlockClick();}
         }
     }
     void DrawStageSelect()
     {
-        Heading(L.T("맵 선택","Select checkpoint","チェックポイント選択","选择检查点"));
-        uint mask=CheckpointProgress.Mask;journey.Draw(new Rect(100,387,1400,335),mask);
-        if(JourneyMenuUI.Button(new Rect(100,724,65,48),"‹",journey.Selected>0))journey.Select(journey.Selected-1);
-        if(JourneyMenuUI.Button(new Rect(1435,724,65,48),"›",journey.Selected<15))journey.Select(journey.Selected+1);
-        JourneyMenuUI.Text(new Rect(650,728,300,38),(journey.Selected+1).ToString("00")+" / 16",23,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        Heading(L.T("어디서 시작할까요","Where to start","どこから始める？","从哪里开始"),L.T("도착한 곳에서만 시작할 수 있어요. ← → 키나 휠로 넘겨요.","You can start only from places you have reached. Use ← → or the wheel.","たどり着いた場所からだけ始められます。← → かホイールで移動。","只能从已到达的地点开始。用 ← → 或滚轮切换。"));
+        uint mask=CheckpointProgress.Mask;journey.Draw(new Rect(80,192,1440,368),mask);
+        if(JourneyMenuUI.ArrowButton(new Rect(80,592,88,JourneyMenuUI.HS),-1,journey.Selected>0))journey.Select(journey.Selected-1);
+        if(JourneyMenuUI.ArrowButton(new Rect(1432,592,88,JourneyMenuUI.HS),1,journey.Selected<15))journey.Select(journey.Selected+1);
         bool open=(mask&(1u<<journey.Selected))!=0;
-        if(JourneyMenuUI.Button(new Rect(1070,790,430,52),open?L.T("여기서 시작 →","Start here →","ここから出発 →","从这里出发 →"):L.T("아직 도착하지 않은 곳","Not reached yet","まだたどり着いていません","尚未到达"),open&&!loadPending,true)){
+        JourneyMenuUI.Text(new Rect(200,592,1200,40),(journey.Selected+1).ToString("00")+"  "+CheckpointCatalog.Label(journey.Selected,mask),JourneyMenuUI.TM,open?JourneyMenuUI.Ink:JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Text(new Rect(200,632,1200,32),(journey.Selected+1).ToString("00")+" / 16",JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);
+        if(JourneyMenuUI.Button(ActionRect,open?L.T("여기서 시작","Start here","ここから出発","从这里出发"):L.T("아직 도착하지 않은 곳","Not reached yet","まだたどり着いていません","尚未到达"),open&&!loadPending,true)){
             int id=journey.Selected;loadPending=true;Time.timeScale=1;Close();PhoneControllerBridge.WebPlayActive=webRoute;CheckpointRuntime.Launch(id);
         }
     }
