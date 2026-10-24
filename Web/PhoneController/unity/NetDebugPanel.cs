@@ -23,7 +23,7 @@ public class NetDebugPanel : MonoBehaviour
     public static readonly Rect NextRect=new Rect(1120,780,400,JourneyMenuUI.HS);
     public static readonly Rect LeaveRect=new Rect(80,780,280,JourneyMenuUI.HS);
     public static readonly Rect CopyRect=new Rect(800,184,224,JourneyMenuUI.HS),InviteRect=new Rect(1040,184,224,JourneyMenuUI.HS),QrRect=new Rect(1280,184,224,JourneyMenuUI.HS);
-    public static Rect LegButton(int i)=>new Rect(i%2==0?80:1184,i<2?560:304,336,192);
+    public static Rect LegButton(int i)=>new Rect(i%2==0?80:1184,i<2?552:296,336,208);
     bool OverlayBlocked {get{if(select==null)select=FindAnyObjectByType<LevelSelect>();return PauseMenu.InputBlocked||LetterOverlay.IsOpen||(select!=null&&select.Showing);}}
     void Start(){if(NM!=null)NM.OnClientDisconnectCallback+=OnDisconnected;}
     void OnDestroy(){LobbyOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
@@ -105,10 +105,10 @@ public class NetDebugPanel : MonoBehaviour
         var r=RoomRect;JourneyMenuUI.Box(r,JourneyMenuUI.Kind.Panel);
         string code=string.IsNullOrEmpty(NetSession.JoinCode)?L.T("로컬 방","Local room","ローカルルーム","本地房间"):NetSession.JoinCode;
         JourneyMenuUI.Text(new Rect(r.x+JourneyMenuUI.S4,r.y+JourneyMenuUI.S2,320,32),L.T("방 코드","Room code","ルームコード","房间代码"),JourneyMenuUI.TXS,JourneyMenuUI.Muted);
-        JourneyMenuUI.Literal(new Rect(r.x+JourneyMenuUI.S4,r.y+48,440,44),code,JourneyMenuUI.TM,JourneyMenuUI.Ink);
+        JourneyMenuUI.Literal(new Rect(r.x+JourneyMenuUI.S4,r.y+48,352,44),code,JourneyMenuUI.TM,JourneyMenuUI.Ink);   // 긴 스팀 로비 번호는 글씨만 작아짐
         int phones=0;for(int i=0;i<4;i++)if((Link.PhoneMask&(1<<i))!=0)phones++;
-        string info=Time.unscaledTime<statusUntil?status:L.T("PC ","PC ","PC ","电脑 ")+Link.LobbyPlayerCount+" / 4      "+L.T("폰 ","Phone ","スマホ ","手机 ")+phones+" / 4";
-        JourneyMenuUI.Text(new Rect(r.x+480,r.y,CopyRect.x-r.x-480-JourneyMenuUI.S4,r.height),info,JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleRight);
+        string info=Time.unscaledTime<statusUntil?status:L.T("PC ","PC ","PC ","电脑 ")+Link.LobbyPlayerCount+"/4    "+L.T("폰 ","Phone ","スマホ ","手机 ")+phones+"/4";
+        JourneyMenuUI.Literal(new Rect(r.x+400,r.y,CopyRect.x-r.x-400-JourneyMenuUI.S4,r.height),info,JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleRight);   // 한 줄(넘치면 글씨만 작아짐)
         if(JourneyMenuUI.Button(CopyRect,L.T("코드 복사","Copy code","コードをコピー","复制代码"),!string.IsNullOrEmpty(NetSession.JoinCode))){GUIUtility.systemCopyBuffer=NetSession.JoinCode;status=L.T("방 코드를 복사했어요","Room code copied","コードをコピーしました","已复制房间代码");statusUntil=Time.unscaledTime+2;}
         if(JourneyMenuUI.Button(InviteRect,L.T("친구 초대","Invite friends","フレンド招待","邀请好友"),NM.IsHost&&SteamLobby.InLobby))SteamLobby.OpenInviteOverlay();
         if(JourneyMenuUI.Button(QrRect,L.T("폰 QR","Phone QR","スマホQR","手机二维码"),NM.IsHost&&PhoneControllerBridge.Instance!=null&&PhoneControllerBridge.Instance.Connected))phoneInvites=true;
@@ -139,18 +139,31 @@ public class NetDebugPanel : MonoBehaviour
                 JourneyMenuUI.Line(from,bend,line,2);JourneyMenuUI.Line(bend,target,line,2);JourneyMenuUI.Dot(target,5,c);
             }
             JourneyMenuUI.BeginCard(r,can,mine);
-            JourneyMenuUI.RoundFill(new Rect(r.x+JourneyMenuUI.S3,r.y+JourneyMenuUI.S3,8,r.height-2*JourneyMenuUI.S3),c,4);   // 다리 색 = 어느 다리인지
-            float tx=r.x+JourneyMenuUI.S3+8+JourneyMenuUI.S3,tw=r.xMax-JourneyMenuUI.S3-tx;
-            JourneyMenuUI.Text(new Rect(tx,r.y+JourneyMenuUI.S2,tw,32),LegLayout.Name(i),JourneyMenuUI.TXS,JourneyMenuUI.Muted);
-            JourneyMenuUI.KeyCluster(new Rect(tx,r.y+52,tw,88),i,can);   // 자판 키캡 그대로(위 1 + 아래 3)
-            string who=open?L.T("빈 자리","Free","空き","空位"):Link.DisplayNameOf(owner)+(mine?L.T(" (나)"," (you)","（自分）","（我）"):"");
-            JourneyMenuUI.Literal(new Rect(tx,r.y+r.height-JourneyMenuUI.S2-32,tw,32),who,JourneyMenuUI.TXS,mine?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
+            DrawLegCard(r,i,owner,mine,open,can);
             JourneyMenuUI.EndCard();
             bool hit=JourneyMenuUI.Click(r,can);
             if(!hit&&tablePreview.Ready)hit=JourneyMenuUI.Click(tablePreview.LegBounds(i,TableRect),can);
             if(hit){JourneyMenuUI.BlockClick();Link.ClaimLegRpc((byte)i);}
         }
         if(JourneyMenuUI.Button(NextRect,L.T("다음","Next","次へ","下一步"),NM.IsHost&&Link.CanChooseMap,true)){JourneyMenuUI.BlockClick();Link.ChooseMap();}
+    }
+    /// <summary>다리 카드 = [머리 줄: 다리 색 점 + 다리 이름 | 맡은 사람 칸] + [자판 판: 키캡 위 1 + 아래 3].</summary>
+    void DrawLegCard(Rect r,int i,long owner,bool mine,bool open,bool can)
+    {
+        const float S1=JourneyMenuUI.S1,S2=JourneyMenuUI.S2,S3=JourneyMenuUI.S3;
+        var head=new Rect(r.x+S3,r.y+S2,r.width-2*S3,40);
+        // 맡은 사람 칸: 내 다리 = 검정, 남의 다리 = 흰 칸, 빈 자리 = 연한 칸
+        string who=open?L.T("빈 자리","Free","空き","空位"):mine?L.T("나","Me","自分","我"):Link.DisplayNameOf(owner);
+        float bw=Mathf.Clamp(JourneyMenuUI.TextWidth(who,JourneyMenuUI.TXS)+2*S2,88,150);
+        var badge=new Rect(head.xMax-bw,head.y,bw,head.height);
+        JourneyMenuUI.Box(badge,mine?JourneyMenuUI.Kind.Primary:open?JourneyMenuUI.Kind.Soft:JourneyMenuUI.Kind.Card);
+        JourneyMenuUI.Literal(badge,who,JourneyMenuUI.TXS,mine?JourneyMenuUI.White:open?JourneyMenuUI.Muted:JourneyMenuUI.Ink,TextAnchor.MiddleCenter);
+        JourneyMenuUI.Dot(new Vector2(head.x+8,head.center.y),8,LegPalette.BySlot[i]);   // 다리 색 = 어느 다리인지
+        JourneyMenuUI.Text(new Rect(head.x+16+S2,head.y,badge.x-head.x-16-S2-S1,head.height),LegLayout.Name(i),JourneyMenuUI.TXS,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
+        // 자판 판: 연한 상자 안에 키캡
+        var plate=new Rect(r.x+S2,head.yMax+S2,r.width-2*S2,r.yMax-S2-(head.yMax+S2));
+        JourneyMenuUI.Box(plate,JourneyMenuUI.Kind.Soft);
+        JourneyMenuUI.KeyCluster(new Rect(plate.x,plate.y+S1,plate.width,plate.height-2*S1),i,can);
     }
     void DrawMap()
     {
