@@ -410,7 +410,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     public void DrawInvite(Rect area)
     {
         // 지우개 대소동 규칙: 종이 창 안에 [QR 카드 → 입장 코드] + [제목 → 설명 → 다리 4줄(색 점만 다리 색)]
-        const float S1 = JourneyMenuUI.S1, S2 = JourneyMenuUI.S2, S3 = JourneyMenuUI.S3, S4 = JourneyMenuUI.S4;
+        const float S2 = JourneyMenuUI.S2, S3 = JourneyMenuUI.S3, S4 = JourneyMenuUI.S4;
         JourneyMenuUI.Box(area, JourneyMenuUI.Kind.Panel);
         float size = Mathf.Min(area.height - 2 * S4 - 56f - S2, 320f);
         var card = new Rect(area.x + S4, area.y + S4, size, size);
