@@ -14,6 +14,8 @@ public static class Progress
     static readonly string[] MenuScenes = { "StartScreen", "NewStartScreen" };
 
     static string prevScene;
+    /// <summary>치트 맵 이동 직전에 켬 — 그 한 번의 씬 전환은 클리어로 치지 않는다.</summary>
+    public static bool SkipNextClear;
 
     public static bool IsCleared(string scene) => PlayerPrefs.GetInt("clear." + scene, 0) == 1;
 
@@ -45,7 +47,8 @@ public static class Progress
         if (mode != LoadSceneMode.Single) return;
         string cur = s.name;
         // 게임 맵 → '다른' 게임 맵 = 이전 맵 클리어 (재시작·메뉴 복귀 제외)
-        if (prevScene != cur
+        bool skip = SkipNextClear; SkipNextClear = false;
+        if (!skip && prevScene != cur
             && System.Array.IndexOf(Chain, prevScene) >= 0
             && System.Array.IndexOf(MenuScenes, cur) < 0)
             MarkCleared(prevScene);

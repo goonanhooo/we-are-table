@@ -905,5 +905,6 @@
 - 검증: 웹 테스트 6/6(조이스틱·닉네임·모드 포함), 워커 프로토콜 11/11(`wrangler dev --local --local-protocol https` + `NODE_TLS_REJECT_UNAUTHORIZED=0`로 배포 없이 로컬 확인 가능), Unity 컴파일 에러 0, 플레이 확인(Moon + 로컬 StartHost + `started` 반사 설정): 설정 메뉴·다리 다시 고르기·기린 긴 다리 그림·닉네임 타이핑(띄어쓰기·지우기)·저장 후 이름표 반영·게임 중 다리 잡기 스크린샷/값 확인.
 - **폰 방향키 = 지금 고른 다리 색**(큰 방향키·작은 방향키 모두 `--leg-rgb`).
 - **다리 고르는 순간 폰에 큰 다리 버튼**: Unity `visual` 패킷에 `legSelect`(= `NetDebugPanel.LegsPageOpen`(로비 다리 단계) || `LevelSelect.WebLobbyOpen`(혼자 하기 웹 다리 방, step 4) || `PauseMenu.LegsScreenOpen`(호스트가 설정의 다리 다시 고르기를 연 동안)) → 중계가 `status.visual.legSelect`로 → 폰 `#play.choosing`: 가운데 `#leg-picker` 큰 버튼 4개(위 = 앞다리, 아래 = 뒷다리, 아래 글씨 = 내 다리 / 다른 폰 닉네임 / PC), 방향키·원·능력 버튼과 작은 색 버튼은 숨김, 그동안 입력·pose 안 보냄. ⚠️게스트 PC가 설정을 연 것은 호스트가 모름(폰은 호스트 브리지에만 붙음). 미리보기 `pick=1` / '게임 화면' 칩.
+- **치트 맵 고르기(방 유지)**: 설정 메뉴에서 치트가 켜져 있고 씬을 바꿀 권한이 있으면(호스트·혼자 하기, PerTableMode 아님) 아래 줄 치트 칸 옆에 '맵 고르기' → 복도·정글·얼음 동굴·우주·달 카드 + '다음 맵으로'. 이동 = `NetScene.Load(씬)`(온라인은 NGO 씬 전환 = 게스트 동행, 폰 브리지는 DontDestroyOnLoad라 연결 유지, 다리 배정은 NetLegLink static 캐시로 유지). `Progress.SkipNextClear`로 그 한 번의 전환은 클리어로 안 남김(지점 저장은 원래 치트 중엔 안 됨). 실측: Hallway 호스트 세션 → 다음 맵 → Jungle, 세션·내 다리 유지.
 - ⚠️캡처 요령: Unity가 앞 창이 아니면 ScreenCapture가 파일을 안 씀 → `open -a <Unity.app>`로 앞으로 + EditorApplication.update에서 몇십 프레임씩 나눠 '열기 → 캡처'(같은 프레임은 그려지기 전).
 

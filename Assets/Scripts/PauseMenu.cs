@@ -33,6 +33,7 @@ public class PauseMenu : MonoBehaviour
     public static bool LegsScreenOpen {get;private set;}
     bool showControls;      // 조작법 화면 표시 중
     bool showLegs;          // 다리 다시 고르기 화면 표시 중(온라인 게임 중에만)
+    bool showMaps;          // 치트: 맵 고르기 화면 표시 중
     readonly NicknameTyping nick = new NicknameTyping();
     LobbyTablePreview legsPreview;   // 다리 다시 고르기 화면 가운데의 지금 테이블
     NetLegLink cachedLink;
@@ -49,7 +50,23 @@ public class PauseMenu : MonoBehaviour
     //   다리 다시 고르기 화면은 가운데에 테이블이 들어가서 더 넓다.
     public static readonly Rect PanelMenu = new Rect(256f, 42f, 1088f, 816f), PanelLegs = new Rect(160f, 42f, 1280f, 816f);
     Rect Panel = PanelMenu;
-    Rect legsBtn, legsBack, legsTable, nickLabel, nickField, nickSave, nameTagBtn;
+    Rect legsBtn, legsBack, legsTable, nickLabel, nickField, nickSave, nameTagBtn, mapsBtn, mapsBack, mapsNext;
+    readonly Rect[] mapCards = new Rect[5];
+    // 치트 맵 고르기: 이야기 순서대로(방·폰 연결은 그대로 두고 씬만 바꾼다)
+    static readonly string[] MapScenes = { "Hallway", "Jungle", "IceCavern", "Space", "Moon" };
+    static string MapName(int i) => i switch
+    {
+        0 => L.T("복도", "Hallway", "廊下", "走廊"),
+        1 => L.T("정글", "Jungle", "ジャングル", "丛林"),
+        2 => L.T("얼음 동굴", "Ice cave", "氷の洞窟", "冰洞"),
+        3 => L.T("우주", "Space", "宇宙", "太空"),
+        _ => L.T("달", "Moon", "月", "月球"),
+    };
+    static int CurrentMap()
+    {
+        string scene = SceneManager.GetActiveScene().name;
+        return scene == "Moon_CozyKitchen" ? 4 : System.Array.IndexOf(MapScenes, scene);
+    }
     readonly Rect[] legCards = new Rect[4];
     Rect titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
@@ -80,6 +97,9 @@ public class PauseMenu : MonoBehaviour
             return !handMode && nm != null && nm.IsListening && Link != null && Link.IsSpawned && Link.Started && FindAnyObjectByType<PerTableMode>() == null;
         }
     }
+
+    /// <summary>치트가 켜져 있고 씬을 바꿀 권한이 있으면(호스트·혼자 하기) 맵을 골라 바로 이동할 수 있다.</summary>
+    bool MapsAvailable => !handMode && CheatMode.Active && CheckpointRuntime.Authority && FindAnyObjectByType<PerTableMode>() == null;
 
     // 시작 화면에서 SampleScene을 additive 배경으로 띄운 경우, 이 테이블은 비활성(배경) 씬 소속.
     bool IsBackground() => gameObject.scene != SceneManager.GetActiveScene();
@@ -135,6 +155,7 @@ public class PauseMenu : MonoBehaviour
         float by = Panel.yMax - S5 - HM;
         resumeBtn = handMode ? new Rect(x, by, 320f, HM) : new Rect(Panel.xMax - S5 - 400f, by, 400f, HM);
         cheatBtn = handMode ? new Rect(x + 320f + S4, by, 320f, HM) : new Rect(x, by, 320f, HM);   // 숨은 치트(호버해야만 보임)
+        mapsBtn = MapsAvailable ? new Rect(cheatBtn.xMax + S4, by, resumeBtn.x - S4 - (cheatBtn.xMax + S4), HM) : Off;
     }
 
     void ComputeControlsLayout()
@@ -167,6 +188,26 @@ public class PauseMenu : MonoBehaviour
         nickField = new Rect(x + 160f + S2, ny, inner - 160f - 240f - 2 * S2, HS);
         nickSave = new Rect(nickField.xMax + S2, ny, 240f, HS);
         legsBack = new Rect(x, Panel.yMax - S5 - HM, 320f, HM);
+    }
+
+    /// <summary>맵 고르기 화면: 맵 다섯 개(3 + 2) + 아래 줄 뒤로 / 다음 맵으로.</summary>
+    void ComputeMapsLayout()
+    {
+        const float S2 = JourneyMenuUI.S2, S4 = JourneyMenuUI.S4, S5 = JourneyMenuUI.S5, HM = JourneyMenuUI.HM;
+        Panel = PanelMenu;
+        float x = Panel.x + S5, inner = Panel.width - 2 * S5, w = (inner - 2 * S4) / 3f, h = 176f, top = Panel.y + 120f;
+        titleRect = new Rect(x, Panel.y + S4, inner, 52f);
+        for (int i = 0; i < 5; i++) mapCards[i] = new Rect(x + (i % 3) * (w + S4), top + (i / 3) * (h + S2 + S4), w, h);
+        float by = Panel.yMax - S5 - HM;
+        mapsBack = new Rect(x, by, 320f, HM);
+        mapsNext = new Rect(Panel.xMax - S5 - 400f, by, 400f, HM);
+    }
+    void LoadMap(int i)
+    {
+        if (i < 0 || i >= MapScenes.Length || !CheckpointRuntime.Authority) return;
+        SetPaused(false);
+        Progress.SkipNextClear = true;   // 치트 이동은 클리어로 남기지 않음
+        NetScene.Load(MapScenes[i]);      // 온라인 = 호스트가 전원을 함께 옮김(방·폰 연결 유지)
     }
 
     void OpenLegs()
@@ -231,6 +272,7 @@ public class PauseMenu : MonoBehaviour
             }
             if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
             else if (paused && showLegs) CloseLegs();         // 다리 고르기 화면이면 메뉴로 복귀
+            else if (paused && showMaps) showMaps = false;    // 맵 고르기 화면이면 메뉴로 복귀
             else SetPaused(!paused);
             return;
         }
@@ -252,6 +294,25 @@ public class PauseMenu : MonoBehaviour
                 if (cClose.Contains(gm)) showControls = false;
                 else if (pg.Length > 1 && cNext.Contains(gm)) controlsPage = (controlsPage + 1) % pg.Length;
                 else if (pg.Length > 1 && cPrev.Contains(gm)) controlsPage = (controlsPage - 1 + pg.Length) % pg.Length;
+            }
+            return;
+        }
+
+        if (showMaps)
+        {
+            if (!MapsAvailable) { showMaps = false; return; }
+            ComputeMapsLayout();
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                int here = CurrentMap();
+                if (mapsBack.Contains(gm)) showMaps = false;
+                else if (mapsNext.Contains(gm)) { if (here >= 0 && here < MapScenes.Length - 1) LoadMap(here + 1); }
+                else
+                {
+                    bool hit = false;
+                    for (int i = 0; i < mapCards.Length; i++) if (mapCards[i].Contains(gm)) { hit = true; LoadMap(i); break; }
+                    if (!hit && !Panel.Contains(gm)) SetPaused(false);
+                }
             }
             return;
         }
@@ -306,6 +367,7 @@ public class PauseMenu : MonoBehaviour
             else if (nameTagBtn.Contains(gm)) LegNameTags.Visible = !LegNameTags.Visible;
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
             else if (legsBtn.Contains(gm)) OpenLegs();
+            else if (mapsBtn.Contains(gm)) showMaps = true;
             else if (langBtn.Contains(gm)) { LanguageSelector.HandleClick(langBtn, gm); }
             else if (displayBtn.Contains(gm)) { DisplayMode.Toggle(); }
             else if (restartBtn.Contains(gm))
@@ -351,6 +413,7 @@ public class PauseMenu : MonoBehaviour
             // 게임으로 복귀: 마우스 시점(CameraFollow)을 위해 다시 잠금(시작 화면은 StartScreenMenu가 매 프레임 해제)
             dragSlider = 0;
             showControls = false;
+            showMaps = false;
             CloseLegs();
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -366,11 +429,12 @@ public class PauseMenu : MonoBehaviour
         JourneyMenuUI.Begin();
         if (handMode) JourneyMenuUI.Backdrop(.97f); else JourneyMenuUI.Fill(new Rect(-400, -400, 2400, 1700), new Color(0f, 0f, 0f, .38f));
         JourneyMenuUI.End();
-        JourneyMenuUI.BeginModal("pause", showControls ? "controls" : showLegs ? "legs" : "menu");
+        JourneyMenuUI.BeginModal("pause", showControls ? "controls" : showLegs ? "legs" : showMaps ? "maps" : "menu");
         try
         {
             if (showControls) { DrawControlsScreen(gm); return; }
             if (showLegs) { ComputeLegsLayout(); DrawLegsScreen(); return; }
+            if (showMaps) { ComputeMapsLayout(); DrawMapsScreen(); return; }
             ComputeLayout(); DrawMenu(gm);
         }
         finally { JourneyMenuUI.End(); }
@@ -392,6 +456,7 @@ public class PauseMenu : MonoBehaviour
         LanguageSelector.Draw(langBtn, gm);
         JourneyMenuUI.ButtonVisual(controlsBtn, L.T("조작법 보기", "Controls", "操作方法", "操作说明"));
         if (legsBtn.width > 0f) JourneyMenuUI.ButtonVisual(legsBtn, L.T("다리 다시 고르기", "Change legs", "脚を選び直す", "重新选择桌腿"));
+        if (mapsBtn.width > 0f) JourneyMenuUI.ButtonVisual(mapsBtn, L.T("맵 고르기", "Maps", "マップ", "地图"));
         if (!handMode)
         {
             JourneyMenuUI.ButtonVisual(restartBtn, L.T("이 지점부터 다시 시작", "Restart from checkpoint", "地点からやり直す", "从检查点重来"), CheckpointRuntime.Authority);
@@ -404,6 +469,33 @@ public class PauseMenu : MonoBehaviour
         // 숨은 치트: 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
             JourneyMenuUI.Text(cheatBtn, L.T("치트: ", "Cheat: ", "チート: ", "作弊: ") + (CheatMode.Active ? "ON" : "OFF"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
+    }
+
+    void DrawMapsScreen()
+    {
+        const float S2 = JourneyMenuUI.S2, S3 = JourneyMenuUI.S3;
+        JourneyMenuUI.Box(Panel, JourneyMenuUI.Kind.Sheet);
+        JourneyMenuUI.Text(titleRect, L.T("맵 고르기", "Choose a map", "マップを選ぶ", "选择地图"), JourneyMenuUI.TL);
+        int here = CurrentMap();
+        for (int i = 0; i < mapCards.Length; i++)
+        {
+            var r = mapCards[i]; bool now = i == here;
+            JourneyMenuUI.BeginCard(r, true, now);
+            JourneyMenuUI.Literal(new Rect(r.x + S3, r.y + S2, 80f, 40f), (i + 1).ToString("00"), JourneyMenuUI.TXS, JourneyMenuUI.Muted);
+            if (now)
+            {
+                string tag = L.T("지금", "Now", "いま", "当前");
+                float bw = JourneyMenuUI.TextWidth(tag, JourneyMenuUI.TXS) + 2 * S2;
+                var badge = new Rect(r.xMax - S3 - bw, r.y + S2, bw, 40f);
+                JourneyMenuUI.Box(badge, JourneyMenuUI.Kind.Primary);
+                JourneyMenuUI.Literal(badge, tag, JourneyMenuUI.TXS, JourneyMenuUI.White, TextAnchor.MiddleCenter);
+            }
+            JourneyMenuUI.Text(new Rect(r.x + S3, r.y + 56f, r.width - 2 * S3, r.height - 72f), MapName(i), JourneyMenuUI.TL, JourneyMenuUI.Ink, TextAnchor.MiddleCenter);
+            JourneyMenuUI.EndCard();
+        }
+        bool hasNext = here >= 0 && here < MapScenes.Length - 1;
+        JourneyMenuUI.ButtonVisual(mapsNext, L.T("다음 맵으로", "Next map", "次のマップへ", "下一张地图"), hasNext, true);
+        BackVisual(mapsBack);
     }
 
     void DrawLegsScreen()
