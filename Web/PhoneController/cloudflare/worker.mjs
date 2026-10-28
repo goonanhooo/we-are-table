@@ -5,6 +5,7 @@ const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const normalize=value=>String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const code=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),v=>alphabet[v%32]).join('');
 const secret=()=>Array.from(crypto.getRandomValues(new Uint8Array(24)),v=>v.toString(16).padStart(2,'0')).join('');
+const cleanName=value=>Array.from(String(value||'').replace(/[\x00-\x1f\x7f<>\u202a-\u202e\u2066-\u2069]/g,'').trim()).slice(0,16).join('');
 const masks={normal:0,giraffe:48,tennis:192,ice:48,squid:16};
 const headers={'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers});
@@ -98,7 +99,7 @@ export class PhoneRoom extends DurableObject {
   async save(){await this.ctx.storage.put('room',this.room);}
   frame(ws,p,value){if(p.framePending)return;p.framePending=true;this.persist(ws,p);send(ws,value);}
   status(){const players=this.players(),native=this.native();return {type:'status',unity:!!this.unity(),occupiedSlots:players.map((p,i)=>!!p||native[i]),nativeSlots:native,players:players.map(p=>p?{name:p.name,active:!!p.bits}:null),visual:this.room.visual};}
-  lobby(){const players=this.players();return {type:'lobby',room:this.room.room,codes:[],joinCode:this.room.joinCode,joinQrPng:this.room.joinQrPng,watchCode:this.room.watchCode,nativeRoomCode:this.unity()?this.room.nativeRoomCode:'',origin:this.room.origin,occupiedSlots:players.map(Boolean),nativeSlots:this.native(),unity:!!this.unity(),viewers:this.list('viewer').length};}
+  lobby(){const players=this.players();return {type:'lobby',room:this.room.room,codes:[],joinCode:this.room.joinCode,joinQrPng:this.room.joinQrPng,watchCode:this.room.watchCode,nativeRoomCode:this.unity()?this.room.nativeRoomCode:'',origin:this.room.origin,occupiedSlots:players.map(Boolean),names:players.map(p=>p?p.name:''),nativeSlots:this.native(),unity:!!this.unity(),viewers:this.list('viewer').length};}
   publish(){const status=this.status();for(const [ws] of this.list('player'))send(ws,status);send(this.unity(),this.lobby());for(const [ws] of this.list('host'))send(ws,this.lobby());for(const [ws] of this.list('viewer'))send(ws,{type:'watch-status',unity:!!this.unity(),viewers:this.list('viewer').length});}
   input(slot,bits){const p=this.players()[slot];if(p){p.bits=bits;const {ws,...data}=p;this.persist(ws,data);}send(this.unity(),{type:'input',slot,bits,occupied:!!p});}
   pose(slot,active){const p=this.players()[slot];send(this.unity(),{type:'pose',slot,active:!!p&&active,x:active?p?.x||0:0,z:active?p?.z||0:0,yaw:active?p?.yaw||0:0});}
@@ -142,7 +143,7 @@ export class PhoneRoom extends DurableObject {
           const players=this.players(),native=this.native(),available=i=>!players[i]&&!native[i];
           const slot=Number.isInteger(m.preferredSlot)&&m.preferredSlot>=0&&m.preferredSlot<4&&available(m.preferredSlot)?m.preferredSlot:[0,1,2,3].find(available)??-1;
           if(slot<0){send(ws,{type:'error',message:'빈 다리가 없습니다'});close(ws,'room full');return;}
-          Object.assign(p,{role:'player',slot,name:String(m.name||'플레이어').replace(/[\x00-\x1f]/g,'').slice(0,16),bits:0,last:now,poseActive:false,poseLast:0,x:0,z:0,yaw:0});
+          Object.assign(p,{role:'player',slot,name:cleanName(m.name),bits:0,last:now,poseActive:false,poseLast:0,x:0,z:0,yaw:0});
           this.persist(ws,p);send(ws,{type:'joined',slot});this.input(slot,0);this.publish();return;
         }
         close(ws,'key');return;
@@ -176,6 +177,7 @@ export class PhoneRoom extends DurableObject {
         if(m.active&&(![m.x,m.z,m.yaw].every(Number.isFinite)||Math.abs(m.yaw)>3600||m.x*m.x+m.z*m.z>1.05))return;
         Object.assign(p,{poseActive:m.active,poseLast:now,x:m.active?m.x:0,z:m.active?m.z:0,yaw:m.active?m.yaw:0});this.persist(ws,p);this.pose(p.slot,p.poseActive);if(m.active)await this.schedule();return;
       }
+      if(m.type==='name'&&typeof m.name==='string'){const name=cleanName(m.name);if(name!==p.name){p.name=name;this.persist(ws,p);this.publish();}return;}
       if(m.type==='switch'&&Number.isInteger(m.slot)&&m.slot>=0&&m.slot<4&&m.slot!==p.slot){
         if(this.players()[m.slot]||this.native()[m.slot]){send(ws,{type:'error',message:'사용 중인 다리'});return;}
         const old=p.slot;Object.assign(p,{slot:m.slot,bits:0,poseActive:false,x:0,z:0,yaw:0,last:now});this.persist(ws,p);

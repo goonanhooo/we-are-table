@@ -10,6 +10,15 @@ public class LegNameTags : MonoBehaviour
 {
     [Tooltip("다리 피벗 기준 라벨 높이(m)")] public float height = 0.55f;
 
+    // 설정 메뉴 '닉네임 표시' — 끄면 모든 테이블의 이름표가 사라진다(저장됨, 기본 켜짐)
+    const string PreferenceKey = "nameTags";
+    static int visible = -1;
+    public static bool Visible
+    {
+        get { if (visible < 0) visible = PlayerPrefs.GetInt(PreferenceKey, 1); return visible != 0; }
+        set { visible = value ? 1 : 0; PlayerPrefs.SetInt(PreferenceKey, visible); PlayerPrefs.Save(); }
+    }
+
     // 로비 슬롯 순서(0=WASD 뒤왼, 1=TFGH 뒤오, 2=IJKL 앞왼, 3=Arrows 앞오)
     static readonly string[] LegBySlot = LegLayout.MeshNames;
 
@@ -54,16 +63,17 @@ public class LegNameTags : MonoBehaviour
             linkFindAt = Time.unscaledTime + 2f;
         }
         if (cam == null) cam = Camera.main;
+        bool shown = Visible;
 
         for (int i = 0; i < 4; i++)
         {
             if (tags[i] == null) continue;
             long owner = inSession && link != null ? link.OwnerOf(i) : -2;
-            bool show = inSession && owner != -2 && link.Started;
+            bool show = shown && inSession && owner != -2 && link.Started;
             if (tags[i].gameObject.activeSelf != show) tags[i].gameObject.SetActive(show);
             if (!show || legs[i] == null) continue;
 
-            tags[i].text = link.DisplayNameOf(owner);
+            tags[i].text = link.NameOfLeg(i);
             var t = tags[i].transform;
             t.position = legs[i].position + Vector3.up * height;
             if (cam != null)

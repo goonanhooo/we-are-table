@@ -14,6 +14,7 @@ const createCode=()=>Array.from({length:8},()=>codeAlphabet[randomInt(codeAlphab
 const normalizeCode=value=>String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const actionMasks={normal:0,giraffe:48,tennis:192,ice:48,squid:16};
 const equal=(a,b)=>typeof a==='string' && a.length===b.length && timingSafeEqual(Buffer.from(a),Buffer.from(b));
+const cleanName=value=>Array.from(String(value||'').replace(/[\x00-\x1f\x7f<>\u202a-\u202e\u2066-\u2069]/g,'').trim()).slice(0,16).join('');
 const send=(ws,m)=>{if(ws?.readyState===WebSocket.OPEN && ws.bufferedAmount<65536)ws.send(JSON.stringify(m));};
 const isLocal=req=>{
   if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)||req.headers['cf-connecting-ip']||req.headers['x-forwarded-for'])return false;
@@ -29,7 +30,7 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
   const room={id:randomBytes(5).toString('hex').toUpperCase(),hostKey:secret(),codes,joinCode,watchCode,nativeRoomCode:'',players:Array(4).fill(null),nativeSlots:[false,false,false,false],unity:null,observers:new Set(),viewers:new Set(),visual:{mode:'normal'},lastFrame:null};
   let publicOrigin='',joinQrPng='',closed=false;
   const status=()=>({type:'status',unity:!!room.unity,occupiedSlots:room.players.map((p,i)=>!!p||room.nativeSlots[i]),nativeSlots:room.nativeSlots,players:room.players.map(p=>p?{name:p.name,active:!!p.bits}:null),visual:room.visual});
-  const lobby=()=>({type:'lobby',room:room.id,codes:room.codes,joinCode:room.joinCode,joinQrPng,watchCode:room.watchCode,nativeRoomCode:room.nativeRoomCode,origin:publicOrigin,occupiedSlots:room.players.map(Boolean),nativeSlots:room.nativeSlots,unity:!!room.unity,viewers:room.viewers.size});
+  const lobby=()=>({type:'lobby',room:room.id,codes:room.codes,joinCode:room.joinCode,joinQrPng,watchCode:room.watchCode,nativeRoomCode:room.nativeRoomCode,origin:publicOrigin,occupiedSlots:room.players.map(Boolean),names:room.players.map(p=>p?p.name:''),nativeSlots:room.nativeSlots,unity:!!room.unity,viewers:room.viewers.size});
   const publish=()=>{const s=status();for(const p of room.players)if(p)send(p.ws,s);send(room.unity,lobby());for(const w of room.observers)send(w,lobby());for(const w of room.viewers)send(w,{type:'watch-status',unity:!!room.unity,viewers:room.viewers.size});};
   const input=(slot,bits)=>{const p=room.players[slot];if(p)p.bits=bits;send(room.unity,{type:'input',slot,bits,occupied:!!p});};
   const pose=(slot,active)=>{const p=room.players[slot];send(room.unity,{type:'pose',slot,active:!!p&&active,x:active?p?.x||0:0,z:active?p?.z||0:0,yaw:active?p?.yaw||0:0});};
@@ -102,7 +103,7 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
             if(slot<0){send(ws,{type:'error',message:'방 코드 오류'});ws.close(1008,'code');return;}
             if(room.nativeSlots[slot]){send(ws,{type:'error',message:'PC가 선택한 다리'});ws.close(1008,'native occupied');return;}
             if(room.players[slot]){send(ws,{type:'error',message:'이미 연결된 다리'});ws.close(1008,'occupied');return;}
-            role='player';room.players[slot]={ws,name:String(m.name||'플레이어').replace(/[\x00-\x1f]/g,'').slice(0,16),bits:0,last:now,poseActive:false,poseLast:0,x:0,z:0,yaw:0};
+            role='player';room.players[slot]={ws,name:cleanName(m.name),bits:0,last:now,poseActive:false,poseLast:0,x:0,z:0,yaw:0};
             clearTimeout(authTimer);send(ws,{type:'joined',slot});input(slot,0);publish();return;
           }
           ws.close(1008,'key');return;
@@ -144,6 +145,9 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
           // In-flight input from the previous power cannot activate the new one.
           const mask=m.mode===room.visual.mode?(actionMasks[room.visual.mode]||0):0;
           input(slot,typeof m.mode==='string'?m.bits&(15|mask):m.bits);return;
+        }
+        if(role==='player'&&m.type==='name'&&typeof m.name==='string'){
+          const p=room.players[slot];if(p?.ws!==ws)return;const name=cleanName(m.name);if(name!==p.name){p.name=name;publish();}return;
         }
         if(role==='player'&&m.type==='switch'&&Number.isInteger(m.slot)&&m.slot>=0&&m.slot<4){
           if(m.slot===slot)return;

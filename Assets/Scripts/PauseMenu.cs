@@ -30,6 +30,10 @@ public class PauseMenu : MonoBehaviour
     bool paused;
     public static bool InputBlocked {get;private set;}
     bool showControls;      // 조작법 화면 표시 중
+    bool showLegs;          // 다리 다시 고르기 화면 표시 중(온라인 게임 중에만)
+    readonly NicknameTyping nick = new NicknameTyping();
+    LobbyTablePreview legsPreview;   // 다리 다시 고르기 화면 가운데의 지금 테이블
+    NetLegLink cachedLink;
     int controlsPage;       // 현재 조작법 페이지
     int dragSlider;         // 드래그 중인 슬라이더: 0 없음 / 1 마스터 / 2 BGM / 3 SFX
     int openedFrame = -1;   // 메뉴를 연 프레임. 그 프레임의 클릭은 '바깥 클릭 닫기'로 처리하지 않음.
@@ -40,7 +44,11 @@ public class PauseMenu : MonoBehaviour
     // ★2026-10-25 '지우개 대소동' 규칙으로 개편(사용자: "옵션 메뉴 박스는 더 키워도 됨"):
     //   1600×900 캔버스(JourneyMenuUI) 가운데 큰 종이 창 1088×752, 왼쪽 열 = 소리·화면, 오른쪽 열 = 언어·조작법·게임.
     //   클릭/드래그 판정은 Update가 같은 Rect 필드로(캔버스 좌표) 처리하고 OnGUI는 그리기만 한다.
-    public static readonly Rect Panel = new Rect(256f, 74f, 1088f, 752f);
+    //   다리 다시 고르기 화면은 가운데에 테이블이 들어가서 더 넓다.
+    public static readonly Rect PanelMenu = new Rect(256f, 42f, 1088f, 816f), PanelLegs = new Rect(160f, 42f, 1280f, 816f);
+    Rect Panel = PanelMenu;
+    Rect legsBtn, legsBack, legsTable, nickLabel, nickField, nickSave, nameTagBtn;
+    readonly Rect[] legCards = new Rect[4];
     Rect titleRect, resumeBtn, volLabel, volSlider, bgmLabel, bgmSlider, sfxLabel, sfxSlider, colorBtn, controlsBtn, langBtn, displayBtn, restartBtn, cheatBtn, menuBtn, quitBtn;
     // 조작법 화면 레이아웃
     Rect ctrlImg, cPrev, cNext, cClose;
@@ -52,6 +60,24 @@ public class PauseMenu : MonoBehaviour
     /// <summary>외부(시작화면 설정 버튼 등)에서 옵션 메뉴를 연다.</summary>
     public void OpenMenu() => SetPaused(true);
     public bool IsOpen => paused;
+
+    NetLegLink Link
+    {
+        get
+        {
+            if (cachedLink == null) cachedLink = FindAnyObjectByType<NetLegLink>();
+            return cachedLink;
+        }
+    }
+    /// <summary>온라인 게임 중(로비 아님, 1인 1테이블 대전 아님)이면 설정에서 다리를 다시 고를 수 있다.</summary>
+    bool LegsAvailable
+    {
+        get
+        {
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            return !handMode && nm != null && nm.IsListening && Link != null && Link.IsSpawned && Link.Started && FindAnyObjectByType<PerTableMode>() == null;
+        }
+    }
 
     // 시작 화면에서 SampleScene을 additive 배경으로 띄운 경우, 이 테이블은 비활성(배경) 씬 소속.
     bool IsBackground() => gameObject.scene != SceneManager.GetActiveScene();
@@ -77,20 +103,25 @@ public class PauseMenu : MonoBehaviour
     void ComputeLayout()
     {
         const float S1 = JourneyMenuUI.S1, S2 = JourneyMenuUI.S2, S4 = JourneyMenuUI.S4, S5 = JourneyMenuUI.S5, HS = JourneyMenuUI.HS, HM = JourneyMenuUI.HM;
+        bool legs = LegsAvailable;
+        Panel = PanelMenu;
         float x = Panel.x + S5, w = (Panel.width - 3 * S5) * .5f, rx = x + w + S5;
         titleRect = new Rect(x, Panel.y + S4, Panel.width - 2 * S5, 52f);
         float top = Panel.y + 120f;   // 제목 아래
         // 왼쪽 열: 소리 3개 + 화면 2개
         float cy = top;
-        volLabel = new Rect(x, cy, w, 40f); volSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f;
-        bgmLabel = new Rect(x, cy, w, 40f); bgmSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f;
-        sfxLabel = new Rect(x, cy, w, 40f); sfxSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 96f + S2;
+        volLabel = new Rect(x, cy, w, 40f); volSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 88f;
+        bgmLabel = new Rect(x, cy, w, 40f); bgmSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 88f;
+        sfxLabel = new Rect(x, cy, w, 40f); sfxSlider = new Rect(x + S1, cy + 48f, w - 2 * S1, 32f); cy += 88f + S2;
         colorBtn = new Rect(x, cy, w, HS); cy += HS + S2;
+        nameTagBtn = new Rect(x, cy, w, HS); cy += HS + S2;
         displayBtn = new Rect(x, cy, w, HS);
         // 오른쪽 열: 언어 · 조작법 · (인게임) 다시 시작 · 메인 메뉴 · 게임 종료
         cy = top;
         langBtn = new Rect(rx, cy, w, HS); cy += HS + S2;
-        controlsBtn = new Rect(rx, cy, w, HS); cy += HS + S2 + S4;
+        controlsBtn = new Rect(rx, cy, w, HS); cy += HS + S2;
+        if (legs) { legsBtn = new Rect(rx, cy, w, HS); cy += HS + S2; } else legsBtn = Off;
+        cy += legs ? 0f : S4;
         if (handMode) { restartBtn = Off; menuBtn = Off; quitBtn = Off; }
         else
         {
@@ -117,6 +148,66 @@ public class PauseMenu : MonoBehaviour
         ctrlImg = new Rect((1600f - wdt) * .5f, top + (availH - h) * .5f, wdt, h);
     }
 
+    /// <summary>다리 다시 고르기 화면: 위 줄 = 앞다리 두 개, 아래 줄 = 뒷다리 두 개(테이블을 위에서 본 배치) + 닉네임 칸.</summary>
+    void ComputeLegsLayout()
+    {
+        const float S1 = JourneyMenuUI.S1, S2 = JourneyMenuUI.S2, S4 = JourneyMenuUI.S4, S5 = JourneyMenuUI.S5, HS = JourneyMenuUI.HS, HM = JourneyMenuUI.HM;
+        Panel = PanelLegs;
+        float x = Panel.x + S5, inner = Panel.width - 2 * S5, w = 336f, rx = x + inner - w;
+        titleRect = new Rect(x, Panel.y + S4, inner, 52f);
+        float top = Panel.y + 120f, h = 184f;
+        for (int i = 0; i < 4; i++) legCards[i] = new Rect(i % 2 == 0 ? x : rx, i >= 2 ? top : top + h + S2, w, h);
+        // 가운데: 지금 테이블(미리보기 그림 비율 그대로)
+        float tw = rx - S4 - (x + w + S4), th = tw / (legsPreview != null ? legsPreview.Aspect : 1.41f), cy = top + h + S2 * .5f;
+        legsTable = new Rect(x + w + S4, cy - th * .5f, tw, th);
+        float ny = top + 2 * h + S2 + S4;
+        nickLabel = new Rect(x, ny, 160f, HS);
+        nickField = new Rect(x + 160f + S2, ny, inner - 160f - 240f - 2 * S2, HS);
+        nickSave = new Rect(nickField.xMax + S2, ny, 240f, HS);
+        legsBack = new Rect(x, Panel.yMax - S5 - HM, 320f, HM);
+    }
+
+    void OpenLegs()
+    {
+        showLegs = true;
+        nick.Begin(NetLegLink.LocalNickname);
+        // 열 때마다 지금 모습(다리 길이·각도)을 다시 복사
+        legsPreview ??= new LobbyTablePreview(-12000f);
+        legsPreview.Dispose();
+        if (Link != null)
+        {
+            legsPreview.Initialize(Link.transform, Board(Link.transform), true);
+            legsPreview.SetBackground(JourneyMenuUI.PaperColor);
+            legsPreview.SetVisible(true);
+        }
+    }
+    void CloseLegs()
+    {
+        showLegs = false;
+        nick.End();
+        legsPreview?.Dispose();
+    }
+    static Transform Board(Transform table)
+    {
+        foreach (var ab in table.GetComponentsInChildren<ArticulationBody>())
+            if (ab.isRoot) return ab.transform;
+        return table;
+    }
+    bool NickDirty
+    {
+        get
+        {
+            string v = NetLegLink.CleanPlayerName(nick.Shown);
+            return v.Length > 0 && v != NetLegLink.LocalNickname;
+        }
+    }
+    void SaveNick()
+    {
+        if (!NickDirty || Link == null) return;
+        Link.SetMyName(nick.Shown);
+        nick.Begin(NetLegLink.LocalNickname);   // 다듬어진 이름으로 칸을 다시 채움
+    }
+
     // 마우스 = JourneyMenuUI 캔버스 좌표(그리기와 같은 좌표계)
     static Vector2 GuiMouse() => JourneyMenuUI.MousePosition;
 
@@ -137,6 +228,7 @@ public class PauseMenu : MonoBehaviour
                 if (lobby != null && lobby.HandleBack()) return;
             }
             if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
+            else if (paused && showLegs) CloseLegs();         // 다리 고르기 화면이면 메뉴로 복귀
             else SetPaused(!paused);
             return;
         }
@@ -162,6 +254,34 @@ public class PauseMenu : MonoBehaviour
             return;
         }
 
+        if (showLegs)
+        {
+            if (!LegsAvailable) { CloseLegs(); return; }   // 게임이 끝났거나 세션이 사라짐
+            ComputeLegsLayout();
+            if (kb != null && kb.backspaceKey.wasPressedThisFrame) nick.Backspace();
+            if (kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)) SaveNick();
+            float sc = JourneyMenuUI.Scale;
+            nick.SetCursor(JourneyMenuUI.Origin + new Vector2(nickField.x + JourneyMenuUI.S3, nickField.yMax) * sc);
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                if (legsBack.Contains(gm)) CloseLegs();
+                else if (nickSave.Contains(gm)) SaveNick();
+                else
+                {
+                    bool hit = false;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        bool onLeg = legsPreview != null && legsPreview.Ready && legsPreview.LegBounds(i, legsTable).Contains(gm);
+                        if (!legCards[i].Contains(gm) && !onLeg) continue;
+                        hit = true;
+                        if (Link.IsMine(i) || Link.OwnerOf(i) == -2) Link.ClaimLegRpc((byte)i);
+                    }
+                    if (!hit && !Panel.Contains(gm)) SetPaused(false);
+                }
+            }
+            return;
+        }
+
         ComputeLayout();
 
         // 3개 볼륨 슬라이더 드래그 (마스터 / BGM / SFX)
@@ -181,7 +301,9 @@ public class PauseMenu : MonoBehaviour
         {
             if (resumeBtn.Contains(gm)) SetPaused(false);
             else if (colorBtn.Contains(gm)) { if (xray != null) xray.Toggle(); }
+            else if (nameTagBtn.Contains(gm)) LegNameTags.Visible = !LegNameTags.Visible;
             else if (controlsBtn.Contains(gm)) { showControls = true; controlsPage = 0; }
+            else if (legsBtn.Contains(gm)) OpenLegs();
             else if (langBtn.Contains(gm)) { LanguageSelector.HandleClick(langBtn, gm); }
             else if (displayBtn.Contains(gm)) { DisplayMode.Toggle(); }
             else if (restartBtn.Contains(gm))
@@ -227,6 +349,7 @@ public class PauseMenu : MonoBehaviour
             // 게임으로 복귀: 마우스 시점(CameraFollow)을 위해 다시 잠금(시작 화면은 StartScreenMenu가 매 프레임 해제)
             dragSlider = 0;
             showControls = false;
+            CloseLegs();
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
@@ -241,10 +364,11 @@ public class PauseMenu : MonoBehaviour
         JourneyMenuUI.Begin();
         if (handMode) JourneyMenuUI.Backdrop(.97f); else JourneyMenuUI.Fill(new Rect(-400, -400, 2400, 1700), new Color(0f, 0f, 0f, .38f));
         JourneyMenuUI.End();
-        JourneyMenuUI.BeginModal("pause", showControls ? "controls" : "menu");
+        JourneyMenuUI.BeginModal("pause", showControls ? "controls" : showLegs ? "legs" : "menu");
         try
         {
             if (showControls) { DrawControlsScreen(gm); return; }
+            if (showLegs) { ComputeLegsLayout(); DrawLegsScreen(); return; }
             ComputeLayout(); DrawMenu(gm);
         }
         finally { JourneyMenuUI.End(); }
@@ -261,9 +385,11 @@ public class PauseMenu : MonoBehaviour
 
         bool on = xray != null && xray.IsOn;
         ToggleRow(colorBtn, L.T("다리 색 표시", "Leg colors", "脚の色表示", "桌腿颜色"), on);
+        ToggleRow(nameTagBtn, L.T("닉네임 표시", "Name tags", "ニックネーム表示", "显示昵称"), LegNameTags.Visible);
         JourneyMenuUI.ButtonVisual(displayBtn, DisplayMode.Label());
         LanguageSelector.Draw(langBtn, gm);
         JourneyMenuUI.ButtonVisual(controlsBtn, L.T("조작법 보기", "Controls", "操作方法", "操作说明"));
+        if (legsBtn.width > 0f) JourneyMenuUI.ButtonVisual(legsBtn, L.T("다리 다시 고르기", "Change legs", "脚を選び直す", "重新选择桌腿"));
         if (!handMode)
         {
             JourneyMenuUI.ButtonVisual(restartBtn, L.T("이 지점부터 다시 시작", "Restart from checkpoint", "地点からやり直す", "从检查点重来"), CheckpointRuntime.Authority);
@@ -276,6 +402,39 @@ public class PauseMenu : MonoBehaviour
         // 숨은 치트: 빈 자리에 호버해야만 보임(기존과 동일)
         if (cheatBtn.Contains(gm))
             JourneyMenuUI.Text(cheatBtn, L.T("치트: ", "Cheat: ", "チート: ", "作弊: ") + (CheatMode.Active ? "ON" : "OFF"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
+    }
+
+    void DrawLegsScreen()
+    {
+        JourneyMenuUI.Box(Panel, JourneyMenuUI.Kind.Sheet);
+        JourneyMenuUI.Text(titleRect, L.T("다리 다시 고르기", "Change legs", "脚を選び直す", "重新选择桌腿"), JourneyMenuUI.TL);
+        var link = Link;
+        if (link == null) { BackVisual(legsBack); return; }
+        int hover = -1; var mouse = JourneyMenuUI.MousePosition;
+        bool ready = legsPreview != null && legsPreview.Ready;
+        for (int i = 0; i < 4; i++) if (legCards[i].Contains(mouse) || (ready && legsPreview.LegBounds(i, legsTable).Contains(mouse))) hover = i;
+        if (ready) legsPreview.Draw(legsTable, link, hover);
+        for (int i = 0; i < 4; i++)
+        {
+            bool mine = link.IsMine(i), can = mine || link.OwnerOf(i) == -2;
+            if (ready)
+            {
+                // 카드 → 그림 속 다리: 회색 선(내 다리 = 잉크)
+                var r = legCards[i]; var target = legsPreview.LegPoint(i, legsTable);
+                var from = new Vector2(i % 2 == 0 ? r.xMax : r.x, r.center.y);
+                var bend = new Vector2(i % 2 == 0 ? from.x + JourneyMenuUI.S3 : from.x - JourneyMenuUI.S3, from.y);
+                Color line = mine ? JourneyMenuUI.Ink : JourneyMenuUI.LineSoft;
+                JourneyMenuUI.Line(from, bend, line, 2); JourneyMenuUI.Line(bend, target, line, 2);
+            }
+            JourneyMenuUI.BeginCard(legCards[i], can, mine);
+            NetDebugPanel.DrawLegCard(legCards[i], link, i);
+            JourneyMenuUI.EndCard();
+        }
+        JourneyMenuUI.Text(nickLabel, L.T("닉네임", "Nickname", "ニックネーム", "昵称"), JourneyMenuUI.TS);
+        JourneyMenuUI.Field(nickField, nick.Shown, L.T("닉네임", "Nickname", "ニックネーム", "昵称"));
+        bool dirty = NickDirty, saved = !dirty && NetLegLink.CleanPlayerName(nick.Shown).Length > 0;
+        JourneyMenuUI.ButtonVisual(nickSave, saved ? L.T("저장됨", "Saved", "保存済み", "已保存") : L.T("저장", "Save", "保存", "保存"), dirty, dirty);
+        BackVisual(legsBack);
     }
 
     static void SliderRow(Rect label, Rect slider, string name, float value)
@@ -330,7 +489,7 @@ public class PauseMenu : MonoBehaviour
         JourneyMenuUI.Text(new Rect(lr.x + 76f, lr.y, lr.width - 100f, lr.height), L.T("닫기", "Close", "閉じる", "关闭"), JourneyMenuUI.TM, null, TextAnchor.MiddleCenter);
     }
 
-    void OnDestroy(){if(paused){InputBlocked=false;if(Time.timeScale==0)Time.timeScale=1;}}
+    void OnDestroy(){nick.End();legsPreview?.Dispose();if(paused){InputBlocked=false;if(Time.timeScale==0)Time.timeScale=1;}}
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]static void ResetInputBlock(){InputBlocked=false;}
 
 }

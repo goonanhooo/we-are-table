@@ -44,6 +44,10 @@ try{
   for(let i=0;i<4;i++){const p=await connect(a,'player');phones.push(p);const m=await until(()=>p.messages.find(m=>m.type==='joined'),'phone '+i);assert.equal(m.slot,i);}
   const fifth=await connect(a,'player');await until(()=>fifth.closed===1008,'room full');
  });
+ await check('phone nicknames reach the game lobby and can be changed',async()=>{
+  send(phones[2],{type:'name',name:'  <민지>  '});
+  await until(()=>unity.messages.findLast(m=>m.type==='lobby')?.names?.[2]==='민지','nickname');
+ });
  await check('two simultaneous rooms keep their input streams separate',async()=>{
   const other=await connect(b,'unity');await until(()=>other.messages.some(m=>m.type==='ready'),'second host');
   const phone=await connect(b,'player');await until(()=>phone.messages.some(m=>m.type==='joined'),'second room phone');

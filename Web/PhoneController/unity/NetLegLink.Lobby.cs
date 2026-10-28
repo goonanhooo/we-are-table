@@ -35,6 +35,19 @@ public partial class NetLegLink
         return result.ToString().Trim();
     }
     static string FallbackName(ulong id)=>"P"+(id+1);
+    const string NicknameKey="nickname";
+    /// <summary>이 컴퓨터의 닉네임: 직접 정한 이름(설정 → 다리 다시 고르기) → 없으면 Steam 이름.</summary>
+    public static string LocalNickname
+    {
+        get { string own=CleanPlayerName(UnityEngine.PlayerPrefs.GetString(NicknameKey,""));return string.IsNullOrEmpty(own)?CleanPlayerName(SteamManager.PlayerName):own; }
+    }
+    /// <summary>내 닉네임을 바꾸고 저장 — 방 안의 모든 사람에게 바로 보인다.</summary>
+    public void SetMyName(string name)
+    {
+        name=CleanPlayerName(name);UnityEngine.PlayerPrefs.SetString(NicknameKey,name);UnityEngine.PlayerPrefs.Save();
+        sentName=string.IsNullOrEmpty(name)?LocalNickname:name;if(string.IsNullOrEmpty(sentName))sentName=FallbackName(NetworkManager.LocalClientId);
+        if(IsServer)SetPlayerName(NetworkManager.LocalClientId,sentName);else RegisterNameRpc(new FixedString128Bytes(sentName));
+    }
     void SpawnLobby()
     {
         if(IsServer)
@@ -43,7 +56,7 @@ public partial class NetLegLink
             NetworkManager.OnClientConnectedCallback+=LobbyConnected;
             if(Started)lobbyPage.Value=1;
         }
-        sentName=CleanPlayerName(SteamManager.PlayerName);
+        sentName=LocalNickname;
         if(string.IsNullOrEmpty(sentName))sentName=FallbackName(NetworkManager.LocalClientId);
         if(IsServer)SetPlayerName(NetworkManager.LocalClientId,sentName);else RegisterNameRpc(new FixedString128Bytes(sentName));
     }

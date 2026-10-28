@@ -25,6 +25,11 @@ test('4 phones → authenticated relay → Unity: isolation, timeout, disconnect
       assert.equal((await until(()=>p.messages.find(m=>m.type==='joined'))).slot,i);
       assert.equal(p.messages.some(m=>m.codes),false);
     }
+    // 폰 닉네임: 입장 이름이 로비 names로 가고, 'name'으로 바꾸면 다듬어서 다시 알림
+    assert.deepEqual((await until(()=>unity.messages.findLast(m=>m.type==='lobby'&&m.names?.[3]==='phone3'))).names,['phone0','phone1','phone2','phone3']);
+    phones[1].send({type:'name',name:'  <민지>\u202e  '});
+    await until(()=>unity.messages.findLast(m=>m.type==='lobby')?.names?.[1]==='민지');
+    phones[1].send({type:'name',name:'phone1'});await until(()=>unity.messages.findLast(m=>m.type==='lobby')?.names?.[1]==='phone1');
     const fifth=await socket(port,room.id,'player',room.codes[0]);
     const [code]=await once(fifth.ws,'close');assert.equal(code,1008);
     const badCode=await socket(port,room.id,'player','AAAAAAAA');assert.equal((await once(badCode.ws,'close'))[0],1008);

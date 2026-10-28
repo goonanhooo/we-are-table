@@ -18,20 +18,22 @@ test('upright calibration and left/right orientation',()=>{
   assert.ok(Math.abs(calibratedLegTilt({w:1,x:0,y:0,z:0},gravity).z-.5)<.001);
 });
 
-test('shared invite, large leg selection, touch feedback and calibrated sensor controls',async()=>{
+test('shared invite, leg colors, nickname, keys / gyro / joystick modes',async()=>{
   function element(dataset={}){
     const events={},classes=new Set();
     const style={setProperty(name,value){this[name]=value;}};
-    return {dataset,events,style,hidden:false,value:'',textContent:'',src:'',classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),toggle:(c,b)=>{if(b===undefined)b=!classes.has(c);b?classes.add(c):classes.delete(c);},contains:c=>classes.has(c)},addEventListener:(n,f)=>events[n]=f,setPointerCapture(){},setAttribute(){},removeAttribute(){}};
+    return {dataset,events,style,hidden:false,value:'',textContent:'',src:'',getBoundingClientRect:()=>({left:0,top:0,width:200,height:200}),classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),toggle:(c,b)=>{if(b===undefined)b=!classes.has(c);b?classes.add(c):classes.delete(c);},contains:c=>classes.has(c)},addEventListener:(n,f)=>events[n]=f,setPointerCapture(){},setAttribute(){},removeAttribute(){}};
   }
-  const ids=new Map();for(const id of ['message','connection','game-state','entry','play','slot-name','table-stage','table-image','leg-key','color-toggle','gyro-panel','gyro-title','gyro-feedback','tilt-dot','tilt-total','tilt-front','tilt-side','tilt-yaw','sensor','recenter','touch-switch','sensor-readout','sensor-state','sensor-angle','room-code','join-form','leave'])ids.set('#'+id,element());
+  const ids=new Map();for(const id of ['message','connection','game-state','entry','play','slot-name','table-image','leg-key','color-toggle','gyro-controls','gyro-title','pad','tilt-dot','mini-dot','sensor','recenter','sensor-state','room-code','join-form','leave','nickname'])ids.set('#'+id,element());
   const buttons=[1,2,4,8,0,0].map(bit=>element({bit:String(bit)}));
   ids.set('#action-primary',buttons[4]);ids.set('#action-secondary',buttons[5]);
   for(const id of ['ability-actions','action-primary-symbol','action-primary-label','action-secondary-symbol','action-secondary-label'])ids.set('#'+id,element());
   const marks=[0,1,2,3].map(leg=>element({leg:String(leg)}));
   const powers=[2,3,4,5].map(power=>element({power:String(power)}));
+  const modes=['keys','gyro','stick'].map(mode=>element({mode}));
+  const dirs=[1,4,2,8].map(dir=>element({dir:String(dir)}));
   const events={},timers=[],permissionCalls=[];let now=100;
-  const document={visibilityState:'visible',hidden:false,querySelector:s=>ids.get(s),querySelectorAll:s=>s==='[data-bit]'?buttons:s==='[data-leg]'?marks:s==='[data-power]'?powers:s==='.pressed'?buttons.filter(b=>b.classList.contains('pressed')):[],addEventListener:(n,f)=>events[n]=f};
+  const document={visibilityState:'visible',hidden:false,querySelector:s=>ids.get(s),querySelectorAll:s=>s==='[data-bit]'?buttons:s==='[data-leg]'?marks:s==='[data-power]'?powers:s==='#modes [data-mode]'?modes:s==='[data-dir]'?dirs:s==='.pressed'?buttons.filter(b=>b.classList.contains('pressed')):[],addEventListener:(n,f)=>events[n]=f};
   const window={addEventListener:(n,f)=>events[n]=f};
   class FakeSocket{
     static OPEN=1;static CONNECTING=0;static instance;
@@ -44,8 +46,10 @@ test('shared invite, large leg selection, touch feedback and calibrated sensor c
   const script=(await readFile(new URL('../public/controller.mjs',import.meta.url),'utf8')).replace(/^import .*\n/,'');
   vm.runInNewContext(script,context);
   const ws=FakeSocket.instance;ws.readyState=1;ws.onopen();
-  assert.deepEqual(ws.sent.at(-1),{type:'hello',role:'player',code:'ABCDEFGH',preferredSlot:-1});
+  assert.deepEqual(ws.sent.at(-1),{type:'hello',role:'player',code:'ABCDEFGH',preferredSlot:-1,name:''});
+  assert.equal(ids.get('#play').dataset.mode,'keys');
   ws.receive({type:'joined',slot:2});ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
+  assert.equal(ids.get('#game-state').textContent,'정상 연결');
   assert.equal(ids.get('#slot-name').textContent,'초록 다리');
   assert.equal(ids.get('#play').style['--leg-rgb'],'60 175 92');
   assert.equal(marks[2].classList.contains('mine'),true);
@@ -59,6 +63,8 @@ test('shared invite, large leg selection, touch feedback and calibrated sensor c
   const pointer=id=>({pointerId:id,preventDefault(){}});
   buttons[0].events.pointerdown(pointer(1));buttons[2].events.pointerdown(pointer(2));assert.equal(ws.sent.at(-1).bits,5);
   assert.equal(ids.get('#tilt-dot').style.transform,'translate(-25cqw,-25cqw)');
+  assert.equal(ids.get('#mini-dot').style.transform,'translate(-25cqw,-25cqw)');
+  assert.deepEqual(dirs.map(d=>d.classList.contains('lit')),[true,true,false,false]);
   timers[0]();assert.equal(ws.sent.at(-1).bits,5);
   buttons[0].events.pointerup(pointer(1));assert.equal(ws.sent.at(-1).bits,4);
   buttons[2].events.pointercancel(pointer(2));assert.equal(ws.sent.at(-1).bits,0);
@@ -100,9 +106,10 @@ test('shared invite, large leg selection, touch feedback and calibrated sensor c
   assert.equal(buttons[4].classList.contains('is-on'),true);
   assert.equal(ids.get('#table-image').src,'/assets/table-ice.png');
   ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
-  events.deviceorientation({alpha:0,beta:90,gamma:0});const enable=ids.get('#sensor').onclick();
+  events.deviceorientation({alpha:0,beta:90,gamma:0});const enable=modes[1].onclick();
   assert.deepEqual(permissionCalls,['orientation','motion']);
   await enable;
+  assert.equal(ids.get('#play').dataset.mode,'gyro');
   assert.equal(ids.get('#sensor').hidden,true);
   assert.equal(ids.get('#recenter').hidden,false);
   assert.equal(ids.get('#recenter').disabled,false);
@@ -121,10 +128,10 @@ test('shared invite, large leg selection, touch feedback and calibrated sensor c
   now=1200;timers[1]();assert.deepEqual(ws.sent.at(-1),{type:'pose',active:false});
   assert.equal(ids.get('#gyro-title').textContent,'센서 신호 끊김');
   events.deviceorientation({alpha:30,beta:90,gamma:0});timers[1]();assert.equal(ws.sent.at(-1).active,true);
-  ids.get('#touch-switch').onclick();assert.equal(ids.get('#sensor').hidden,false);
+  modes[0].onclick();assert.equal(ids.get('#play').dataset.mode,'keys');assert.deepEqual(ws.sent.at(-1),{type:'pose',active:false});
   now=2500;
   events.devicemotion({accelerationIncludingGravity:{x:0,y:9.8,z:0},rotationRate:{beta:0}});
-  await ids.get('#sensor').onclick();
+  await modes[1].onclick();
   assert.equal(ids.get('#sensor-state').hidden,true);
   ids.get('#recenter').onclick();
   now=2550;
@@ -134,7 +141,27 @@ test('shared invite, large leg selection, touch feedback and calibrated sensor c
   assert.ok(Math.abs(ws.sent.at(-1).yaw-3)<.001);
   buttons[1].events.pointerdown(pointer(3));ws.receive({type:'status',unity:false});
   assert.equal(ws.sent.findLast(item=>item.type==='input').bits,0);
-  ids.get('#leave').onclick();assert.equal(ids.get('#entry').hidden,false);
+  assert.equal(ids.get('#game-state').textContent,'게임 대기');
+  // 조이스틱: 원을 끄는 만큼 pose, 가운데 근처와 손 뗀 뒤에는 멈춤, 방향키 비트는 안 보냄
+  ws.receive({type:'status',unity:true,visual:{mode:'normal'}});
+  modes[2].onclick();assert.equal(ids.get('#play').dataset.mode,'stick');
+  const pad=ids.get('#pad'),touch=(x,y)=>({pointerId:7,clientX:x,clientY:y,preventDefault(){}});
+  pad.events.pointerdown(touch(170,100));timers[1]();
+  assert.deepEqual(ws.sent.at(-1),{type:'pose',active:true,x:1,z:0,yaw:0});
+  pad.events.pointermove(touch(100,65));timers[1]();
+  assert.ok(Math.abs(ws.sent.at(-1).x)<1e-9);assert.ok(Math.abs(ws.sent.at(-1).z-.5)<1e-9);
+  assert.equal(ids.get('#tilt-dot').style.transform,'translate(0cqw,-17cqw)');
+  pad.events.pointermove(touch(102,100));timers[1]();assert.deepEqual(ws.sent.at(-1),{type:'pose',active:false});
+  pad.events.pointermove(touch(100,170));timers[1]();assert.equal(ws.sent.at(-1).z,-1);
+  pad.events.pointerup(touch(100,170));assert.deepEqual(ws.sent.at(-1),{type:'pose',active:false});
+  buttons[0].events.pointerdown(pointer(30));timers[0]();assert.equal(ws.sent.at(-1).bits,0);buttons[0].events.pointerup(pointer(30));
+  // 닉네임: 다듬어서 보내고, 같은 이름은 다시 안 보냄
+  ids.get('#nickname').value='  김 철수  ';ids.get('#nickname').events.change();
+  assert.deepEqual(ws.sent.at(-1),{type:'name',name:'김 철수'});
+  const count=ws.sent.length;ids.get('#nickname').events.change();assert.equal(ws.sent.length,count);
+  ids.get('#leave').onclick();assert.equal(ids.get('#entry').hidden,false);assert.equal(ids.get('#play').dataset.mode,'keys');
   const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
-  assert.doesNotMatch(html,/data-power|sensor-readout|gyro-values|tilt-total|sensor-angle/);
+  assert.doesNotMatch(html,/data-power|sensor-readout|gyro-values|tilt-total|sensor-angle|touch-switch/);
+  assert.match(html,/data-mode="keys"[^>]*>기본<\/button>\s*<button[^>]*data-mode="gyro"[^>]*>자이로<\/button>\s*<button[^>]*data-mode="stick"[^>]*>조이스틱/);
+  assert.match(html,/id="nickname"/);
 });

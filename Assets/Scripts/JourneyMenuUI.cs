@@ -295,6 +295,8 @@ public static class JourneyMenuUI
         Fill(new Rect(0,-width/2,Vector2.Distance(a,b),width),c);GUI.matrix=m;
     }
     public static void Dot(Vector2 p,float radius,Color c) => RoundFill(new Rect(p.x-radius,p.y-radius,radius*2,radius*2),c,radius);
+    /// <summary>다리 색 표시 = 상자 왼쪽 안쪽의 세로 색 띠. 다리 색은 점으로 보여 주지 않는다.</summary>
+    public static void LegStripe(Rect r,Color c) => RoundFill(new Rect(r.x+S1,r.y+S2,6,r.height-2*S2),c,3);
     public static void Icon(Rect r,int kind,Color? tint=null)
     {
         var c=tint??Ink;Vector2 p=r.center;float s=Mathf.Min(r.width,r.height)/100f;

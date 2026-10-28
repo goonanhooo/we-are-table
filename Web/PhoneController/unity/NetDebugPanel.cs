@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 /// <summary>A shared lobby: choose real table legs, then choose the journey's starting point.</summary>
 public class NetDebugPanel : MonoBehaviour
 {
-    bool visible=true,startPending,wasMap,phoneInvites;string status="";float statusUntil;
+    bool startPending,wasMap,phoneInvites;string status="";float statusUntil;
     readonly CheckpointJourney journey=new();readonly JourneyWheel mapWheel=new();
     readonly LobbyTablePreview tablePreview=new();
     LevelSelect select;NetLegLink cachedLink;
@@ -57,7 +57,6 @@ public class NetDebugPanel : MonoBehaviour
             }
         }
         else mapWheel.Reset();wasMap=map;
-        if(Keyboard.current!=null&&Keyboard.current.f9Key.wasPressedThisFrame)visible=!visible;
     }
     public bool HandleBack()
     {
@@ -77,10 +76,11 @@ public class NetDebugPanel : MonoBehaviour
     static readonly Rect MapViewport=new Rect(80,288,1440,344);
     void OnGUI()
     {
-        if(!InSession||OverlayBlocked||(!visible&&!InLobby))return;
-        if(InLobby){JourneyMenuUI.Begin();JourneyMenuUI.Backdrop();JourneyMenuUI.End();}
-        JourneyMenuUI.Begin("lobby",!InLobby?"mini":phoneInvites?"phone":Link.ChoosingMap?"map":"legs");
-        try{if(InLobby)DrawLobby();else DrawMini();}finally{JourneyMenuUI.End();}
+        // 게임 중에는 아무것도 그리지 않는다(다리 바꾸기·나가기는 설정 메뉴에서).
+        if(!InLobby||OverlayBlocked)return;
+        JourneyMenuUI.Begin();JourneyMenuUI.Backdrop();JourneyMenuUI.End();
+        JourneyMenuUI.Begin("lobby",phoneInvites?"phone":Link.ChoosingMap?"map":"legs");
+        try{DrawLobby();}finally{JourneyMenuUI.End();}
     }
     void DrawLobby()
     {
@@ -136,10 +136,10 @@ public class NetDebugPanel : MonoBehaviour
                 var target=tablePreview.LegPoint(i,TableRect);var from=new Vector2(i%2==0?r.xMax:r.x,r.center.y);
                 var bend=new Vector2(i%2==0?from.x+JourneyMenuUI.S4:from.x-JourneyMenuUI.S4,from.y);
                 Color line=mine?JourneyMenuUI.Ink:JourneyMenuUI.LineSoft;
-                JourneyMenuUI.Line(from,bend,line,2);JourneyMenuUI.Line(bend,target,line,2);JourneyMenuUI.Dot(target,5,c);
+                JourneyMenuUI.Line(from,bend,line,2);JourneyMenuUI.Line(bend,target,line,2);
             }
             JourneyMenuUI.BeginCard(r,can,mine);
-            DrawLegCard(r,i,owner,mine,open,can);
+            DrawLegCard(r,Link,i);
             JourneyMenuUI.EndCard();
             bool hit=JourneyMenuUI.Click(r,can);
             if(!hit&&tablePreview.Ready)hit=JourneyMenuUI.Click(tablePreview.LegBounds(i,TableRect),can);
@@ -147,21 +147,22 @@ public class NetDebugPanel : MonoBehaviour
         }
         if(JourneyMenuUI.Button(NextRect,L.T("다음","Next","次へ","下一步"),NM.IsHost&&Link.CanChooseMap,true)){JourneyMenuUI.BlockClick();Link.ChooseMap();}
     }
-    /// <summary>다리 카드 = [머리 줄: 다리 색 점 + 다리 이름 | 맡은 사람 칸] + [자판 판: 키캡 위 1 + 아래 3].</summary>
-    void DrawLegCard(Rect r,int i,long owner,bool mine,bool open,bool can)
+    /// <summary>다리 카드 = [머리 줄: 다리 색 점 + 다리 이름 | 맡은 사람 칸] + [자판 판: 키캡 위 1 + 아래 3]. 로비·설정 메뉴 공용.</summary>
+    public static void DrawLegCard(Rect r,NetLegLink link,int i)
     {
         const float S1=JourneyMenuUI.S1,S2=JourneyMenuUI.S2,S3=JourneyMenuUI.S3;
+        long owner=link.OwnerOf(i);bool mine=link.IsMine(i),open=owner==-2,can=mine||open;
         var head=new Rect(r.x+S3,r.y+S2,r.width-2*S3,40);
         // 맡은 사람 칸: 내 다리 = 검정, 남의 다리 = 흰 칸, 빈 자리 = 연한 칸
-        string who=open?L.T("빈 자리","Free","空き","空位"):mine?L.T("나","Me","自分","我"):Link.DisplayNameOf(owner);
+        string who=open?L.T("빈 자리","Free","空き","空位"):mine?L.T("나","Me","自分","我"):link.NameOfLeg(i);
         float bw=Mathf.Clamp(JourneyMenuUI.TextWidth(who,JourneyMenuUI.TXS)+2*S2,88,150);
         var badge=new Rect(head.xMax-bw,head.y,bw,head.height);
         JourneyMenuUI.Box(badge,mine?JourneyMenuUI.Kind.Primary:open?JourneyMenuUI.Kind.Soft:JourneyMenuUI.Kind.Card);
         JourneyMenuUI.Literal(badge,who,JourneyMenuUI.TXS,mine?JourneyMenuUI.White:open?JourneyMenuUI.Muted:JourneyMenuUI.Ink,TextAnchor.MiddleCenter);
-        JourneyMenuUI.Dot(new Vector2(head.x+8,head.center.y),8,LegPalette.BySlot[i]);   // 다리 색 = 어느 다리인지
-        JourneyMenuUI.Text(new Rect(head.x+16+S2,head.y,badge.x-head.x-16-S2-S1,head.height),L.Title(LegLayout.Name(i)),JourneyMenuUI.TXS,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
+        JourneyMenuUI.LegStripe(r,LegPalette.BySlot[i]);   // 다리 색 = 어느 다리인지(왼쪽 세로 띠)
+        JourneyMenuUI.Text(new Rect(head.x,head.y,badge.x-head.x-S1,head.height),L.Title(LegLayout.Name(i)),JourneyMenuUI.TXS,can?JourneyMenuUI.Ink:JourneyMenuUI.Muted);
         // 자판 판: 연한 상자 안에 키캡
-        var plate=new Rect(r.x+S2,head.yMax+S2,r.width-2*S2,r.yMax-S2-(head.yMax+S2));
+        var plate=new Rect(r.x+S3,head.yMax+S2,r.width-S3-S2,r.yMax-S2-(head.yMax+S2));
         JourneyMenuUI.Box(plate,JourneyMenuUI.Kind.Soft);
         JourneyMenuUI.KeyCluster(new Rect(plate.x,plate.y+S1,plate.width,plate.height-2*S1),i,can);
     }
@@ -190,14 +191,5 @@ public class NetDebugPanel : MonoBehaviour
         {
             Link.StartGame();if(Link.Started){startPending=true;CheckpointRuntime.Launch(Link.MapIndex);}
         }
-    }
-    void DrawMini()
-    {
-        // 게임 중 오른쪽 위 작은 창: 내 다리 + 메뉴로 나가기
-        var r=new Rect(1184,16,400,152);JourneyMenuUI.Box(r,JourneyMenuUI.Kind.Panel);string mine="";
-        if(Link!=null)for(int i=0;i<4;i++)if(Link.IsMine(i))mine+=(mine.Length>0?", ":"")+LegLayout.Keys(i);
-        if(mine.Length==0)mine=NM.IsHost?L.T("빈 다리 전체","Unclaimed legs","空席の脚","所有空位的腿"):L.T("선택한 다리 없음","No legs selected","脚が未選択","未选择腿");
-        JourneyMenuUI.Text(new Rect(r.x+JourneyMenuUI.S2,r.y+JourneyMenuUI.S2,r.width-2*JourneyMenuUI.S2,40),mine,JourneyMenuUI.TXS);
-        if(JourneyMenuUI.BackButton(new Rect(r.x+JourneyMenuUI.S2,r.y+64,r.width-2*JourneyMenuUI.S2,JourneyMenuUI.HS),L.T("메뉴로 나가기","Leave to menu","メニューに戻る","返回菜单")))LeaveAll();
     }
 }

@@ -15,7 +15,7 @@ using UnityEngine.Networking;
 public sealed class PhoneControllerBridge : MonoBehaviour
 {
     [Serializable] public sealed class Config { public string url, room, key; }
-    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code, joinCode, joinQrPng; public bool[] occupiedSlots, nativeSlots; public int slot, bits, viewers; public bool occupied, active, iceFrozen; public float x, z, yaw; }
+    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code, joinCode, joinQrPng; public bool[] occupiedSlots, nativeSlots; public string[] names; public int slot, bits, viewers; public bool occupied, active, iceFrozen; public float x, z, yaw; }
     readonly ConcurrentQueue<string> incoming = new ConcurrentQueue<string>();
     readonly bool[] occupied = new bool[4];
     readonly int[] bits = new int[4];
@@ -37,6 +37,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     string joinCode = "";
     bool[] lobbyOccupied = new bool[4];
     bool[] lobbyNative = new bool[4];
+    string[] lobbyNames = new string[4];   // 폰 닉네임(웹에서 적은 이름) — 슬롯별
     string publicOrigin = "";
     string watchCode = "";
     int viewerCount;
@@ -111,6 +112,8 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     public string JoinCode => joinCode;
     public Texture2D JoinQr => joinQr;
     public bool HasPlayer(int slot) => connected && slot >= 0 && slot < lobbyOccupied.Length && lobbyOccupied[slot];
+    /// <summary>그 다리를 맡은 폰의 닉네임(없으면 빈 문자열).</summary>
+    public string PhoneName(int slot) => HasPlayer(slot) && lobbyNames != null && slot < lobbyNames.Length ? NetLegLink.CleanPlayerName(lobbyNames[slot]) : "";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void ResetStatic() { instance = null; WebPlayActive = false; }
@@ -223,6 +226,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         publicOrigin = packet.origin ?? "";
         if (packet.occupiedSlots != null && packet.occupiedSlots.Length == 4) lobbyOccupied = packet.occupiedSlots;
         if (packet.nativeSlots != null && packet.nativeSlots.Length == 4) lobbyNative = packet.nativeSlots;
+        if (packet.names != null && packet.names.Length == 4) lobbyNames = packet.names;
         string image = packet.joinQrPng ?? "";
         if (image == joinQrData) return;
         if (joinQr != null) { Destroy(joinQr); joinQr = null; }
@@ -430,9 +434,10 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             var row = new Rect(x + (i % 2) * (cellWidth + S2), top + (i / 2) * (JourneyMenuUI.HS + S2), cellWidth, JourneyMenuUI.HS);
             bool phone = HasPlayer(i), pc = !phone && lobbyNative[i];
             JourneyMenuUI.Box(row, phone || pc ? JourneyMenuUI.Kind.Card : JourneyMenuUI.Kind.Soft, phone);
-            JourneyMenuUI.Dot(new Vector2(row.x + S3 + 8f, row.center.y), 8f, LegPalette.BySlot[i]);
-            JourneyMenuUI.Text(new Rect(row.x + S3 + 16f + S2, row.y, row.width * .5f, row.height), L.Title(LegLayout.Name(i)), JourneyMenuUI.TXS);
-            string state = phone ? L.T("폰 연결됨", "Phone", "スマホ接続中", "手机已连接") : pc ? "PC" : L.T("빈 다리", "Available", "空き", "空闲");
+            JourneyMenuUI.LegStripe(row, LegPalette.BySlot[i]);
+            JourneyMenuUI.Text(new Rect(row.x + S3, row.y, row.width * .5f - S3, row.height), L.Title(LegLayout.Name(i)), JourneyMenuUI.TXS);
+            string nick = phone ? PhoneName(i) : "";
+            string state = phone ? (nick.Length > 0 ? nick : L.T("폰 연결됨", "Phone", "スマホ接続中", "手机已连接")) : pc ? "PC" : L.T("빈 다리", "Available", "空き", "空闲");
             JourneyMenuUI.Text(new Rect(row.x + row.width * .5f, row.y, row.width * .5f - S3, row.height), state, JourneyMenuUI.TXS, phone || pc ? JourneyMenuUI.Ink : JourneyMenuUI.Muted, TextAnchor.MiddleRight);
         }
     }

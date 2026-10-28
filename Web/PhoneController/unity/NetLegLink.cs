@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -39,6 +40,24 @@ public partial class NetLegLink : NetworkBehaviour
         get { int mask=0;for(int i=0;i<4;i++)if(owners.Value.Get(i)!=NONE)mask|=1<<i;return mask; }
     }
     public int PhoneMask => phoneMask.Value;
+    // 폰 닉네임(호스트가 폰 중계에서 받아 전원에게 발행) — 다리 카드·이름표에 '폰' 대신 표시
+    public struct PhoneNames : INetworkSerializable, System.IEquatable<PhoneNames>
+    {
+        public FixedString64Bytes n0, n1, n2, n3;
+        public string Get(int i) => (i == 0 ? n0 : i == 1 ? n1 : i == 2 ? n2 : n3).ToString();
+        public void Set(int i, string v) { var f = new FixedString64Bytes(); f.CopyFromTruncated(v ?? ""); if (i == 0) n0 = f; else if (i == 1) n1 = f; else if (i == 2) n2 = f; else n3 = f; }
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter { s.SerializeValue(ref n0); s.SerializeValue(ref n1); s.SerializeValue(ref n2); s.SerializeValue(ref n3); }
+        public bool Equals(PhoneNames o) => n0.Equals(o.n0) && n1.Equals(o.n1) && n2.Equals(o.n2) && n3.Equals(o.n3);
+    }
+    readonly NetworkVariable<PhoneNames> phoneNames = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    /// <summary>그 다리를 맡은 사람 이름: PC 플레이어 닉네임 / 폰 닉네임 / 빈 자리면 "".</summary>
+    public string NameOfLeg(int leg)
+    {
+        long owner = OwnerOf(leg);
+        if (owner != -3) return DisplayNameOf(owner);
+        string phone = phoneNames.Value.Get(leg);
+        return string.IsNullOrEmpty(phone) ? DisplayNameOf(owner) : phone;
+    }
 
     // 게임 시작 여부(호스트가 로비에서 시작 누름) — 시작 후엔 다리 변경 금지, 세션도 잠김(난입 차단)
     readonly NetworkVariable<bool> started = new(false,
@@ -115,7 +134,8 @@ public partial class NetLegLink : NetworkBehaviour
     [Rpc(SendTo.Server)]
     public void ClaimLegRpc(byte leg, RpcParams rpc = default)
     {
-        if (!IsServer || leg > 3 || started.Value || ChoosingMap || !NetworkManager.ConnectedClients.ContainsKey(rpc.Receive.SenderClientId)) return;                       // 시작 후 변경 금지
+        // ★2026-10-29 게임 중에도 바꿀 수 있음(설정 → 다리 다시 고르기). 로비의 맵 선택 단계에서만 막는다.
+        if (!IsServer || leg > 3 || (!started.Value && ChoosingMap) || !NetworkManager.ConnectedClients.ContainsKey(rpc.Receive.SenderClientId)) return;
         if ((phoneMask.Value & (1 << leg)) != 0 || (PhoneControllerBridge.Instance != null && PhoneControllerBridge.Instance.HasPlayer(leg))) return;
         ulong who = rpc.Receive.SenderClientId;
         var o = owners.Value;
@@ -242,6 +262,9 @@ public partial class NetLegLink : NetworkBehaviour
             if(bridge!=null&&PhoneControllerBridge.WebPlayActive)
                 for(int i=0;i<4;i++)if(bridge.HasPlayer(i) && (NativeMask & (1<<i))==0)mask|=(byte)(1<<i);
             if(phoneMask.Value!=mask)phoneMask.Value=mask;
+            var names=phoneNames.Value;bool namesChanged=false;
+            for(int i=0;i<4;i++){string n=bridge!=null&&(mask&(1<<i))!=0?bridge.PhoneName(i):"";if(names.Get(i)!=n){names.Set(i,n);namesChanged=true;}}
+            if(namesChanged)phoneNames.Value=names;
             return;
         }
         if (myMask == 0) return;
