@@ -57,11 +57,11 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
         }
         res.writeHead(404,headers);res.end('{}');return;
       }
-          const files={'/':'index.html','/host':'host.html','/watch':'watch.html','/controller.mjs':'controller.mjs','/orientation.mjs':'orientation.mjs','/host.mjs':'host.mjs','/watch.mjs':'watch.mjs','/style.css':'style.css'};
+          const files={'/':'index.html','/host':'host.html','/watch':'watch.html','/controller.mjs':'controller.mjs','/orientation.mjs':'orientation.mjs','/host.mjs':'host.mjs','/watch.mjs':'watch.mjs','/style.css':'style.css','/preview':'preview.html','/preview.html':'preview.html','/preview.mjs':'preview.mjs','/preview.css':'preview.css','/preview-mock.mjs':'preview-mock.mjs'};
       const asset=/^\/assets\/(?:table-(?:normal|giraffe|tennis|ice|squid)(?:-colors)?\.png|table-start(?:-colors)?\.svg)$/.exec(u.pathname);
       const file=files[u.pathname]||(asset&&u.pathname.slice(1));if(!file){res.writeHead(404);res.end('Not found');return;}
       const mime=file.endsWith('.mjs')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.png')?'image/png':file.endsWith('.svg')?'image/svg+xml':'text/html';
-      res.writeHead(200,{...headers,'Content-Type':mime+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'"});
+      res.writeHead(200,{...headers,'Content-Type':mime+'; charset=utf-8','Content-Security-Policy':"default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'self'"});
       res.end(await readFile(resolve(root,'public',file)));
     }catch{if(!res.headersSent)res.writeHead(400,headers);res.end('{"error":"invalid request"}');}
   });

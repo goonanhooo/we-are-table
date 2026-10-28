@@ -4,6 +4,22 @@
 
 각자 최신 Windows 또는 macOS Unity 실행본으로 같은 Steam/Unity 방에 들어가 게임 장면을 봅니다. 한 테이블의 네 다리를 PC 키보드와 웹 폰으로 섞어 조작할 수 있습니다. 호스트 PC가 물리를 계산하고 다른 Unity PC에 동기화합니다. Unity 실행본 없이 보는 사람은 웹 관전 화면을 열 수 있습니다.
 
+## UI 미리보기 (게임 없이 폰 화면 고치기)
+
+컨트롤러 화면(`public/index.html`, `style.css`, `controller.mjs`)을 고칠 때는 Unity 실행본이나 방 코드 없이 **미리보기 페이지**로 확인합니다. 진짜 컨트롤러 페이지에 가짜 게임 연결(`public/preview-mock.mjs`)을 붙여 여러 폰 크기를 한 화면에 띄웁니다.
+
+- **배포본에서 바로 보기**: <https://we-are-table-controller.eraser-room-game.workers.dev/preview> (마지막으로 배포한 파일 기준)
+- **고치면서 보기(다른 컴퓨터 포함)**: 이 폴더에서 아래 명령을 실행하고 <http://localhost:4190/preview>를 엽니다. Node.js만 있으면 되고 `npm install`도 필요 없습니다. 파일을 저장하면 화면이 자동으로 다시 불러와집니다.
+
+```sh
+npm run preview
+```
+
+- 위쪽 버튼으로 능력(기본·기린·테니스공·눈사람·우주오징어), 눈사람 얼음/풀림, 내 다리, 다른 사람이 맡은 다리, 게임 연결 여부, 화면 크기(100·75·50%)를 바꿉니다. 각 폰 화면 아래에 누른 버튼이 표시됩니다.
+- 폰 하나만 크게 보려면 `/index.html?preview&mode=giraffe&leg=1&busy=0010&unity=1&ice=frozen`처럼 주소로 상태를 지정합니다(`screen=entry`는 입장 화면). 같은 와이파이의 폰에서는 `http://<이 컴퓨터 IP>:4190/index.html?preview`로 엽니다.
+- `?preview`가 없으면 `preview-mock.mjs`는 아무 일도 하지 않습니다. 실제 서비스 동작은 그대로입니다.
+- 미리보기는 화면 확인용입니다. 게임과의 실제 연결은 `node --test tests/*.test.mjs`와 아래 Cloudflare 실제 배포 검사로 확인합니다.
+
 ## 플레이
 
 1. 최신 실행본에서 **함께하기 → 방 만들기**를 누릅니다. 게임이 Cloudflare 방을 자동으로 생성하고 고정 중계 서버에 직접 연결합니다. 로컬 Node 서버나 터널을 켤 필요가 없습니다.

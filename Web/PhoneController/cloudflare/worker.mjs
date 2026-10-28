@@ -44,7 +44,7 @@ export default {
     const result=new Response(response.body,response);
     result.headers.set('X-Content-Type-Options','nosniff');
     result.headers.set('Referrer-Policy','no-referrer');
-    result.headers.set('Content-Security-Policy',"default-src 'self'; connect-src 'self' wss:; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'");
+    result.headers.set('Content-Security-Policy',"default-src 'self'; connect-src 'self' wss:; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'self'");   // 'self' = UI 미리보기(preview.html)가 같은 주소의 컨트롤러를 iframe으로 띄움
     if(!url.pathname.startsWith('/assets/'))result.headers.set('Cache-Control','no-store');
     return result;
   }

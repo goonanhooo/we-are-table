@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>we are table. 컨트롤러 UI 미리보기</title>
+  <link rel="stylesheet" href="/preview.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>컨트롤러 UI 미리보기</h1>
+    <p>게임 없이 폰 화면만 확인합니다. 아래 화면은 진짜 컨트롤러(<code>index.html</code>)에 가짜 게임 연결을 붙인 것이고, 누른 버튼은 각 화면 아래에 표시됩니다.</p>
+  </header>
+  <section class="controls" aria-label="미리보기 상태">
+    <fieldset><legend>능력</legend><div id="modes" class="chips"></div></fieldset>
+    <fieldset><legend>눈사람</legend><div class="chips"><button type="button" data-ice="frozen" class="on">얼음</button><button type="button" data-ice="thawed">풀림</button></div></fieldset>
+    <fieldset><legend>내 다리</legend><div id="legs" class="chips"></div></fieldset>
+    <fieldset><legend>다른 사람이 맡은 다리</legend><div id="busy" class="chips"></div></fieldset>
+    <fieldset><legend>게임 연결</legend><div class="chips"><button type="button" data-unity="1" class="on">연결됨</button><button type="button" data-unity="0">대기</button></div></fieldset>
+    <fieldset><legend>보기</legend><div class="chips"><button type="button" data-zoom="1" class="on">100%</button><button type="button" data-zoom="0.75">75%</button><button type="button" data-zoom="0.5">50%</button><button type="button" id="reload">다시 불러오기</button><label class="check"><input id="auto" type="checkbox" checked> 파일 바뀌면 자동으로</label></div></fieldset>
+  </section>
+  <main id="frames" class="frames"></main>
+  <script type="module" src="/preview.mjs"></script>
+</body>
+</html>
