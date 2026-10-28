@@ -191,5 +191,10 @@ test('mode-specific action bits, ice state and stale power changes remain isolat
     unity.send({type:'visual',mode:'ice',iceFrozen:true});
     await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.iceFrozen===true);
     assert.equal(phone.messages.filter(m=>m.type==='status').at(-1).visual.mode,'ice');
+    // 게임이 다리를 고르는 중이면 폰에 알림(같은 능력이어도 바뀌면 다시 보냄)
+    unity.send({type:'visual',mode:'ice',iceFrozen:true,legSelect:true});
+    await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.legSelect===true);
+    unity.send({type:'visual',mode:'ice',iceFrozen:true});
+    await until(()=>phone.messages.filter(m=>m.type==='status').at(-1)?.visual?.legSelect===false);
   }finally{await relay.close();}
 });

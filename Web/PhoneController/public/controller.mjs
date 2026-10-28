@@ -20,6 +20,7 @@ let motionGravity=null,motionGravityRef=null,motionLastAt=0,motionYaw=0,motionHa
 let tilt={x:0,z:0},yaw=0,lastWrappedYaw=0;
 let occupiedSlots=[false,false,false,false];
 const pointers=new Map();
+let choosing=false,players=[null,null,null,null],nativeSlots=[false,false,false,false];
 let colorsOn=true,currentMode='normal',iceFrozen=true;try{colorsOn=localStorage.getItem('tableColors')!=='off';}catch{}
 const cleanName=value=>Array.from(String(value||'').replace(/[\x00-\x1f\x7f<>\u202a-\u202e\u2066-\u2069]/g,'').trim()).slice(0,16).join('');
 let nickname='';try{nickname=cleanName(localStorage.getItem('nickname'));}catch{}
@@ -28,7 +29,7 @@ const message=value=>$('#message').textContent=value;
 const transmit=value=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify(value));};
 const sendInput=value=>transmit({type:'input',bits:value,mode:currentMode});
 // 자이로·조이스틱 모드에서는 방향 비트를 보내지 않는다(다리 방향은 pose가 맡음). 능력 버튼(16 이상)은 모든 모드에서.
-const bits=()=>joined&&unity&&focused&&document.visibilityState==='visible'?[...pointers.values()].reduce((a,b)=>a|(controlMode==='keys'?b:b&240),0):0;
+const bits=()=>joined&&unity&&!choosing&&focused&&document.visibilityState==='visible'?[...pointers.values()].reduce((a,b)=>a|(controlMode==='keys'?b:b&240),0):0;
 function colorUI(){
   const plain=currentMode==='normal'||(currentMode==='ice'&&!iceFrozen);
   const model=plain?'start':currentMode;
@@ -174,8 +175,9 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])pad.addEven
 });
 pad.addEventListener('contextmenu',event=>event.preventDefault());
 function showVisual(visual){
-  const nextMode=Object.hasOwn(actions,visual?.mode)?visual.mode:'normal';
-  if(nextMode!==currentMode)release();
+  const nextMode=Object.hasOwn(actions,visual?.mode)?visual.mode:'normal',nextChoosing=visual?.legSelect===true;
+  if(nextMode!==currentMode||nextChoosing!==choosing)release();
+  choosing=nextChoosing;$('#play').classList.toggle('choosing',choosing);
   currentMode=nextMode;
   iceFrozen=visual?.iceFrozen!==false;
   colorUI();
@@ -213,6 +215,11 @@ function showOccupancy(){
     const i=Number(button.dataset.leg),busy=occupiedSlots[i]&&i!==slot;
     button.classList.toggle('busy',busy);button.disabled=busy;
   });
+  // 큰 다리 버튼 아래 = 누가 쓰는 중인지(나 / 다른 폰 닉네임 / PC)
+  for(const label of document.querySelectorAll('[data-owner]')){
+    const i=Number(label.dataset.owner);
+    label.textContent=i===slot?'내 다리':players[i]?(players[i].name||'폰'):nativeSlots[i]?'PC':'';
+  }
 }
 // 닉네임: 게임 화면에 '폰' 대신 이 이름이 보인다
 $('#nickname').value=nickname;
@@ -247,6 +254,8 @@ function connect(){
     if(data.type==='switched'){showSlot(data.slot);message('');}
     if(data.type==='status'){
       if(!data.unity)release();unity=data.unity;
+      if(Array.isArray(data.players)&&data.players.length===4)players=data.players;
+      if(Array.isArray(data.nativeSlots)&&data.nativeSlots.length===4)nativeSlots=data.nativeSlots;
       if(Array.isArray(data.occupiedSlots)&&data.occupiedSlots.length===4){occupiedSlots=data.occupiedSlots;showOccupancy();}
       $('#connection').classList.toggle('online',unity);
       $('#game-state').textContent=unity?'정상 연결':'게임 대기';
@@ -281,7 +290,7 @@ window.addEventListener('pagehide',release);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});
 setInterval(()=>{if(joined)sendInput(bits());},100);
 setInterval(()=>{
-  const visible=joined&&unity&&focused&&document.visibilityState==='visible';
+  const visible=joined&&unity&&!choosing&&focused&&document.visibilityState==='visible';
   if(visible&&controlMode==='gyro'&&gyroActive&&sensorFresh()){transmit({type:'pose',active:true,x:tilt.x,z:tilt.z,yaw});poseSent=true;}
   // 조이스틱 한가운데(거의 안 끈 상태)에서는 다리를 그대로 둔다 — 가운데 값은 다리 돌리기(yaw)로 해석되기 때문
   else if(visible&&controlMode==='stick'&&stickPointer!==null&&Math.hypot(stick.x,stick.z)>=.06){transmit({type:'pose',active:true,x:stick.x,z:stick.z,yaw:0});poseSent=true;}

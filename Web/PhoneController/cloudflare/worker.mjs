@@ -161,8 +161,8 @@ export class PhoneRoom extends DurableObject {
           }return;
         }
         if(m.type==='visual'&&Object.hasOwn(masks,m.mode)){
-          const changed=this.room.visual.mode!==m.mode,iceFrozen=m.mode==='ice'&&m.iceFrozen!==false;
-          if(changed||this.room.visual.iceFrozen!==iceFrozen){this.room.visual={mode:m.mode,iceFrozen};if(changed)for(const [,player] of this.list('player'))this.input(player.slot,player.bits&15);await this.save();this.publish();}return;
+          const changed=this.room.visual.mode!==m.mode,iceFrozen=m.mode==='ice'&&m.iceFrozen!==false,legSelect=m.legSelect===true;
+          if(changed||this.room.visual.iceFrozen!==iceFrozen||!!this.room.visual.legSelect!==legSelect){this.room.visual={mode:m.mode,iceFrozen,legSelect};if(changed)for(const [,player] of this.list('player'))this.input(player.slot,player.bits&15);await this.save();this.publish();}return;
         }
         if(m.type==='frame'&&typeof m.data==='string'&&m.data.length<=230000&&/^[A-Za-z0-9+/]+={0,2}$/.test(m.data)){this.lastFrame={type:'frame',data:m.data};for(const [viewer,info] of this.list('viewer'))this.frame(viewer,info,this.lastFrame);return;}
         return;

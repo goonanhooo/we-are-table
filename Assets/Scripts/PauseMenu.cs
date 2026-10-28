@@ -29,6 +29,8 @@ public class PauseMenu : MonoBehaviour
     LegColorXray xray;
     bool paused;
     public static bool InputBlocked {get;private set;}
+    /// <summary>설정의 '다리 다시 고르기'가 열려 있는지 — 폰 화면이 큰 다리 버튼을 띄운다.</summary>
+    public static bool LegsScreenOpen {get;private set;}
     bool showControls;      // 조작법 화면 표시 중
     bool showLegs;          // 다리 다시 고르기 화면 표시 중(온라인 게임 중에만)
     readonly NicknameTyping nick = new NicknameTyping();
@@ -169,7 +171,7 @@ public class PauseMenu : MonoBehaviour
 
     void OpenLegs()
     {
-        showLegs = true;
+        showLegs = true; LegsScreenOpen = true;
         nick.Begin(NetLegLink.LocalNickname);
         // 열 때마다 지금 모습(다리 길이·각도)을 다시 복사
         legsPreview ??= new LobbyTablePreview(-12000f);
@@ -183,7 +185,7 @@ public class PauseMenu : MonoBehaviour
     }
     void CloseLegs()
     {
-        showLegs = false;
+        showLegs = false; LegsScreenOpen = false;
         nick.End();
         legsPreview?.Dispose();
     }
@@ -490,6 +492,6 @@ public class PauseMenu : MonoBehaviour
     }
 
     void OnDestroy(){nick.End();legsPreview?.Dispose();if(paused){InputBlocked=false;if(Time.timeScale==0)Time.timeScale=1;}}
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]static void ResetInputBlock(){InputBlocked=false;}
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]static void ResetInputBlock(){InputBlocked=false;LegsScreenOpen=false;}
 
 }

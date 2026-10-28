@@ -15,7 +15,7 @@ using UnityEngine.Networking;
 public sealed class PhoneControllerBridge : MonoBehaviour
 {
     [Serializable] public sealed class Config { public string url, room, key; }
-    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code, joinCode, joinQrPng; public bool[] occupiedSlots, nativeSlots; public string[] names; public int slot, bits, viewers; public bool occupied, active, iceFrozen; public float x, z, yaw; }
+    [Serializable] sealed class Packet { public string type, role, room, key, origin, mode, watchCode, data, code, joinCode, joinQrPng; public bool[] occupiedSlots, nativeSlots; public string[] names; public int slot, bits, viewers; public bool occupied, active, iceFrozen, legSelect; public float x, z, yaw; }
     readonly ConcurrentQueue<string> incoming = new ConcurrentQueue<string>();
     readonly bool[] occupied = new bool[4];
     readonly int[] bits = new int[4];
@@ -43,7 +43,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
     int viewerCount;
     bool frameSending;
     string sentMode = "";
-    bool sentIceFrozen;
+    bool sentIceFrozen, sentLegSelect;
     int sentNativeMask = -1;
     float nextNativeMask;
     string sentRoomCode;
@@ -306,11 +306,14 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             else if (squid != null && squid.active) visual = "squid";
         }
         bool iceFrozen = selectedIce != null && selectedIce.active;
-        if (connected && (visual != sentMode || iceFrozen != sentIceFrozen))
+        // 다리를 고르는 순간(로비 다리 단계 · 웹 다리 방 · 설정의 다리 다시 고르기) = 폰 화면에 큰 다리 버튼
+        bool legSelect = NetDebugPanel.LegsPageOpen || LevelSelect.WebLobbyOpen || PauseMenu.LegsScreenOpen;
+        if (connected && (visual != sentMode || iceFrozen != sentIceFrozen || legSelect != sentLegSelect))
         {
             sentMode = visual;
             sentIceFrozen = iceFrozen;
-            _ = SendPacket(JsonUtility.ToJson(new Packet { type = "visual", mode = visual, iceFrozen = iceFrozen }), socket);
+            sentLegSelect = legSelect;
+            _ = SendPacket(JsonUtility.ToJson(new Packet { type = "visual", mode = visual, iceFrozen = iceFrozen, legSelect = legSelect }), socket);
         }
         if (table == null) return;
         int iceActions = 0;

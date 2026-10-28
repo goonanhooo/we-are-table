@@ -51,9 +51,12 @@ public partial class LevelSelect : MonoBehaviour
         else if(step==2){CancelFriendSearch();step=0;}
         else Close();
     }
+    /// <summary>혼자 하기의 '웹 다리 방'(폰이 다리를 고르는 화면)이 열려 있는지 — 폰 화면이 큰 다리 버튼을 띄운다.</summary>
+    public static bool WebLobbyOpen {get;private set;}
     void Update()
     {
         JourneyMenuUI.PollInput();
+        WebLobbyOpen=Showing&&step==4;
         if(!Showing||busy||PauseMenu.InputBlocked||LetterOverlay.IsOpen)return;
         if(step==1)journey.Update();
         if(step!=2)return;
@@ -76,7 +79,7 @@ public partial class LevelSelect : MonoBehaviour
         bool ok=await NetSession.JoinAsync(codeInput);
         if(this==null)return;busy=false;if(ok)Close();
     }
-    void OnDisable(){CancelFriendSearch();if(preview!=null)preview.HideAll();}
+    void OnDisable(){WebLobbyOpen=false;CancelFriendSearch();if(preview!=null)preview.HideAll();}
     float shownAt;
     void OnGUI()
     {

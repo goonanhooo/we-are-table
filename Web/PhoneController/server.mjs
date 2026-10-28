@@ -133,9 +133,9 @@ export async function createRelay({port=4180,writeConfig=false}={}) {
           return;
         }
         if(role==='unity'&&m.type==='visual'&&['normal','giraffe','tennis','ice','squid'].includes(m.mode)){
-          const changed=room.visual.mode!==m.mode,iceFrozen=m.mode==='ice'&&m.iceFrozen!==false;
-          if(changed||room.visual.iceFrozen!==iceFrozen){
-            room.visual={mode:m.mode,iceFrozen};
+          const changed=room.visual.mode!==m.mode,iceFrozen=m.mode==='ice'&&m.iceFrozen!==false,legSelect=m.legSelect===true;
+          if(changed||room.visual.iceFrozen!==iceFrozen||!!room.visual.legSelect!==legSelect){
+            room.visual={mode:m.mode,iceFrozen,legSelect};
             if(changed)for(let i=0;i<4;i++)if(room.players[i])input(i,room.players[i].bits&15);
             publish();
           }return;

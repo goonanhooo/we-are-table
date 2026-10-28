@@ -14,6 +14,8 @@ public class NetDebugPanel : MonoBehaviour
     bool InSession=>NM!=null&&(NM.IsHost||NM.IsConnectedClient);
     bool InLobby=>InSession&&Link!=null&&!Link.Started;
     public static bool LobbyOpen {get;private set;}
+    /// <summary>로비의 다리 고르기 단계(맵 고르기 전) — 폰 화면이 큰 다리 버튼을 띄운다.</summary>
+    public static bool LegsPageOpen {get;private set;}
     public bool MapPage=>InLobby&&Link.ChoosingMap;
     public bool TablePreviewReady=>tablePreview.Ready;
     public Vector2 PreviewLegPoint(int slot)=>tablePreview.LegPoint(slot,TableRect);
@@ -26,8 +28,8 @@ public class NetDebugPanel : MonoBehaviour
     public static Rect LegButton(int i)=>new Rect(i%2==0?80:1184,i<2?552:296,336,208);
     bool OverlayBlocked {get{if(select==null)select=FindAnyObjectByType<LevelSelect>();return PauseMenu.InputBlocked||LetterOverlay.IsOpen||(select!=null&&select.Showing);}}
     void Start(){if(NM!=null)NM.OnClientDisconnectCallback+=OnDisconnected;}
-    void OnDestroy(){LobbyOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
-    void OnDisable(){LobbyOpen=false;phoneInvites=false;tablePreview.SetVisible(false);}
+    void OnDestroy(){LobbyOpen=false;LegsPageOpen=false;tablePreview.Dispose();if(NM!=null)NM.OnClientDisconnectCallback-=OnDisconnected;}
+    void OnDisable(){LobbyOpen=false;LegsPageOpen=false;phoneInvites=false;tablePreview.SetVisible(false);}
     void OnDisconnected(ulong id)
     {
         if(NM==null||NM.IsServer||id!=NM.LocalClientId)return;
@@ -35,7 +37,7 @@ public class NetDebugPanel : MonoBehaviour
     }
     void Update()
     {
-        JourneyMenuUI.PollInput();LobbyOpen=InLobby;
+        JourneyMenuUI.PollInput();LobbyOpen=InLobby;LegsPageOpen=InLobby&&!Link.ChoosingMap;
         bool legs=InLobby&&!Link.ChoosingMap&&!OverlayBlocked;
         if(legs)tablePreview.Initialize(Link.transform);
         tablePreview.SetVisible(legs);

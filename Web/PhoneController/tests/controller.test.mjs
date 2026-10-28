@@ -61,6 +61,12 @@ test('shared invite, leg colors, nickname, keys / gyro / joystick modes',async()
   assert.equal(ids.get('#play').style['--leg-rgb'],'242 187 43');
   assert.equal(marks[2].disabled,true);
   const pointer=id=>({pointerId:id,preventDefault(){}});
+  // 게임이 다리를 고르는 중: 큰 다리 버튼 화면, 조작 입력은 안 보냄
+  ws.receive({type:'status',unity:true,occupiedSlots:[true,false,true,false],visual:{mode:'normal',legSelect:true}});
+  assert.equal(ids.get('#play').classList.contains('choosing'),true);
+  buttons[0].events.pointerdown(pointer(40));timers[0]();assert.equal(ws.sent.at(-1).bits,0);buttons[0].events.pointerup(pointer(40));
+  ws.receive({type:'status',unity:true,occupiedSlots:[true,false,true,false],visual:{mode:'normal'}});
+  assert.equal(ids.get('#play').classList.contains('choosing'),false);
   buttons[0].events.pointerdown(pointer(1));buttons[2].events.pointerdown(pointer(2));assert.equal(ws.sent.at(-1).bits,5);
   assert.equal(ids.get('#tilt-dot').style.transform,'translate(-25cqw,-25cqw)');
   assert.equal(ids.get('#mini-dot').style.transform,'translate(-25cqw,-25cqw)');

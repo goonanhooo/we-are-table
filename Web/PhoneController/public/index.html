@@ -32,6 +32,12 @@
       <strong id="slot-name" class="sr-only" role="status">노란 다리</strong>
       <span id="gyro-title" class="sr-only" role="status">자이로 꺼짐</span>
       <div class="stage">
+        <div id="leg-picker" class="leg-picker" role="group" aria-label="다리 고르기">
+          <button type="button" data-leg="2" aria-label="초록 다리(왼쪽 앞)로 전환" aria-pressed="false"><b>왼쪽 앞</b><small data-owner="2"></small></button>
+          <button type="button" data-leg="3" aria-label="빨간 다리(오른쪽 앞)로 전환" aria-pressed="false"><b>오른쪽 앞</b><small data-owner="3"></small></button>
+          <button type="button" data-leg="0" aria-label="노란 다리(왼쪽 뒤)로 전환" aria-pressed="false"><b>왼쪽 뒤</b><small data-owner="0"></small></button>
+          <button type="button" data-leg="1" aria-label="파란 다리(오른쪽 뒤)로 전환" aria-pressed="false"><b>오른쪽 뒤</b><small data-owner="1"></small></button>
+        </div>
         <div id="keys" class="keys" aria-label="방향키">
           <button data-bit="1" class="up" aria-label="앞으로">↑</button>
           <button data-bit="4" class="left" aria-label="왼쪽">←</button>

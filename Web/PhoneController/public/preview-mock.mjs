@@ -1,6 +1,6 @@
 // UI 미리보기용 가짜 게임 연결. 주소에 ?preview 가 있을 때만 켜지고, 평소에는 아무것도 하지 않는다.
 // controller.mjs보다 먼저 실행되어 WebSocket을 가짜로 바꾸고, 게임 서버가 보내는 joined/status 메시지를 흉내 낸다.
-// 주소 옵션: mode=normal|giraffe|tennis|ice|squid  leg=0..3  busy=0101(다른 사람이 맡은 다리)  unity=0|1  ice=frozen|thawed  screen=entry|play  ctl=keys|gyro|stick(조작 방식)
+// 주소 옵션: mode=normal|giraffe|tennis|ice|squid  leg=0..3  busy=0101(다른 사람이 맡은 다리)  unity=0|1  ice=frozen|thawed  screen=entry|play  ctl=keys|gyro|stick(조작 방식)  pick=1(게임이 다리 고르는 중)
 // 미리보기 화면(preview.html)이 postMessage로 상태를 바꾸면 그대로 다시 보낸다. 폰이 보내는 입력은 부모 창에 알려 준다.
 const params = new URLSearchParams(location.search);
 if (params.has('preview')) {
@@ -11,12 +11,13 @@ if (params.has('preview')) {
     unity: params.get('unity') !== '0',
     iceFrozen: params.get('ice') !== 'thawed',
     ctl: params.get('ctl') || 'keys',
+    pick: params.get('pick') === '1',
   };
   // 조작 방식 버튼을 대신 눌러 준다(입장한 뒤에만 의미가 있음)
   const pickControl = () => setTimeout(() => document.querySelector(`#modes [data-mode="${state.ctl}"]`)?.click(), 60);
   let socket = null;
   const occupied = () => state.busy.map((b, i) => b && i !== state.leg);
-  const status = () => ({type: 'status', unity: state.unity, occupiedSlots: occupied(), visual: {mode: state.mode, iceFrozen: state.iceFrozen}});
+  const status = () => ({type: 'status', unity: state.unity, occupiedSlots: occupied(), players: occupied().map(b => b ? {name: '친구', active: false} : null), visual: {mode: state.mode, iceFrozen: state.iceFrozen, legSelect: state.pick}});
   const report = value => { try { parent.postMessage({source: 'wat-preview', id: params.get('id') || '', ...value}, location.origin); } catch {} };
 
   class PreviewSocket {
@@ -48,6 +49,7 @@ if (params.has('preview')) {
     if (Array.isArray(d.busy)) state.busy = d.busy.slice(0, 4).map(Boolean);
     if (typeof d.unity === 'boolean') state.unity = d.unity;
     if (typeof d.iceFrozen === 'boolean') state.iceFrozen = d.iceFrozen;
+    if (typeof d.pick === 'boolean') state.pick = d.pick;
     if (typeof d.ctl === 'string' && d.ctl !== state.ctl) { state.ctl = d.ctl; pickControl(); }
     if (socket && Number.isInteger(d.leg)) socket.receive({type: 'switched', slot: state.leg});
     socket?.receive(status());

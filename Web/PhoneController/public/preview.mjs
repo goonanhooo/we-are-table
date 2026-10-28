@@ -12,7 +12,7 @@ const FRAMES = [
   {id: 'entry', label: '입장 화면 375×812', w: 375, h: 812, entry: true},
 ];
 const BIT_NAMES = {normal: {}, giraffe: {16: '늘이기', 32: '줄이기'}, tennis: {64: '접착', 128: '해제'}, ice: {16: '얼음', 32: '풀기'}, squid: {16: '분출'}};
-const state = {mode: 'normal', ctl: 'keys', leg: 0, busy: [false, false, false, false], unity: true, iceFrozen: true, zoom: 1};
+const state = {mode: 'normal', ctl: 'keys', pick: false, leg: 0, busy: [false, false, false, false], unity: true, iceFrozen: true, zoom: 1};
 
 function chips(container, items, pick) {
   for (const [value, label] of items) {
@@ -26,6 +26,7 @@ chips($('#ctl'), CONTROLS, v => { state.ctl = v; mark($('#ctl'), b => b.dataset.
 chips($('#legs'), LEGS.map((n, i) => [String(i), n]), v => { state.leg = Number(v); state.busy[state.leg] = false; refreshChips(); push(); });
 chips($('#busy'), LEGS.map((n, i) => [String(i), n]), v => { const i = Number(v); if (i !== state.leg) state.busy[i] = !state.busy[i]; refreshChips(); push(); });
 document.querySelectorAll('[data-ice]').forEach(b => b.onclick = () => { state.iceFrozen = b.dataset.ice === 'frozen'; mark(b.parentElement, x => x === b); push(); });
+document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { state.pick = b.dataset.pick === '1'; mark(b.parentElement, x => x === b); push(); });
 document.querySelectorAll('[data-unity]').forEach(b => b.onclick = () => { state.unity = b.dataset.unity === '1'; mark(b.parentElement, x => x === b); push(); });
 document.querySelectorAll('[data-zoom]').forEach(b => b.onclick = () => { state.zoom = Number(b.dataset.zoom); mark(b.parentElement, x => x === b && x.dataset.zoom); layout(); });
 function refreshChips() {
@@ -37,7 +38,7 @@ function refreshChips() {
 
 const cards = [];
 function src(f) {
-  const q = new URLSearchParams({preview: '1', id: f.id, mode: state.mode, ctl: state.ctl, leg: String(state.leg), busy: state.busy.map(b => b ? '1' : '0').join(''), unity: state.unity ? '1' : '0', ice: state.iceFrozen ? 'frozen' : 'thawed'});
+  const q = new URLSearchParams({preview: '1', id: f.id, mode: state.mode, ctl: state.ctl, pick: state.pick ? '1' : '0', leg: String(state.leg), busy: state.busy.map(b => b ? '1' : '0').join(''), unity: state.unity ? '1' : '0', ice: state.iceFrozen ? 'frozen' : 'thawed'});
   if (f.entry) q.set('screen', 'entry');
   return '/index.html?' + q;
 }
@@ -64,7 +65,7 @@ function layout() {
 function push() {
   for (const {f, frame} of cards) {
     if (f.entry) continue;
-    frame.contentWindow?.postMessage({source: 'wat-preview-control', mode: state.mode, ctl: state.ctl, leg: state.leg, busy: state.busy, unity: state.unity, iceFrozen: state.iceFrozen}, location.origin);
+    frame.contentWindow?.postMessage({source: 'wat-preview-control', mode: state.mode, ctl: state.ctl, pick: state.pick, leg: state.leg, busy: state.busy, unity: state.unity, iceFrozen: state.iceFrozen}, location.origin);
   }
 }
 

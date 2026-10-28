@@ -64,6 +64,10 @@ try{
   await until(()=>unity.messages.some(m=>m.type==='input'&&m.slot===0&&m.bits===1),'stale action mask');
   send(phones[0],{type:'power',power:5});await wait(100);assert.equal(unity.messages.some(m=>m.type==='power'),false);
  });
+ await check('leg choosing state reaches phones',async()=>{
+  send(unity,{type:'visual',mode:'normal',legSelect:true});await until(()=>phones[1].messages.findLast(m=>m.type==='status')?.visual?.legSelect===true,'leg choosing on');
+  send(unity,{type:'visual',mode:'normal'});await until(()=>phones[1].messages.findLast(m=>m.type==='status')?.visual?.legSelect===false,'leg choosing off');
+ });
  await check('calibrated pose and watchdog release travel through the cloud',async()=>{
   unity.messages.length=0;send(phones[0],{type:'pose',active:true,x:.3,z:.4,yaw:25});
   await until(()=>unity.messages.some(m=>m.type==='pose'&&m.active&&m.x===.3),'pose');
