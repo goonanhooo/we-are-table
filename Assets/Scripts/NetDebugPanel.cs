@@ -113,13 +113,15 @@ public class NetDebugPanel : MonoBehaviour
         JourneyMenuUI.Literal(new Rect(r.x+400,r.y,CopyRect.x-r.x-400-JourneyMenuUI.S4,r.height),info,JourneyMenuUI.TXS,JourneyMenuUI.Muted,TextAnchor.MiddleRight);   // 한 줄(넘치면 글씨만 작아짐)
         if(JourneyMenuUI.Button(CopyRect,L.T("코드 복사","Copy code","コードをコピー","复制代码"),!string.IsNullOrEmpty(NetSession.JoinCode))){GUIUtility.systemCopyBuffer=NetSession.JoinCode;status=L.T("방 코드를 복사했어요","Room code copied","コードをコピーしました","已复制房间代码");statusUntil=Time.unscaledTime+2;}
         if(JourneyMenuUI.Button(InviteRect,L.T("친구 초대","Invite friends","フレンド招待","邀请好友"),NM.IsHost&&SteamLobby.InLobby))SteamLobby.OpenInviteOverlay();
-        if(JourneyMenuUI.Button(QrRect,L.T("폰 QR","Phone QR","スマホQR","手机二维码"),NM.IsHost&&PhoneControllerBridge.Instance!=null&&PhoneControllerBridge.Instance.Connected))phoneInvites=true;
+        // QR은 호스트면 언제든 열 수 있다 — 폰 서버 연결이 아직이면 QR 자리에 연결 상태가 보이고, 연결되는 즉시 QR이 뜬다
+        if(JourneyMenuUI.Button(QrRect,L.T("폰 QR","Phone QR","スマホQR","手机二维码"),NM.IsHost)){phoneInvites=true;if(PhoneControllerBridge.Instance==null)PhoneControllerBridge.WebPlayActive=true;}
     }
     void DrawPhoneInvites()
     {
         JourneyMenuUI.Heading(L.T("폰으로 다리 조작","Control legs with phones","スマホで脚を操作","用手机控制桌腿"));
         var bridge=PhoneControllerBridge.Instance;
         if(bridge!=null)bridge.DrawInvite(new Rect(80,192,1440,456));
+        else{var area=new Rect(80,192,1440,456);JourneyMenuUI.Box(area,JourneyMenuUI.Kind.Panel);JourneyMenuUI.Text(area,L.T("폰 연결 준비 중","Preparing phone link","スマホ接続を準備中","正在准备手机连接"),JourneyMenuUI.TM,JourneyMenuUI.Muted,TextAnchor.MiddleCenter);}
         if(bridge!=null&&bridge.WatchCode.Length==8)
             JourneyMenuUI.Note(new Rect(80,672,1440,40),L.T("웹 화면 보기","Watch on web","ウェブで見る","网页观看")+"   "+bridge.PublicOrigin+"/watch   "+bridge.WatchCode);
         if(JourneyMenuUI.BackButton(LeaveRect,L.T("다리 선택","Choose legs","脚の選択","选择腿")))phoneInvites=false;

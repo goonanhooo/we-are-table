@@ -34,36 +34,79 @@ public static class NetSession
     }
 
     // ★2026-08-20 출시 안전망: 서비스 호출이 무한 대기하지 않게 타임아웃(과거 InitializeAsync 무한 대기 사례)
+    // ★2026-10-29 핫스팟처럼 느린 연결에서 방이 안 만들어지던 문제: SDK는 요청 하나에 10초를 기다렸다 다시 시도하는데
+    //   로그인 제한이 20초라 끝나기 전에 실패 처리됨(바로 다음 시도는 성공). → 게임을 켤 때 미리 로그인 + 진행 중인 로그인 이어받기 + 제한 늘림.
+    static string TimeoutMessage => L.T("연결 시간이 초과됐어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+        "Connection timed out. Check your internet connection and try again.",
+        "接続がタイムアウトしました。インターネット接続を確認して、もう一度お試しください。",
+        "连接超时。请检查网络连接后重试。");
     static async Task<T> WithTimeout<T>(Task<T> t, float seconds, string what)
     {
         var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
-        if (done != t) throw new System.TimeoutException(L.T("연결 시간이 초과됐어요. 방 코드를 확인하고 다시 시도해 주세요.","Connection timed out. Check the room code and try again."));
+        if (done != t) throw new System.TimeoutException(TimeoutMessage);
         return await t;
     }
     static async Task WithTimeout(Task t, float seconds, string what)
     {
         var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
-        if (done != t) throw new System.TimeoutException(L.T("연결 시간이 초과됐어요. 방 코드를 확인하고 다시 시도해 주세요.","Connection timed out. Check the room code and try again."));
+        if (done != t) throw new System.TimeoutException(TimeoutMessage);
         await t;
     }
+    /// <summary>방 만들기/참가가 시간 초과된 뒤 늦게 성공하면 그 세션은 바로 떠난다(아무도 모르는 방이 남지 않게).</summary>
+    static async Task<T> SessionWithTimeout<T>(Task<T> t, float seconds, string what) where T : class, ISession
+    {
+        var done = await Task.WhenAny(t, Task.Delay((int)(seconds * 1000f)));
+        if (done != t) { _ = LeaveWhenLate(t); throw new System.TimeoutException(TimeoutMessage); }
+        return await t;
+    }
+    static async Task LeaveWhenLate<T>(Task<T> t) where T : class, ISession
+    {
+        try
+        {
+            var late = await t;
+            if (late != null && late != Session) { await late.LeaveAsync(); Debug.LogWarning("[NetSession] 시간 초과 뒤 늦게 열린 세션을 정리함"); }
+        }
+        catch { }
+    }
+
+    // 진행 중인 초기화·로그인 — 시간이 초과돼도 버리지 않고 다음 시도가 이어받는다(같은 요청을 두 번 보내지 않음)
+    static Task initTask, signInTask;
 
     /// <summary>서비스 초기화 + 익명 로그인(1회). Steam 출시 때 이 로그인만 Steam 연동으로 교체.</summary>
-    public static async Task<bool> EnsureSignedInAsync()
+    /// <param name="quiet">게임 시작 때 미리 로그인해 둘 때 — 실패해도 상태 문구·에러 로그를 남기지 않음.</param>
+    public static async Task<bool> EnsureSignedInAsync(bool quiet = false)
     {
         try
         {
             if (UnityServices.State != ServicesInitializationState.Initialized)
-                await WithTimeout(UnityServices.InitializeAsync(), 20f, "서비스 초기화");
+            {
+                if (initTask == null || initTask.IsFaulted || initTask.IsCanceled) initTask = UnityServices.InitializeAsync();
+                await WithTimeout(initTask, 30f, "서비스 초기화");
+            }
             if (!AuthenticationService.Instance.IsSignedIn)
-                await WithTimeout(AuthenticationService.Instance.SignInAnonymouslyAsync(), 20f, "로그인");
+            {
+                if (signInTask == null || signInTask.IsCompleted) signInTask = AuthenticationService.Instance.SignInAnonymouslyAsync();
+                await WithTimeout(signInTask, 45f, "로그인");
+                if (quiet) Debug.Log("[NetSession] 미리 로그인 완료");
+            }
             return true;
         }
         catch (System.Exception e)
         {
+            if (quiet) { Debug.Log("[NetSession] 미리 로그인 실패(방 만들 때 다시 시도): " + e.Message); return false; }
             Status = L.T("로그인 실패: ", "sign-in failed: ") + e.Message;
             Debug.LogError("[NetSession] " + Status);
             return false;
         }
+    }
+
+    // 빌드에서 게임을 켜면 바로 로그인해 둔다 — '방 만들기'를 누를 때 기다릴 일이 없게(에디터 플레이는 그대로)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void Prewarm()
+    {
+        initTask = null; signInTask = null;
+        if (Application.isEditor || Application.platform == RuntimePlatform.WebGLPlayer) return;
+        _ = EnsureSignedInAsync(true);
     }
 
     /// <summary>방 생성(호스트). 성공 시 JoinCode에 방 코드. Relay 경유라 포트포워딩 불필요.</summary>
@@ -89,7 +132,7 @@ public static class NetSession
             Status = L.T("방 생성 중...", "creating room...");
             var options = new SessionOptions { MaxPlayers = 4, IsPrivate = true, IsLocked = false }
                 .WithRelayNetwork();   // Relay 할당 + NGO 호스트 자동 시작
-            Session = await WithTimeout(MultiplayerService.Instance.CreateSessionAsync(options), 30f, "방 생성");
+            Session = await SessionWithTimeout(MultiplayerService.Instance.CreateSessionAsync(options), 40f, "방 생성");
             Status = L.T("방 생성됨 — 코드: ", "room created — code: ") + Session.Code;
             Debug.Log("[NetSession] " + Status);
             return true;
@@ -127,7 +170,7 @@ public static class NetSession
             Status = L.T("로그인 중...", "signing in...");
             if (!await EnsureSignedInAsync()) return false;
             Status = L.T("참가 중...", "joining...");
-            Session = await WithTimeout(MultiplayerService.Instance.JoinSessionByCodeAsync(trimmed), 30f, "참가");
+            Session = await SessionWithTimeout(MultiplayerService.Instance.JoinSessionByCodeAsync(trimmed), 40f, "참가");
             Status = L.T("참가됨", "joined");
             Debug.Log("[NetSession] " + Status);
             return true;

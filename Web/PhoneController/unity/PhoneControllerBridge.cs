@@ -94,16 +94,26 @@ public sealed class PhoneControllerBridge : MonoBehaviour
                         !string.IsNullOrEmpty(created.room) && !string.IsNullOrEmpty(created.key))
                     {
                         config = created;
+                        Debug.Log("[Phone controller] 폰 서버 방 준비됨 — 접속 시작");
                         Begin();
                         yield break;
                     }
                 }
                 // The room key stays in memory and never enters a portable build or public URL.
                 connectionStatus = "폰 서버 연결 대기";
+                Note("폰 서버 방 준비 실패: " + (request.result == UnityWebRequest.Result.Success ? "응답 형식" : request.responseCode + " " + request.error));
             }
             yield return new WaitForSecondsRealtime(10);
         }
         if (config == null) Destroy(gameObject);
+    }
+    // 같은 실패를 계속 찍지 않게(바뀔 때만) — 원인을 Player.log에서 찾을 수 있도록. 방 키·주소는 남기지 않는다.
+    string lastNote = "";
+    void Note(string message)
+    {
+        if (message == lastNote) return;
+        lastNote = message;
+        Debug.LogWarning("[Phone controller] " + message);
     }
     public static PhoneControllerBridge Instance => instance;
     public bool Connected => connected;
@@ -195,7 +205,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
                         }
                     }
                 }
-                catch (Exception) { connectionStatus = "연결 대기"; }
+                catch (Exception e) { connectionStatus = "연결 대기"; Note("폰 서버 접속 끊김/실패: " + e.GetType().Name + " " + e.Message); }
                 finally { connected = false; }
             }
             if (token.IsCancellationRequested) break;
@@ -250,7 +260,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
             Packet packet;
             try { packet = JsonUtility.FromJson<Packet>(json); } catch { continue; }
             if (packet == null) continue;
-            if (packet.type == "ready") { connected = true; connectionStatus = "연결됨"; sentMode = ""; sentNativeMask = -1; sentRoomCode = null; }
+            if (packet.type == "ready") { connected = true; connectionStatus = "연결됨"; sentMode = ""; sentNativeMask = -1; sentRoomCode = null; Debug.Log("[Phone controller] 폰 서버 연결됨"); lastNote = ""; }
             if (packet.type == "lobby") ReceiveLobby(packet);
             if (packet.type == "input" && packet.slot >= 0 && packet.slot < 4)
             {
@@ -424,7 +434,7 @@ public sealed class PhoneControllerBridge : MonoBehaviour
         JourneyMenuUI.Box(card, JourneyMenuUI.Kind.Card);
         var image = new Rect(card.x + S2, card.y + S2, size - 2 * S2, size - 2 * S2);
         if (JoinQr != null) GUI.DrawTexture(image, JoinQr, ScaleMode.ScaleToFit);
-        else JourneyMenuUI.Text(image, L.T("QR 연결 대기", "Waiting for QR", "QR接続待ち", "等待二维码"), JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
+        else JourneyMenuUI.Text(image, connected ? L.T("QR 연결 대기", "Waiting for QR", "QR接続待ち", "等待二维码") : StatusText, JourneyMenuUI.TXS, JourneyMenuUI.Muted, TextAnchor.MiddleCenter);
         string code = JoinCode;
         if (code.Length == 8) code = code.Substring(0, 4) + " " + code.Substring(4);
         JourneyMenuUI.Literal(new Rect(card.x, card.yMax + S2, size, 56f), code, JourneyMenuUI.TL, JourneyMenuUI.Ink, TextAnchor.MiddleCenter);
