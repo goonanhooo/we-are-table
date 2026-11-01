@@ -80,6 +80,23 @@ public class PauseMenu : MonoBehaviour
     public void OpenMenu() => SetPaused(true);
     public bool IsOpen => paused;
 
+    // ★2026-11-01 조작법만 바로 연 경우(오른쪽 아래 키보드 클릭·복도 첫 안내) — 닫으면 메뉴가 아니라 게임으로, 커서도 연 때 그대로
+    bool controlsDirect; CursorLockMode cursorBefore; bool cursorVisibleBefore;
+    /// <summary>조작법(키보드 그림) 화면만 바로 연다. 닫기·ESC·바깥 클릭이면 곧장 게임으로 돌아간다.</summary>
+    public void OpenControls()
+    {
+        if (IsBackground() || paused) return;
+        cursorBefore = Cursor.lockState; cursorVisibleBefore = Cursor.visible;
+        SetPaused(true);
+        showControls = true; controlsPage = 0; controlsDirect = true;
+    }
+    void CloseControls()
+    {
+        if (!controlsDirect) { showControls = false; return; }
+        SetPaused(false);
+        Cursor.lockState = cursorBefore; Cursor.visible = cursorVisibleBefore;
+    }
+
     NetLegLink Link
     {
         get
@@ -270,7 +287,7 @@ public class PauseMenu : MonoBehaviour
                 var lobby = FindAnyObjectByType<NetDebugPanel>();
                 if (lobby != null && lobby.HandleBack()) return;
             }
-            if (paused && showControls) showControls = false; // 조작법 화면이면 메뉴로 복귀
+            if (paused && showControls) CloseControls();      // 조작법 화면이면 메뉴로 복귀(바로 연 경우엔 게임으로)
             else if (paused && showLegs) CloseLegs();         // 다리 고르기 화면이면 메뉴로 복귀
             else if (paused && showMaps) showMaps = false;    // 맵 고르기 화면이면 메뉴로 복귀
             else SetPaused(!paused);
@@ -291,9 +308,10 @@ public class PauseMenu : MonoBehaviour
             if (mouse.leftButton.wasPressedThisFrame)
             {
                 string[] nm; var pg = CtrlPages(out nm);
-                if (cClose.Contains(gm)) showControls = false;
+                if (cClose.Contains(gm)) CloseControls();
                 else if (pg.Length > 1 && cNext.Contains(gm)) controlsPage = (controlsPage + 1) % pg.Length;
                 else if (pg.Length > 1 && cPrev.Contains(gm)) controlsPage = (controlsPage - 1 + pg.Length) % pg.Length;
+                else if (controlsDirect) CloseControls();   // 바로 연 조작법은 아무 데나 클릭해도 닫힘
             }
             return;
         }
@@ -398,6 +416,7 @@ public class PauseMenu : MonoBehaviour
     {
         paused = p;
         InputBlocked=p;
+        controlsDirect = false;
         var nm=Unity.Netcode.NetworkManager.Singleton;
         if(nm==null||!nm.IsListening)Time.timeScale=p?0f:1f;
         if (p)

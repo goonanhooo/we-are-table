@@ -32,7 +32,16 @@ public static class LocalizedControlGuide
         if(kind==0&&DrawKeyboard(ink,muted)){GUI.matrix=matrix;GUI.color=old;GUI.contentColor=oldContent;return;}
         Label(new Rect(60,22,1080,65),Name(kind),title,48);
         Label(new Rect(50,88,1100,44),kind==0?L.T("같은 색 키로 같은 색 다리를 움직여요","Match each key group to its leg color"):L.T("한 번에 한 가지 힘만 사용할 수 있어요","Use one power at a time"),small,24);
-        if(kind>0)
+        if(kind==1)
+        {
+            // ★2026-11-01 기린: 위 줄을 둘로 — [2] 켜기/끄기 + [+][-] 네 다리 한 번에(튜토리얼도 이것부터 알려 줌)
+            Key(new Rect(189,145,72,72),"2",ink,50);
+            Label(new Rect(279,145,190,72),L.T("켜기 / 끄기","ON / OFF"),title,37);
+            Key(new Rect(559,145,72,72),"+",ink,50);
+            Key(new Rect(641,145,72,72),"-",ink,50);
+            Label(new Rect(731,145,300,72),L.T("네 다리 한 번에","All four legs","4本いっしょに","四条腿一起"),title,37);
+        }
+        else if(kind>0)
         {
             Key(new Rect(395,145,72,72),(kind+1).ToString(),ink,50);
             Label(new Rect(488,145,320,72),L.T("켜기 / 끄기","ON / OFF"),title,37);
@@ -87,11 +96,25 @@ public static class LocalizedControlGuide
         var content = new GUIContent(label); while (key.fontSize > 10 && key.CalcSize(content).x > r.width - 8) key.fontSize--;
         GUI.Label(new Rect(r.x, r.y - key.fontSize * .06f, r.width, r.height), content, key);
     }
-    static bool DrawKeyboard(Color ink, Color muted)
+    static bool EnsureKeyboard()
     {
         if (kbImage == null) kbImage = Resources.Load<Texture2D>("HandUI/keyboard_base");
         if (kb == null) { var t = Resources.Load<TextAsset>("HandUI/keyboard_layout"); if (t != null) kb = JsonUtility.FromJson<KbLayout>(t.text); }
-        if (kbImage == null || kb == null || kb.keys == null) return false;
+        return kbImage != null && kb != null && kb.keys != null;
+    }
+    /// <summary>자판 그림(1620×710) — 오른쪽 아래 미니 키보드(KeyboardHud)도 같은 그림을 쓴다.</summary>
+    public static Texture2D KeyboardImage => EnsureKeyboard() ? kbImage : null;
+    /// <summary>자판 그림 원본 픽셀 좌표(위가 0)의 키 영역. name 예: "W", "Enter", "LeftBracket".</summary>
+    public static bool KeyboardKey(string name, out Rect pixels)
+    {
+        pixels = Rect.zero;
+        if (!EnsureKeyboard()) return false;
+        foreach (var k in kb.keys) if (k.name == "Key_" + name) { pixels = new Rect(k.x, k.y, k.w, k.h); return true; }
+        return false;
+    }
+    static bool DrawKeyboard(Color ink, Color muted)
+    {
+        if (!EnsureKeyboard()) return false;
         float kh = 1120f * 710f / 1620f; var img = new Rect(40, (675f - (kh + 28 + 56)) * .5f, 1120, kh);   // 자판 + 설명 줄을 세로 가운데
         GUI.DrawTexture(img, kbImage, ScaleMode.StretchToFill);
         // 다리 키 16개: 그 다리 색으로 칠함, 키 묶음 위(자판 위 빈 줄)에 다리 이름

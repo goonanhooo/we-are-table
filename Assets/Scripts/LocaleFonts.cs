@@ -26,11 +26,26 @@ public static class LocaleFonts
             return hand != null ? hand : Body;
         }
     }
+    /// <summary>★2026-11-01 말풍선 글씨: 굵지 않은 얇은 손글씨(Gaegu-Regular). 일본어·중국어는 본문 글꼴.</summary>
+    public static Font Thin
+    {
+        get
+        {
+            if ((int)L.Current >= 2) return Body;
+            if (thin == null) thin = Resources.Load<Font>("Fonts/Gaegu-Regular");
+            return thin != null ? thin : Hand;
+        }
+    }
+    static Font thin;
+    static readonly List<WeakReference<GUIStyle>> thinStyles = new List<WeakReference<GUIStyle>>();
     public static void Track(GUIStyle style) { style.font = Hand; styles.Add(new WeakReference<GUIStyle>(style)); }
+    public static void TrackThin(GUIStyle style) { style.font = Thin; thinStyles.Add(new WeakReference<GUIStyle>(style)); }
     public static void RefreshStyles()
     {
         for (int i = styles.Count - 1; i >= 0; i--)
             if (styles[i].TryGetTarget(out var style)) style.font = Hand; else styles.RemoveAt(i);
+        for (int i = thinStyles.Count - 1; i >= 0; i--)
+            if (thinStyles[i].TryGetTarget(out var style)) style.font = Thin; else thinStyles.RemoveAt(i);
     }
     public static void Apply()
     {

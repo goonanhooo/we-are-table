@@ -279,7 +279,7 @@ public class ArtSceneReset : MonoBehaviour
         }
         if (supported < 2 && !keepYIfNoGround) return;
         recovery.Begin(UprightEnvelope(), Quaternion.Euler(0f, root.transform.eulerAngles.y, 0f), keepYIfNoGround);
-        if (!recovery.TryAt(root.transform.position, out var safe)) return;
+        if (!recovery.TryAt(root.transform.position, ScanFromY(), out var safe)) return;
         for (int i = safeUprightHistory.Count - 1; i >= 0; i--)
             if ((safeUprightHistory[i] - safe).sqrMagnitude < 1f) safeUprightHistory.RemoveAt(i);
         safeUprightHistory.Insert(0, safe);
@@ -463,7 +463,20 @@ public class ArtSceneReset : MonoBehaviour
         if (root == null || !CheckpointRuntime.Authority) return false;
         var p = root.transform.position;
         if (!float.IsFinite(p.x) || !float.IsFinite(p.y) || !float.IsFinite(p.z)) return false;
-        return ResetPoseInternal(new Vector2(p.x, p.z), p.y + .05f, true);
+        return ResetPoseInternal(new Vector2(p.x, p.z), ScanFromY(), true);
+    }
+
+    readonly List<Collider> ownColliders = new List<Collider>(16);
+    /// <summary>★2026-11-01 바닥을 찾으러 아래로 쏘기 시작하는 높이. 루트 원점은 '다리 끝 높이'라서 다리를 벌려
+    /// 상판이 바닥에 깔리면 바닥보다 0.6m쯤 아래로 내려간다 — 그 높이에서 쏘면 상자 바닥(정글 하얀 창고 등) 속에서
+    /// 출발해 바닥을 못 맞히고, 기억해 둔 바깥 입구로 바로서던 버그. 테이블 콜라이더 맨 아래보다 조금 위에서 쏜다.</summary>
+    float ScanFromY()
+    {
+        float y = root.transform.position.y + .05f, bottom = float.PositiveInfinity;
+        transform.root.GetComponentsInChildren(false, ownColliders);
+        foreach (var c in ownColliders)
+            if (c != null && c.enabled && !c.isTrigger) bottom = Mathf.Min(bottom, c.bounds.min.y);
+        return float.IsFinite(bottom) ? Mathf.Max(y, bottom + .3f) : y;
     }
 
     /// <summary>지정 XZ의 땅 위에 복원(용암 사망 → 안전한 땅 리스폰용). 고지대로 보낼 수 있어 높은 곳에서 스캔.</summary>

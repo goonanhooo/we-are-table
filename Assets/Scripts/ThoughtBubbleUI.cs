@@ -75,7 +75,7 @@ public static class ThoughtBubbleUI
         DrawSkin(fitted,wide,wideUv,alpha);
         if(!string.IsNullOrEmpty(body))
         {
-            if(text==null){text=HandUI.Style(fontSize,Color.black,bold:true);text.wordWrap=true;}
+            if(text==null){text=HandUI.Style(fontSize,Color.black,thin:true);text.wordWrap=true;}
             FittedLabel(WideContent(fitted),body,text,fontSize);
         }
         GUI.color=old;
@@ -113,7 +113,7 @@ public static class ThoughtBubbleUI
     public static void DrawBubble(Rect rect,float alpha,string body,int fontSize=34)
     {
         DrawPart(0,rect,alpha);if(string.IsNullOrEmpty(body))return;
-        if(text==null){text=HandUI.Style(fontSize,Color.black,bold:true);text.wordWrap=true;}
+        if(text==null){text=HandUI.Style(fontSize,Color.black,thin:true);text.wordWrap=true;}
         var old=GUI.color;GUI.color=new Color(1,1,1,alpha);
         FittedLabel(new Rect(rect.x+rect.width*.16f,rect.y+rect.height*.23f,rect.width*.68f,rect.height*.54f),body,text,fontSize);
         GUI.color=old;

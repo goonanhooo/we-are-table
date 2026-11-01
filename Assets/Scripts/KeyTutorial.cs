@@ -28,6 +28,7 @@ public partial class KeyTutorial : MonoBehaviour
     [HideInInspector] public float infoSeconds = 12f; // Legacy serialized field; power practice never expires.
     [Tooltip("(프리팹에 TitleTab이 없을 때의 폴백 IMGUI 칩) 제목 글씨 크기(화면 높이 비율) / 안내 줄 크기")] public float titleSizeVp = 0.026f, noteSizeVp = 0.019f;
     [Tooltip("아래 안내 판(다리 색 안내) 유지 시간")] public float noteSeconds = 9f;
+    [Tooltip("★2026-10-30 걷기 안내(다리 하나) 유지 시간 — 네 방향을 다 눌러 보지 않아도 이만큼 지나면 다음으로")] public float moveLessonSeconds = 5f;
     [Tooltip("★v9b 제목/안내 판 글씨의 화면상 최소 크기(px) — 창이 작아 표지판이 작아지면 판만 키워 읽히게")] public float titleMinPx = 20f, noteMinPx = 14f;
     [Tooltip("★v9b 판의 최대 폭(표지판 폭의 배수) — 넘으면 글씨를 줄임 / 글자 양옆 여백(표지판 px)")] public float tabMaxWidthMul = 1.0f, noteMaxWidthMul = 1.3f, tabPadX = 56f;
     [Header("뒤집힘 말풍선(IMGUI, codexcow 방식)")]
@@ -228,6 +229,7 @@ public partial class KeyTutorial : MonoBehaviour
                         for (int k = 0; k < 4; k++) if (alts[k] != Key.None) Add(alts[k], id, LegPalette.BySlot[i], true);
                     }
                 });
+            l.expire = moveLessonSeconds;
             l.onFinish = () =>
             {
                 if (hallway == null) OnFirstWalk();
@@ -332,6 +334,10 @@ public partial class KeyTutorial : MonoBehaviour
             }
             if (cur != null && !cur.started) StartLesson(cur);
         }
+
+        // ★2026-11-01 스페이스: 복도 걷기 안내(남은 다리 전부)를 한 번에 끝냄
+        if (ok && hallway != null && !moveDone && cur != null && cur.id.StartsWith("move") && SkipHint.Pressed())
+            foreach (var l in lessons) if (l.id.StartsWith("move") && !l.finished) Finish(l);
 
         if (hallway != null && hallway.IntroFinished && xray != null && !moveDone)
             xray.SetTutorialMask(cur != null && cur.id.StartsWith("move") ? 1 << (cur.id[cur.id.Length-1]-'0') : 0);
@@ -468,6 +474,7 @@ public partial class KeyTutorial : MonoBehaviour
     {
         if (CheatMode.Active || menuScene || root == null || Time.timeScale <= 0f || LetterOverlay.IsOpen || Event.current.type != EventType.Repaint) return;
         if (hallway != null && !thoughtWant && hallwayAlpha > 0.001f) DrawHallwayThought();
+        if (hallway != null && !moveDone && cur != null && cur.id.StartsWith("move") && hallwayAlpha > .5f) SkipHint.Draw();
         bool boardOn = board != null && board.activeSelf && boardGroup != null && boardGroup.alpha > 0.01f;
         bool drawThought = thoughtAlpha > 0.001f && !string.IsNullOrEmpty(thoughtText);
         if (!boardOn && !drawThought) return;
@@ -528,8 +535,8 @@ public partial class KeyTutorial : MonoBehaviour
             ThoughtBubbleUI.DrawWideBubble(rect, hallwayAlpha, "");
             if (hallwayHeading == null)
             {
-                hallwayHeading = HandUI.Style(26, Color.black, bold:true); hallwayHeading.wordWrap = true;
-                hallwayFooter = HandUI.Style(18, Color.black, bold:true); hallwayFooter.wordWrap = true;
+                hallwayHeading = HandUI.Style(26, Color.black, thin:true); hallwayHeading.wordWrap = true;
+                hallwayFooter = HandUI.Style(18, Color.black, thin:true); hallwayFooter.wordWrap = true;
                 hallwayKey = HandUI.Style(24, Color.black);
                 if (arrowFont != null) hallwayKey.font = arrowFont;
             }
@@ -619,7 +626,7 @@ public partial class KeyTutorial : MonoBehaviour
         PowerBubbleRect=r;PowerTailTarget=end;
         float alpha=boardGroup.alpha;
         ThoughtBubbleUI.DrawTail(r,end,alpha);ThoughtBubbleUI.DrawWideBubble(r,alpha);
-        if(lessonHeading==null){lessonHeading=HandUI.Style(22,Color.black,bold:true);lessonHeading.wordWrap=true;lessonCaption=HandUI.Style(18,Color.black,bold:true);lessonCaption.wordWrap=true;lessonKey=HandUI.Style(24,Color.black);if(arrowFont!=null)lessonKey.font=arrowFont;}
+        if(lessonHeading==null){lessonHeading=HandUI.Style(22,Color.black,thin:true);lessonHeading.wordWrap=true;lessonCaption=HandUI.Style(18,Color.black,thin:true);lessonCaption.wordWrap=true;lessonKey=HandUI.Style(24,Color.black);if(arrowFont!=null)lessonKey.font=arrowFont;}
         var old=GUI.color;GUI.color=new Color(1,1,1,alpha);
         Rect content=ThoughtBubbleUI.WideContent(r);
         ThoughtBubbleUI.FittedLabel(new Rect(content.x,content.y,content.width,32),titleText,lessonHeading,26);
@@ -750,6 +757,8 @@ public partial class KeyTutorial : MonoBehaviour
     /// <summary>지금 보이는 그룹의 키캡 수.</summary>
     public int VisibleCount { get { int n = 0; foreach (var c in caps) if (!c.done && c.group == visibleGroup) n++; return n; } }
     public string CurrentLesson => visibleGroup ?? "";
+    /// <summary>걷기 안내(네 다리)가 끝났는지 — 복도 조교(HallwayCoach)가 이 뒤부터 '못 나가는지' 지켜본다.</summary>
+    public bool MoveDone => moveDone;
     public string TitleText => titleText;
     public int PracticeStage => cur?.practice?.Stage ?? -1;
     public string PracticeCaption => cur?.caption!=null?cur.caption():"";

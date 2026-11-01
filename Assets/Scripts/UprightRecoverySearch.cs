@@ -67,8 +67,10 @@ public sealed class UprightRecoverySearch
         return float.IsFinite(height);
     }
 
-    public bool TryAt(Vector3 anchor, out Vector3 result)
-        => Candidate(new Vector2(anchor.x, anchor.z), anchor.y + .05f, null, anchor.y, out result);
+    public bool TryAt(Vector3 anchor, out Vector3 result) => TryAt(anchor, anchor.y + .05f, out result);
+    /// <summary>fromY = 바닥을 찾으러 아래로 쏘기 시작하는 높이(바닥 상자 속에서 쏘면 바닥을 못 맞힘).</summary>
+    public bool TryAt(Vector3 anchor, float fromY, out Vector3 result)
+        => Candidate(new Vector2(anchor.x, anchor.z), fromY, null, anchor.y, out result);
 
     public bool FindLastBank(out Vector3 result)
     {

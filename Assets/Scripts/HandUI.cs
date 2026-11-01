@@ -35,11 +35,11 @@ public static class HandUI
     /// <summary>손글씨 스타일 생성(OnGUI 안에서만).
     /// ⚠️hover/active 색도 normal과 동일하게 고정 — 스킨 label의 hover 색이 상속되면
     /// 마우스만 올려도 글자가 흐려진다(사용자 "호버로 색이 흐려져" 원인, 2026-07-14).</summary>
-    public static GUIStyle Style(int size, Color color, TextAnchor anchor = TextAnchor.MiddleCenter, bool bold = false)
+    public static GUIStyle Style(int size, Color color, TextAnchor anchor = TextAnchor.MiddleCenter, bool bold = false, bool thin = false)
     {
         var st = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor };
-        LocaleFonts.Track(st);
-        if (bold) st.fontStyle = FontStyle.Bold;
+        if (thin) LocaleFonts.TrackThin(st); else LocaleFonts.Track(st);   // thin = 말풍선용 얇은 손글씨(굵게 안 함)
+        if (bold && !thin) st.fontStyle = FontStyle.Bold;
         st.normal.textColor = color;
         st.hover.textColor = color;
         st.active.textColor = color;

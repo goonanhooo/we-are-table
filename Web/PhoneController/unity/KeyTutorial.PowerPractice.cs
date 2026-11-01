@@ -45,7 +45,8 @@ public partial class KeyTutorial
                 Add(keys[n],id,leg>=0?LegPalette.BySlot[leg]:Color.white,leg>=0);
                 foreach(var c in caps)if(c.group==id&&c.key==keys[n])c.practiceAction=keys.Length==durations.Length?n:-1;
             }
-            if(!id.StartsWith("activate")&&!id.StartsWith("enable"))Add(PowerKey(power),id,Color.white,false,true);
+            // 기린은 컷씬에서 힘이 켜진 채로 받으므로 '2' 키캡을 같이 띄우지 않는다(꺼졌을 때만 아래 문구로 안내)
+            if(!id.StartsWith("activate")&&!id.StartsWith("enable")&&power!="giraffe")Add(PowerKey(power),id,Color.white,false,true);
         };
         return l;
     }
@@ -64,16 +65,8 @@ public partial class KeyTutorial
     void BuildPowerLessons()
     {
         for(int i=0;i<4;i++){practiceLegs[i]=LegLayout.Find(transform.root,i);practiceBaseLengths[i]=PracticeLength(i);}
-        ActivationPractice("giraffe");
-        for(int slot=0;slot<4;slot++)
-        {
-            int i=slot;float initial=0;
-            Practice("stretch"+i,"giraffe",i,new[]{Map[i][4],Map[i][5]},n=>n==0?PracticeInput(i).longer:PracticeInput(i).shorter,
-                n=>PowerOn("giraffe")&&(n==0?PracticeLength(i)>=initial+.06f||PracticeLength(i)>=practiceBaseLengths[i]*giraffe.maxMultiplier-.015f:PracticeLength(i)<=initial-.06f||PracticeLength(i)<=practiceBaseLengths[i]+.015f),
-                ()=>PowerName("giraffe")+" ("+LegLayout.Name(i)+")",
-                n=>"[ "+LabelOf(Map[i][n==0?4:5])+" ] "+(n==0?P("길게 늘려 보자","Make this leg longer","この脚を伸ばそう","伸长这条腿"):P("짧게 줄여 보자","Make this leg shorter","この脚を縮めよう","缩短这条腿")),
-                _=>initial=PracticeLength(i),.12f,.12f);
-        }
+        // ★2026-11-01 사용자 요청: 기린은 힘이 켜진 채로 받으므로 '2 켜고 끄기' 연습 없음,
+        // 다리별 늘이기·줄이기 연습도 없음 — + / − (네 다리 한 번에)만 알려 준다.
         var initialLengths=new float[4];
         Practice("stretchAll","giraffe",-1,new[]{Key.Equals,Key.Minus},n=>giraffe!=null&&(n==0?giraffe.AllLongerHeld:giraffe.AllShorterHeld),n=>
         {

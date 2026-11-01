@@ -43,6 +43,9 @@ public class HallwayStage : MonoBehaviour
     float fallTimer;
 
     public bool IntroFinished => controllable;
+    Coroutine introRoutine; bool introRunning;   // ★2026-11-01 시작 컷씬·다리 소개는 스페이스로 건너뛸 수 있음
+    /// <summary>다른 연출(복도 조교 컷씬 등)이 카메라를 잠시 맡는 동안 true — 그동안 테이블 추적을 멈춘다(끄면 지금 자리에서 부드럽게 다시 따라감).</summary>
+    public bool CameraHeld { get; set; }
     public bool IsFalling => falling;
 
     void Awake() { cam = GetComponent<Camera>(); }
@@ -66,7 +69,7 @@ public class HallwayStage : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        StartCoroutine(Intro());
+        introRunning = true; introRoutine = StartCoroutine(Intro());
     }
 
     // ---------- 환경 생성 ----------
@@ -196,10 +199,27 @@ public class HallwayStage : MonoBehaviour
         yield return introduction.Play(table);
 
         FreezeTable(false);   // 이제 물리/조작 활성
-        controllable = true;
+        controllable = true; introRunning = false;
 
         // All thoughts and camera close-ups finished; now accept each leg's four keys.
     }
+
+    /// <summary>스페이스: 상상 말풍선·의자 팬·다리 소개를 끊고 바로 조작 시작(카메라는 평소 추적 자리로).</summary>
+    void SkipIntro()
+    {
+        if (introRoutine != null) StopCoroutine(introRoutine);
+        introRunning = false;
+        var thought = Object.FindAnyObjectByType<ThoughtReveal>();
+        if (thought != null) thought.gameObject.SetActive(false);
+        var introduction = GetComponent<HallwayLegIntroduction>();
+        if (introduction != null) Destroy(introduction);   // 꺼지면서 다리 조작·화각·다리 강조를 스스로 되돌림
+        Vector3 tp = table.position;
+        SetCam(tp + new Vector3(0f, 2.0f, -4.6f), tp + new Vector3(0f, 0.3f, 3f));
+        FreezeTable(false);
+        controllable = true;
+    }
+
+    void OnGUI() { if (introRunning && !controllable) SkipHint.Draw(); }
 
     IEnumerator CamLerp(Vector3 p0, Vector3 l0, Vector3 p1, Vector3 l1, float dur, bool returnToTable=false)
     {
@@ -244,7 +264,7 @@ public class HallwayStage : MonoBehaviour
     // ---------- 조작 중 카메라 추적 ----------
     void LateUpdate()
     {
-        if (!controllable || table == null) return;
+        if (!controllable || table == null || CameraHeld) return;
         Vector3 tp = table.position;
 
         if (falling)
@@ -268,6 +288,7 @@ public class HallwayStage : MonoBehaviour
     void Update()
     {
         if (table == null) return;
+        if (introRunning && !controllable && SkipHint.Pressed()) SkipIntro();
 
         // 정사각형 트랩 구역의 '중간 쯤'에 들어서면 열림
         float trapMidZ = (trapStartZ + trapEndZ) * 0.5f;

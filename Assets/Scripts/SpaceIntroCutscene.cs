@@ -92,7 +92,7 @@ public class SpaceIntroCutscene : MonoBehaviour
     ArticulationBody tableRoot; Renderer[] tableRenderers;   // 컷씬 시작 시 켜져 있던 테이블 렌더러만(테니스공/분사 등 꺼진 것은 제외)
     Transform cam; Camera camC; CameraFollow camFollow;
     string bubbleText = "", hintText = ""; float flashAlpha;
-    GUIStyle bubbleStyle, hintStyle, labelStyle;
+    GUIStyle hintStyle, labelStyle;
     Vector3 shipDir = Vector3.forward;
     Vector3 tableFlameBase = Vector3.one, chairFlameBase = Vector3.one; Quaternion tableFlameRot = Quaternion.identity, chairFlameRot = Quaternion.identity;
 
@@ -468,22 +468,6 @@ public class SpaceIntroCutscene : MonoBehaviour
 
     IEnumerator HideHint() { yield return new WaitForSeconds(hintSeconds); hintText = ""; }
 
-    void DrawBubble(Vector3 world, string text, GUIStyle style, float lift)
-    {
-        if (Camera.main == null || string.IsNullOrEmpty(text)) return;
-        Vector3 sp = Camera.main.WorldToScreenPoint(world);
-        if (sp.z <= 0f) return;
-        var sz = style.CalcSize(new GUIContent(text));
-        float w = sz.x + 52f, h = sz.y + 26f;
-        float ax = sp.x, ay = Screen.height - sp.y;                 // 앵커(GUI 좌표)
-        var r = new Rect(ax - w * 0.5f, ay - lift - h, w, h);
-        r.x = Mathf.Clamp(r.x, 8f, Screen.width - w - 8f); r.y = Mathf.Clamp(r.y, 8f, Screen.height - h - 8f);
-        // 꼬리: 박스 아래 중앙 → 앵커까지 짧은 선
-        UiKit.Fill(new Rect(Mathf.Clamp(ax, r.x + 12f, r.xMax - 12f) - 1.5f, r.yMax, 3f, Mathf.Max(6f, Mathf.Min(lift, ay - r.yMax))), new Color(0.1f, 0.1f, 0.1f, 0.85f));
-        HandUI.Paper(r, HandUI.BoxWide, 0.96f);
-        GUI.Label(r, text, style);
-    }
-
     /// <summary>동그란 손그림 말풍선(bubbleTex: 512×640, 꼬리 끝 (262,606), 원 중심 (256,262) 반지름 226) + 아이콘.
     /// 크기 = bubbleSize × (bubbleRefDistance/거리) × (50/FOV), 최대 1 — 우주선의 화면 크기에 비례해 멀어지면 작아지고 20% 아래부터 페이드.</summary>
     void DrawIconBubble(Vector3 world, Texture2D icon)
@@ -514,16 +498,20 @@ public class SpaceIntroCutscene : MonoBehaviour
         if (!started) return;
         UiKit.ApplyKoreanFont();
         if (flashAlpha > 0f) UiKit.Fill(new Rect(0f, 0f, Screen.width, Screen.height), new Color(1f, 1f, 1f, flashAlpha));
-        if (bubbleStyle == null)
+        if (hintStyle == null)
         {
-            bubbleStyle = HandUI.Style(34, HandUI.Ink, TextAnchor.MiddleCenter);
             labelStyle = HandUI.Style(26, HandUI.Ink, TextAnchor.MiddleCenter);
             hintStyle = HandUI.Style(24, HandUI.Ink, TextAnchor.MiddleCenter);
         }
         // 탑승 말풍선: 우주선이 있는 동안 계속(의자선은 멀어지며 비례해 작아지다 사라짐)
         if (chairShip != null && chairShip.gameObject.activeSelf) DrawIconBubble(chairShip.position + chairShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, chairIcon);
         if (tableShip != null && tableShip.gameObject.activeSelf) DrawIconBubble(tableShip.position + tableShip.forward * bubbleAnchorForward + Vector3.up * bubbleAnchorUp, tableIcon);
-        if (!string.IsNullOrEmpty(bubbleText) && squidHead != null) DrawBubble(squidHead.position + Vector3.up * 0.6f, bubbleText, bubbleStyle, 30f);
+        // 우주오징어 대사 = 기린·눈사람과 같은 구름 말풍선·글씨(LocalizedStoryBubble)
+        if (!string.IsNullOrEmpty(bubbleText) && squidHead != null && Camera.main != null)
+        {
+            Vector3 sp = Camera.main.WorldToScreenPoint(squidHead.position + Vector3.up * 0.6f);
+            if (sp.z > 0f) LocalizedStoryBubble.Say(bubbleText, new Vector2(sp.x, Screen.height - sp.y), sp.x > Screen.width * 0.5f);
+        }
         if (!string.IsNullOrEmpty(hintText))
         {
             var sz = hintStyle.CalcSize(new GUIContent(L.Text(hintText)));
