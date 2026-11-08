@@ -54,8 +54,8 @@ public class LegColorXray : MonoBehaviour
     // ★2026-07-14 v8: 입력 방향 화살표 — 색 모드 중 '키를 누르는 동안만' 그 다리 색 납작 삼각형이
     //   다리 옆 공중에 나타나 지금 명령한 이동/회전 방향(앞뒤 스윙=앞/뒤, 좌우 스핀=왼/오른쪽,
     //   동시 입력=대각)을 가리킨다. 손을 떼면 사라짐.
-    const float ArrowHalf = 0.06f;    // 삼각형 밑변 반폭(m)
-    const float ArrowLen = 0.104f;    // 길이 = 반폭×1.732(정삼각형)
+    const float ArrowHalf = 0.12f;    // 삼각형 밑변 반폭(m) — ★2026-11-08 사용자 요청으로 2배(0.06→0.12)
+    const float ArrowLen = 0.208f;    // 길이 = 반폭×1.732(정삼각형)
     const float ArrowDist = 0.30f;    // 다리 중심에서 화살표까지 거리(m)
     readonly Transform[] _legT = new Transform[4];
     readonly Vector3[] _legC = new Vector3[4];

@@ -1870,7 +1870,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e7d953e9c3864e929e57864838b82cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeyboardHud
-  width: 360
+  width: 240
   margin: 22
   idleAlpha: 0.62
   hoverAlpha: 0.95

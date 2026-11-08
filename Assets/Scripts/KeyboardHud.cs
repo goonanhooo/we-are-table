@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 [DisallowMultipleComponent]
 public class KeyboardHud : MonoBehaviour
 {
-    [Tooltip("미니 키보드 폭(1600×900 기준 px)")] public float width = 360f;
+    [Tooltip("미니 키보드 폭(1600×900 기준 px)")] public float width = 240f;
     [Tooltip("화면 오른쪽·아래 가장자리와의 간격(1600×900 기준 px)")] public float margin = 22f;
     [Tooltip("평소 투명도")] [Range(0f, 1f)] public float idleAlpha = .62f;
     [Tooltip("마우스를 올렸을 때 투명도")] [Range(0f, 1f)] public float hoverAlpha = .95f;
@@ -28,7 +28,7 @@ public class KeyboardHud : MonoBehaviour
 
     PauseMenu pause; HallwayStage hallway; bool menu, reserving;
     float fade, hoverT; bool hover;
-    GUIStyle keyStyle, caption;
+    GUIStyle keyStyle;
 
     void Start()
     {
@@ -45,7 +45,7 @@ public class KeyboardHud : MonoBehaviour
     }
 
     static float Scale => Mathf.Min(Screen.width / 1600f, Screen.height / 900f);
-    float BoxHeight => width * Crop.height / Crop.width + 16f + 30f;   // 자판 + 위아래 여백 + 아래 글씨 줄
+    float BoxHeight => width * Crop.height / Crop.width + 16f;   // 자판 + 위아래 여백(★2026-11-08 아래 글씨 줄 없앰 — 그림만)
     Rect Box() { float s = Scale; return new Rect(Screen.width / s - margin - width - 16f, Screen.height / s - margin - BoxHeight, width + 16f, BoxHeight); }
 
     void Update()
@@ -71,11 +71,7 @@ public class KeyboardHud : MonoBehaviour
         if (menu || fade <= 0.001f || Event.current.type != EventType.Repaint || Time.timeScale <= 0f || LetterOverlay.IsOpen || !LocalPlayer()) return;
         var image = LocalizedControlGuide.KeyboardImage; if (image == null) return;
         UiKit.ApplyKoreanFont();
-        if (keyStyle == null)
-        {
-            keyStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
-            caption = HandUI.Style(19, HandUI.Ink, thin: true);
-        }
+        if (keyStyle == null) keyStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
         keyStyle.font = LocaleFonts.Body;
         var matrix = GUI.matrix; var old = GUI.color; int depth = GUI.depth; GUI.depth = -10;
         GUI.matrix = Matrix4x4.Scale(Vector3.one * Scale);
@@ -97,11 +93,6 @@ public class KeyboardHud : MonoBehaviour
             if (powers) for (int n = 0; n < 2; n++) Paint(img, PowerKeys[slot][n], PowerLabels[slot][n], Color.Lerp(Color.white, c, .26f), c, a * .8f);
         }
 
-        // 아래 줄: 클릭할 수 있을 때만 '조작법 보기'(커서가 잠겨 있으면 그냥 '조작법')
-        bool clickable = Cursor.visible && Cursor.lockState != CursorLockMode.Locked;
-        string label = clickable ? L.T("클릭해서 조작법 보기", "Click for controls", "クリックで操作方法", "点击查看操作") : L.T("조작법", "Controls", "操作方法", "操作");
-        GUI.color = new Color(1f, 1f, 1f, a);
-        GUI.Label(new Rect(box.x, img.yMax + 2f, box.width, 28f), label, caption);
         GUI.color = old; GUI.matrix = matrix; GUI.depth = depth;
     }
 
@@ -112,7 +103,7 @@ public class KeyboardHud : MonoBehaviour
         var r = new Rect(img.x + (px.x - Crop.x) * s, img.y + (px.y - Crop.y) * s, px.width * s, px.height * s);
         border.a = a; fill.a = a;
         Round(r, border, 4f); Round(new Rect(r.x + 1.5f, r.y + 1.5f, r.width - 3f, r.height - 3f), fill, 3f);
-        keyStyle.fontSize = label.Length > 1 ? 8 : 12;
+        keyStyle.fontSize = Mathf.Max(6, Mathf.RoundToInt(r.height * (label.Length > 1 ? .36f : .6f)));   // 키 크기에 맞춤
         keyStyle.normal.textColor = keyStyle.hover.textColor = new Color(.08f, .09f, .1f, a);
         GUI.Label(new Rect(r.x, r.y - 1f, r.width, r.height), label, keyStyle);
     }
